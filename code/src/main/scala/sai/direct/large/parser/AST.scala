@@ -13,4 +13,6 @@ case class Lrc(bds: List[Bind], body: Expr) extends Expr
 case class IntLit(x: Int) extends Expr
 case class BoolLit(x: Bool) extends Expr
 case class If(cnd: Expr, thn: Expr, els: Expr) extends Expr
-casd class Cond(branches: List[Pair[Expr, Expr]]) extends Expr
+
+case class CondBranch(cnd: Expr, thn: Expr)
+case class Cond(branches: List[CondBranch]) extends Expr
