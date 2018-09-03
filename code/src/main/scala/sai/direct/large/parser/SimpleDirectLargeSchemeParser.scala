@@ -47,3 +47,19 @@ trait SimpleDirectLargeSchemeParserTrait extends SchemeTokenParser {
 
   def expr: Parser[Expr] = intlit | boollit | app | variable | lam | let | letrec | ifthel | cond
 }
+
+
+object SimpleDirectLargeSchemeParser extends SimpleDirectLargeSchemeParserTrait {
+  def apply(input: String): Option[Expr] = apply(expr, input)
+
+  def apply[T](pattern: Parser[T], input: String): Option[T] = parse(pattern, input) match {
+    case Success(matched, _) => Some(matched)
+    case e => println(e); None
+  }
+}
+
+object TestSimpleDirectCoreSchemeParser {
+  def main(args: Array[String]) = {
+    assert(SimpleDirectLargeSchemeParser(SimpleDirectLargeSchemeParser.intlit, "2") == Some(IntLit(2)))
+  }
+}

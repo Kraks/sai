@@ -11,7 +11,7 @@ case class Let(x: String, e: Expr, body: Expr) extends Expr
 case class Lrc(bds: List[Bind], body: Expr) extends Expr
 
 case class IntLit(x: Int) extends Expr
-case class BoolLit(x: Bool) extends Expr
+case class BoolLit(x: Boolean) extends Expr
 case class If(cnd: Expr, thn: Expr, els: Expr) extends Expr
 
 case class CondBranch(cnd: Expr, thn: Expr)
