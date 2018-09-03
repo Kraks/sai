@@ -46,11 +46,18 @@ trait SimpleDirectLargeSchemeParserTrait extends SchemeTokenParser {
   }
 
   def expr: Parser[Expr] = intlit | boollit | app | variable | lam | let | letrec | ifthel | cond
+
+  def define: Parser[Define] = LPAREN ~> DEF ~> IDENT ~ expr <~ RPAREN ^^ {
+    case id ~ e => Define(id, e)
+  }
+
+  def toplevel: Parser[Toplevel] = define | expr 
+  def toptoplevel = toplevel.*
 }
 
 
 object SimpleDirectLargeSchemeParser extends SimpleDirectLargeSchemeParserTrait {
-  def apply(input: String): Option[Expr] = apply(expr, input)
+  def apply(input: String): Option[List[Toplevel]] = apply(toptoplevel, input)
 
   def apply[T](pattern: Parser[T], input: String): Option[T] = parse(pattern, input) match {
     case Success(matched, _) => Some(matched)
@@ -60,6 +67,6 @@ object SimpleDirectLargeSchemeParser extends SimpleDirectLargeSchemeParserTrait 
 
 object TestSimpleDirectCoreSchemeParser {
   def main(args: Array[String]) = {
-    assert(SimpleDirectLargeSchemeParser(SimpleDirectLargeSchemeParser.intlit, "2") == Some(IntLit(2)))
+    println(SimpleDirectLargeSchemeParser("2"))
   }
 }

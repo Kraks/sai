@@ -1,6 +1,7 @@
 package sai.direct.large.parser
 
-trait Expr
+trait Toplevel
+trait Expr extends Toplevel
 
 case class Var(x: String) extends Expr
 case class App(e1: Expr, param: List[Expr]) extends Expr
@@ -16,3 +17,5 @@ case class If(cnd: Expr, thn: Expr, els: Expr) extends Expr
 
 case class CondBranch(cnd: Expr, thn: Expr)
 case class Cond(branches: List[CondBranch]) extends Expr
+
+case class Define(x: String, e: Expr) extends Toplevel
