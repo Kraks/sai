@@ -94,9 +94,9 @@ trait LargeSchemeParserTrait extends SchemeTokenParser {
     case ev ~ branches => Case(ev, branches)
   }
 
-  def logic_construct = ifthel | cond | cas
+  def dispatch = ifthel | cond | cas
 
-  def expr: Parser[Expr] = literals | variable | lam | lets | logic_construct | app
+  def expr: Parser[Expr] = literals | variable | lam | lets | dispatch | app
 
   def define: Parser[Define] = LPAREN ~> DEF ~> IDENT ~ expr <~ RPAREN ^^ {
     case id ~ e => Define(id, e)
