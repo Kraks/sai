@@ -17,26 +17,11 @@ object CESK {
   case class CloV(λ: Lam, ρ: Env) extends Value
   case class VoidV() extends Value
 
-  abstract class Kont
-  object Halt extends Kont
-  case class KArg(e: Expr, ρ: Env, κ: Kont) extends Kont
-  case class KApp(lam: Lam, ρ: Env, κ: Kont) extends Kont
-  case class KLrc(as: List[Addr], bds: List[Bind], e: Expr, ρ: Env, κ: Kont) extends Kont
-  case class KIf0(thn: Expr, els: Expr, ρ: Env, κ: Kont) extends Kont
-  case class KAOp(op: Symbol, vs: List[NumV], es: List[Expr], ρ: Env, κ: Kont) extends Kont
-
   case class State(e: Expr, ρ: Env, σ: Store, κ: Kont)
 
   def alloc(σ: Store): Addr = σ.keys.size + 1
 
-  def isValue(e: Expr): Boolean = e.isInstanceOf[NumV] | e.isInstanceOf[Lam]
-
-  /* evalArith assumes that arguments are provided from right to left. */
-  def evalArith(op: Symbol, vs: List[NumV]): NumV = op match {
-    case '+ ⇒ vs.reduceRight[NumV] { case (NumV(i), NumV(j)) ⇒ NumV(j+i) }
-    case '- ⇒ vs.reduceRight[NumV] { case (NumV(i), NumV(j)) ⇒ NumV(j-i) }
-    case '* ⇒ vs.reduceRight[NumV] { case (NumV(i), NumV(j)) ⇒ NumV(j*i) }
-  }
+  def isValue(e: Expr): Boolean = (!e.isIntanceOf[NotAValue] && e.isInstanceOf[Value]) | e.isInstanceOf[Lam]
 }
 
 import CESK._
