@@ -17,11 +17,7 @@ object CESK {
   case class CloV(λ: Lam, ρ: Env) extends Value
   case class VoidV() extends Value
 
-  case class State(e: Expr, ρ: Env, σ: Store, κ: Kont)
-
   def alloc(σ: Store): Addr = σ.keys.size + 1
-
-  def isValue(e: Expr): Boolean = (!e.isIntanceOf[NotAValue] && e.isInstanceOf[Value]) | e.isInstanceOf[Lam]
 }
 
 import CESK._
