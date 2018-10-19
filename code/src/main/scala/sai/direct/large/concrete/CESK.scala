@@ -60,17 +60,22 @@ object BigStepCES {
     case App(e, param) =>
       val (ev, es) = interp(e, env, sigma)
       val (appv, es_) = interpListOfExprs(param, env, es)
-      val addrs = appv map { (v: Value) => alloc(es_) }
+
+      val (es__, addrs): (Store, List[Addr]) = appv.foldRight (es_, List[Addr]()) {
+        case (v, (es, addrs)) =>
+          val addr = alloc(es)
+          (es + (addr -> v), addr::addrs)
+      }
+
       ev match {
         case CloV(Lam(args, lbody), cenv) =>
-          interp(lbody, cenv ++ (args zip addrs), es_ ++ (addrs zip appv))
+          interp(lbody, cenv ++ (args zip addrs), es__)
       }
 
     case Void() => (VoidV(), sigma)
     case Set_!(x, e) =>
       val (ev, es) = interp(e, env, sigma)
-      val toAdd = (env(x), ev)
-      (VoidV(), es + toAdd)
+      (VoidV(), es + (env(x) -> ev))
     case Begin(l) => interpSeq(l, env, sigma)
     case Define(x: String, e: Expr) => ???
   }
@@ -80,5 +85,8 @@ object BigStepCES {
 object CESKTest {
   def main(args: Array[String]) = {
     assert(BigStepCES.eval(IntLit(1)) == (NumV(1), Map()))
+    assert(BigStepCES.eval(
+      App(Lam(List("x", "y"), Var("y")), List(IntLit(3), IntLit(4))))
+      == (NumV(4), Map(1 -> NumV(4), 2 -> NumV(3))))
   }
 }
