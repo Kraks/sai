@@ -12,7 +12,7 @@ object LargeSchemeASTDesugar {
     App(Lam(List(newIdent), f(Var(newIdent))), List(Var(newIdent)))
   }
 
-  def desugarCondBranches(branches: List[CondBrTrait]): Expr = 
+  def desugarCondBranches(branches: List[CondBrTrait]): Expr =
     branches match {
       case Nil => Void()
       case x :: xs =>
@@ -21,12 +21,12 @@ object LargeSchemeASTDesugar {
             If(apply(cnd), apply(thn), desugarCondBranches(xs))
           case CondProcBr(cnd, thnl) =>
             newIdentLet(apply(cnd)) {
-              v => If(v, App(apply(thnl), List(v)), desugarCondBranches(xs))
+              τ => If(τ, App(apply(thnl), List(τ)), desugarCondBranches(xs))
             }
         }
     }
 
-  def desugarCaseBranches(comp: Expr, branches: List[CaseBranch]): Expr = 
+  def desugarCaseBranches(comp: Expr, branches: List[CaseBranch]): Expr =
     branches match {
       case Nil => Void()
       case x :: xs =>
@@ -37,15 +37,29 @@ object LargeSchemeASTDesugar {
         }
     }
 
+  def desugarSequence(seq: List[Expr]): Expr =
+    seq match {
+      case Nil => Void()
+      case x::Nil => apply(x)
+      case x::xs =>
+        x match {
+          case Define(n, v) =>
+            App(Lam(List(n), desugarSequence(xs)), List(apply(v)))
+          case _ =>
+            newIdentLet(apply(x)) { _ => desugarSequence(xs) }
+        }
+    }
+
   def apply(expr: Expr): Expr = expr match {
     case App(e1, param) => App(apply(e1), param map apply)
     case Lam(param, body) => Lam(param, apply(body))
     case If(cnd, thn, els) => If(apply(cnd), apply(thn), apply(els))
     case Cond(branches) => desugarCondBranches(branches)
-    case Case(e, branches) => newIdentLet(e) { v => desugarCaseBranches(v, branches) }
+    case Case(e, branches) =>
+      newIdentLet(e) { v => desugarCaseBranches(v, branches) }
     case Set_!(x, e) => Set_!(x, apply(e))
-    case Begin(es) => ???
-    case Define(x, s) => ???
+    case Begin(es) => desugarSequence(es)
+    case Define(x, s) => Define(x, apply(s))
     case _ => expr
   }
 }
