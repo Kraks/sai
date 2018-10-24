@@ -39,3 +39,53 @@ case class Void() extends Expr
 case class Set_!(x: String, e: Expr) extends Expr
 case class Begin(es: List[Expr]) extends Expr
 case class Define(x: String, e: Expr) extends Expr
+
+object PrintExpr {
+
+  def concatList(l: List[Expr]): String = l match {
+    case Nil => ""
+    case x :: Nil => exprToString(x)
+    case x :: xs =>
+      exprToString(x) + " " + concatList(xs)
+  }
+
+  def concatStrings(l: List[String], delimiter: String): String = l match {
+    case Nil => ""
+    case x :: Nil => x
+    case x :: xs => x + delimiter + concatStrings(xs, delimiter)
+  }
+
+  def exprToString(e: Expr): String = e match {
+    case Var(x) => x
+    case App(x, l) =>
+      "(" + exprToString(x) +
+      (l match {
+        case Nil => ""
+        case _ => " " + concatList(l)
+      }) + ")"
+
+    case Lam(params, body) =>
+      "(lambda (" + concatStrings(params, " ") + ") " + exprToString(body) + ")"
+    case IntLit(x) => x.toString
+    case BoolLit(x) => if (x) "#t" else "#f"
+    case CharLit(x) => "#" + x
+    case If(c, t, e) =>
+      "(if " + exprToString(c) + " " + exprToString(t) + " " + exprToString(e) + ")"
+    case Void() => "void"
+    case Set_!(x, e) => "(set! " + x + " " + exprToString(e) + ")"
+    case Begin(es) => "(begin " + concatStrings(es map exprToString, " ") + ")"
+    case Define(x, e) => "(define " + x + " " + exprToString(e) + ")"
+  }
+
+  def apply(e: Expr): Unit = {
+    println(exprToString(e))
+  }
+
+  def main(args: Array[String]) = {
+    PrintExpr(
+      App(Lam(List("x", "y"), App(Var("+"), List(Var("x"), Var("y")))),
+        List(IntLit(1), IntLit(3))))
+
+    PrintExpr(If(BoolLit(false), Var("a"), Lam(List("t"), Var("t"))))
+  }
+}

@@ -1,7 +1,6 @@
 package sai.direct.large.parser
 
 object LargeSchemeASTDesugar {
-
   var lastIdent = 0
 
   def newIdentLet(e: Expr)(f: Expr => Expr): App = {
@@ -40,8 +39,8 @@ object LargeSchemeASTDesugar {
   def desugarSequence(seq: List[Expr]): Expr =
     seq match {
       case Nil => Void()
-      case x::Nil => apply(x)
-      case x::xs =>
+      case x :: Nil => apply(x)
+      case x :: xs =>
         x match {
           case Define(n, v) =>
             App(Lam(List(n), desugarSequence(xs)), List(apply(v)))
@@ -61,5 +60,14 @@ object LargeSchemeASTDesugar {
     case Begin(es) => desugarSequence(es)
     case Define(x, s) => Define(x, apply(s))
     case _ => expr
+  }
+}
+
+object TestLargeSchemeDesugar {
+  def main(args: Array[String]) = {
+    assert(LargeSchemeASTDesugar(IntLit(1)) == IntLit(1))
+    println(LargeSchemeASTDesugar(
+      Begin(List(Define("x", IntLit(2)), Set_!("x", IntLit(3)), Var("x")))))
+
   }
 }
