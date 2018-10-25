@@ -72,9 +72,12 @@ object TestLargeSchemeDesugar {
       Cond(List(
         CondBr(
           App(Var("positive?"),List(IntLit(-5))),
-          App(Var("error"),List(App(Var("vector"),List())))),
+          App(Var("error"),List())),
         CondBr(App(Var("zero?"),List(IntLit(-5))),App(Var("error"),List())),
         CondBr(App(Var("positive?"),List(IntLit(5))),Symbol("here"))))))
-
+    PrintExpr(LargeSchemeASTDesugar(
+      Case(IntLit(3), List(
+        CaseBranch(List(IntLit(3), IntLit(4), IntLit(5)), BoolLit(true)),
+        CaseBranch(List(App(Lam(List(), IntLit(7)), List()), IntLit(6)), BoolLit(false))))))
   }
 }

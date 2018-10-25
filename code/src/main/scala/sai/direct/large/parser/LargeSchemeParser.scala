@@ -14,31 +14,31 @@ trait LargeSchemeParserTrait extends SchemeTokenParser {
     case e ~ param => App(e, param)
   }
 
-  implicit def lam: Parser[Lam] = LPAREN ~> LAMBDA ~> (LPAREN ~> IDENT.* <~ RPAREN) ~ expr <~ RPAREN ^^ {
+  implicit def lam: Parser[Lam] = LPAREN ~> LAMBDA ~> (LPAREN ~> IDENT.* <~ RPAREN) ~ implicit_begin <~ RPAREN ^^ {
     case args ~ body => Lam(args, body)
   }
 
-  implicit def bind: Parser[Bind] = LPAREN ~> IDENT ~ expr <~ RPAREN ^^ {
+  implicit def bind: Parser[Bind] = LPAREN ~> IDENT ~ implicit_begin <~ RPAREN ^^ {
     case id ~ e => Bind(id, e)
   }
 
   implicit def lets: Parser[Expr] = let | letstar | letrec | letproc
 
-  implicit def let: Parser[App] = LPAREN ~> LET ~> (LPAREN ~> bind.+ <~ RPAREN) ~ expr <~ RPAREN ^^ {
+  implicit def let: Parser[App] = LPAREN ~> LET ~> (LPAREN ~> bind.+ <~ RPAREN) ~ implicit_begin <~ RPAREN ^^ {
     case binds ~ body => Let(binds, body).toApp
   }
 
-  implicit def letproc: Parser[App] = LPAREN ~> LET ~> IDENT ~ (LPAREN ~> bind.+ <~ RPAREN) ~ expr <~ RPAREN ^^ {
+  implicit def letproc: Parser[App] = LPAREN ~> LET ~> IDENT ~ (LPAREN ~> bind.+ <~ RPAREN) ~ implicit_begin <~ RPAREN ^^ {
     case ident ~ binds ~ body =>
       Lrc(List(Bind(ident, Lam(binds.map(_.x), body))), App(Var(ident), binds.map(_.e))).toApp
   }
 
-  implicit def letstar: Parser[App] = LPAREN ~> LETSTAR ~> (LPAREN ~> bind.+ <~ RPAREN) ~ expr <~ RPAREN ^^ {
+  implicit def letstar: Parser[App] = LPAREN ~> LETSTAR ~> (LPAREN ~> bind.+ <~ RPAREN) ~ implicit_begin <~ RPAREN ^^ {
     case binds ~ body =>
       binds.dropRight(1).foldRight (Let(List(binds.last), body).toApp) { case (bd, e) => Let(List(bd), e).toApp }
   }
 
-  implicit def letrec: Parser[App] = LPAREN ~> LETREC ~> (LPAREN ~> bind.+ <~ RPAREN) ~ expr <~ RPAREN ^^ {
+  implicit def letrec: Parser[App] = LPAREN ~> LETREC ~> (LPAREN ~> bind.+ <~ RPAREN) ~ implicit_begin <~ RPAREN ^^ {
     case binds ~ body => Lrc(binds, body).toApp
   }
 
@@ -65,13 +65,13 @@ trait LargeSchemeParserTrait extends SchemeTokenParser {
     case cond ~ thn ~ els => If(cond, thn, els)
   }
 
-  implicit def condBranch: Parser[CondBr] = LPAREN ~> expr ~ expr <~ RPAREN ^^ {
+  implicit def condBranch: Parser[CondBr] = LPAREN ~> expr ~ implicit_begin <~ RPAREN ^^ {
     case cond ~ thn => CondBr(cond, thn)
   }
-  implicit def condElseBranch: Parser[CondBr] = LPAREN ~> ELSE ~> expr <~ RPAREN ^^ {
+  implicit def condElseBranch: Parser[CondBr] = LPAREN ~> ELSE ~> implicit_begin <~ RPAREN ^^ {
     case thn => CondBr(BoolLit(true), thn)
   }
-  implicit def condProcBranch: Parser[CondProcBr] = LPAREN ~> expr ~ (RARROW ~> expr) <~ RPAREN ^^ {
+  implicit def condProcBranch: Parser[CondProcBr] = LPAREN ~> expr ~ (RARROW ~> implicit_begin) <~ RPAREN ^^ {
     case cond ~ proc => CondProcBr(cond, proc)
   }
   implicit def condBranches = condElseBranch | condBranch | condProcBranch
@@ -79,13 +79,13 @@ trait LargeSchemeParserTrait extends SchemeTokenParser {
     case branches => Cond(branches)
   }
 
-  implicit def caseBranch: Parser[CaseBranch] = LPAREN ~> (LPAREN ~> expr.* <~ RPAREN) ~ expr <~ RPAREN ^^ {
+  implicit def caseBranch: Parser[CaseBranch] = LPAREN ~> (LPAREN ~> expr.* <~ RPAREN) ~ implicit_begin <~ RPAREN ^^ {
     case cases ~ thn => CaseBranch(cases, thn)
   }
-  implicit def caseElseBranch: Parser[CaseBranch] = LPAREN ~> ELSE ~> expr <~ RPAREN ^^ {
+  implicit def caseElseBranch: Parser[CaseBranch] = LPAREN ~> ELSE ~> implicit_begin <~ RPAREN ^^ {
     case thn => CaseBranch(List(), thn)
   }
-  implicit def cas: Parser[Case] = LPAREN ~> CASE ~> expr ~ (caseElseBranch | caseBranch).* <~ RPAREN ^^ {
+  implicit def cas: Parser[Case] = LPAREN ~> CASE ~> implicit_begin ~ (caseElseBranch | caseBranch).* <~ RPAREN ^^ {
     case ev ~ branches => Case(ev, branches)
   }
 
@@ -93,15 +93,15 @@ trait LargeSchemeParserTrait extends SchemeTokenParser {
 
   implicit def void: Parser[Void] = LPAREN ~> VOID <~ RPAREN ^^ { _ => Void() }
 
-  implicit def define: Parser[Define] = LPAREN ~> DEF ~> IDENT ~ expr <~ RPAREN ^^ {
+  implicit def define: Parser[Define] = LPAREN ~> DEF ~> IDENT ~ implicit_begin <~ RPAREN ^^ {
     case id ~ e => Define(id, e)
   }
 
-  implicit def definefunc: Parser[Define] = LPAREN ~> DEF ~> (LPAREN ~> IDENT.+ <~ RPAREN) ~ expr <~ RPAREN ^^ {
+  implicit def definefunc: Parser[Define] = LPAREN ~> DEF ~> (LPAREN ~> IDENT.+ <~ RPAREN) ~ implicit_begin <~ RPAREN ^^ {
     case idents ~ e => Define(idents.head, Lam(idents.tail, e))
   }
 
-  implicit def set: Parser[Set_!] = LPAREN ~> SET ~> IDENT ~ expr <~ RPAREN ^^ {
+  implicit def set: Parser[Set_!] = LPAREN ~> SET ~> IDENT ~ implicit_begin <~ RPAREN ^^ {
     case id ~ e => Set_!(id, e)
   }
 
@@ -110,8 +110,9 @@ trait LargeSchemeParserTrait extends SchemeTokenParser {
   }
 
   // rule is causing infinite recursion
-  implicit def implicit_begin: Parser[Begin] = expr ~ expr.+ ^^ {
-    case exp ~ exps => Begin(exp :: exps)
+  implicit def implicit_begin: Parser[Expr] = expr.+ ^^ {
+    case e :: Nil => e
+    case exps @ (e :: es) => Begin(exps)
   }
 
   implicit def imp_structure: Parser[Expr] = void | define | definefunc | set | begin
@@ -121,7 +122,7 @@ trait LargeSchemeParserTrait extends SchemeTokenParser {
 
 
 object LargeSchemeParser extends LargeSchemeParserTrait {
-  def apply(input: String): Option[Expr] = apply(expr, input)
+  def apply(input: String): Option[Expr] = apply(implicit_begin, input)
 
   def apply[T](pattern: Parser[T], input: String): Option[T] = parse(pattern, input) match {
     case Success(matched, _) => Some(matched)
@@ -139,7 +140,7 @@ object TestSimpleDirectLargeSchemeParser {
   }
 
   def testall() = {
-    val tests: List[() => Unit] = List(test0, test1, test3, test4, test5)
+    val tests: List[() => Unit] = List(test0, test1, test2, test3, test4, test5)
     tests foreach { _() }
   }
 
@@ -169,6 +170,7 @@ object TestSimpleDirectLargeSchemeParser {
   // Test 2: Test implicit
   def test2() = {
     val actual = LargeSchemeParser("(add a b) (add a b)")
+    println(actual)
     val expected = Some(
       Begin(List(
         App(Var("add"), List(Var("a"), Var("b"))),
