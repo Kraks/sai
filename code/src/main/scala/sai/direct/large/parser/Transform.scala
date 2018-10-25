@@ -8,7 +8,7 @@ object LargeSchemeASTDesugar {
     val id = lastIdent
     lastIdent += 1
     val newIdent: String = prefix + id
-    App(Lam(List(newIdent), f(Var(newIdent))), List(Var(newIdent)))
+    App(Lam(List(newIdent), f(Var(newIdent))), List(e))
   }
 
   def desugarCondBranches(branches: List[CondBrTrait]): Expr =
@@ -66,8 +66,15 @@ object LargeSchemeASTDesugar {
 object TestLargeSchemeDesugar {
   def main(args: Array[String]) = {
     assert(LargeSchemeASTDesugar(IntLit(1)) == IntLit(1))
-    println(LargeSchemeASTDesugar(
+    PrintExpr(LargeSchemeASTDesugar(
       Begin(List(Define("x", IntLit(2)), Set_!("x", IntLit(3)), Var("x")))))
+    PrintExpr(LargeSchemeASTDesugar(
+      Cond(List(
+        CondBr(
+          App(Var("positive?"),List(IntLit(-5))),
+          App(Var("error"),List(App(Var("vector"),List())))),
+        CondBr(App(Var("zero?"),List(IntLit(-5))),App(Var("error"),List())),
+        CondBr(App(Var("positive?"),List(IntLit(5))),Symbol("here"))))))
 
   }
 }

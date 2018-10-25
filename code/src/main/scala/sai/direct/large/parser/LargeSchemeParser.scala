@@ -6,6 +6,10 @@ import sai.common.parser._
 trait LargeSchemeParserTrait extends SchemeTokenParser {
   implicit def variable: Parser[Var] = IDENT ^^ { Var(_) }
 
+  implicit def symbol: Parser[Symbol] = SYMBOL ^^ {
+    case word => Symbol(word.tail)
+  }
+
   implicit def app: Parser[App] = LPAREN ~> expr ~ expr.* <~ RPAREN ^^ {
     case e ~ param => App(e, param)
   }
@@ -112,7 +116,7 @@ trait LargeSchemeParserTrait extends SchemeTokenParser {
 
   implicit def imp_structure: Parser[Expr] = void | define | definefunc | set | begin
 
-  def expr: Parser[Expr] = literals | variable | lam | lets | dispatch | imp_structure | app
+  def expr: Parser[Expr] = literals | symbol | variable | lam | lets | dispatch | imp_structure | app
 }
 
 
@@ -135,8 +139,12 @@ object TestSimpleDirectLargeSchemeParser {
   }
 
   def testall() = {
-    val tests: List[() => Unit] = List(test1, test3, test4)
+    val tests: List[() => Unit] = List(test0, test1, test3, test4, test5)
     tests foreach { _() }
+  }
+
+  def test0() = {
+    println(LargeSchemeParser("'xxxx"))
   }
 
   // Test 1: Letrec to set!
@@ -184,5 +192,17 @@ object TestSimpleDirectLargeSchemeParser {
     val actual = LargeSchemeParser("(define (f a b) (+ a b))")
     val expected = Some(Define("f", Lam(List("a", "b"), App(Var("+"), List(Var("a"), Var("b"))))))
     assert(actual == expected)
+  }
+
+  def test5() = {
+    val s = LargeSchemeParser("\"Hello, world!\"")
+    println(s)
+    val actual = LargeSchemeParser(
+    """(cond
+         [(positive? -5) (error "doesn't get here")]
+         [(zero? -5) (error "doesn't get here, either")]
+         [(positive? 5) 'here])""")
+
+    println(actual)
   }
 }
