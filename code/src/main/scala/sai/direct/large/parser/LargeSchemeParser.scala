@@ -144,7 +144,7 @@ object TestSimpleDirectLargeSchemeParser {
   }
 
   def test0() = {
-    println(LargeSchemeParser("'xxxx"))
+    assert(LargeSchemeParser("'xxxx") == Some(Symbol("xxxx")))
   }
 
   // Test 1: Letrec to set!
@@ -195,14 +195,15 @@ object TestSimpleDirectLargeSchemeParser {
   }
 
   def test5() = {
-    val s = LargeSchemeParser("\"Hello, world!\"")
-    println(s)
     val actual = LargeSchemeParser(
     """(cond
-         [(positive? -5) (error "doesn't get here")]
-         [(zero? -5) (error "doesn't get here, either")]
+         [(positive? -5) (error 1)]
+         [(zero? -5) (error 2)]
          [(positive? 5) 'here])""")
-
-    println(actual)
+    val expected = Some(Cond(List(
+      CondBr(App(Var("positive?"),List(IntLit(-5))),App(Var("error"),List(IntLit(1)))),
+      CondBr(App(Var("zero?"),List(IntLit(-5))),App(Var("error"),List(IntLit(2)))),
+      CondBr(App(Var("positive?"),List(IntLit(5))),Symbol("here")))))
+    assert(actual == expected)
   }
 }
