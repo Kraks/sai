@@ -109,7 +109,6 @@ trait LargeSchemeParserTrait extends SchemeTokenParser {
     case exps => Begin(exps)
   }
 
-  // rule is causing infinite recursion
   implicit def implicit_begin: Parser[Expr] = expr.+ ^^ {
     case e :: Nil => e
     case exps @ (e :: es) => Begin(exps)
