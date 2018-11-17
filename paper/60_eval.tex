@@ -1,7 +1,7 @@
 \section{Evaluation} \label{evaluation}
 
-To evaluate the performance can be improved through staging, we use the abstract
-interpreter demonstrated in the paper to analyze some Scheme programs. We first implement
+To evaluate performance improvements of staging, we use the abstract interpreter
+demonstrated in the paper to analyze some Scheme programs. We first implement
 a desugaring transformation for a large subset of scheme that transforms into the
 small language we used in the paper.
 We use the same generic interface with a 0-CFA-like abstraction, and the unstage abstract
@@ -12,17 +12,17 @@ machine with 4 Intel Xeon Platinum 8168 CPU at 2.7GHz and 3 TiB of RAM.
 Although the machine has 96 cores and 192 threads in total,
 the abstract interpreters only use one thread to run all the benchmark programs.
 
-Our evaluations have shown that the staged abstract interpreter performs well in some
-interesting cases that are considered to be the worst case scenario in the control flow
-analysis, the staged version outperforms the unstaged abstract interpreter by a wide
+Our evaluations show that the staged abstract interpreter performs well. In interesting
+cases that are considered to be worst case scenarios for the control flow
+analysis, the staged abstract interpeter outperforms the unstaged version by a wide
 margin (up to 3x performance gain).
 
 \subsection{Benchmarks}
 
-Our evaluation is based on a suite of benchmark tests. Considering that our abstract 
+Our evaluation is based on a suite of benchmark tests. Considering that our abstract
 interpreters are implemented in Scala which will be affected by JVM warm up times, programs
-tend to run faster after a number of runs. In order to minimize the influence of JVM, 
-we ran all experiments 10 times and take the statistical mean and median values of 
+tend to run faster after a number of runs. In order to minimize the influence of JVM adaptive optimizations,
+we ran all experiments 10 times and take the statistical mean and median values of
 the running times.
 
 %on a suite of benchmark scheme programs that are also used in \cite{Johnson:2013:OAA:2500365.2500604, ashley:practical}. 
@@ -42,7 +42,7 @@ We used the following benchmark programs:
 
 \subsection{Performance}
 
-For each benchmark program, we ran our prototype abstract interpreters, both unstaged and staged.
+For each benchmark program, we ran both our unstaged and staged prototype abstract interpreters.
 \todo{Figure show data.}
 
 \begin{figure}[h]
@@ -67,7 +67,7 @@ show the median time to finish the abstract interpretation (in milliseconds). Th
 column shows the performance change from the unstaged abstract interpreter to the staged version.\\
 
 However, there also exists some programs where the unstaged abstract interpreter yields 
-results faster than the unstaged interpreter.
+faster results than the unstaged interpreter.
 From the data shown above, we observed that 
 However, in general, the unstaged abstract interpreter yields results faster
 than the unstaged interpreter.
