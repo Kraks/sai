@@ -123,7 +123,6 @@ the current configuration produces a next-stage Boolean value, i.e.,
 we need to generate code for @if@. Figure \ref{fig:staged_coind_cache} shows the
 staged version of @fix@.
 
-\vspace{-1em}
 \begin{figure}[h!]
   \centering
 \begin{lstlisting}
@@ -142,11 +141,9 @@ staged version of @fix@.
     _ <- put_out_cache(res._2); vs <- lift_nd(res._1); _ <- put_store(vs._2)
   } yield vs._1
 \end{lstlisting}
-\vspace{-1em}
 \caption{The staged co-inductive caching algorithm.}
 \label{fig:staged_coind_cache}
 \end{figure}
-\vspace{-1em}
 
 The @res@ variable is a next-stage result, which consists of a next-stage @if@
 expression. The true branch simply returns a pair of queried result form the
