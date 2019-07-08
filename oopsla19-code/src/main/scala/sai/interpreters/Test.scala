@@ -53,13 +53,4 @@ object MainGeneric {
     println(code.code)
     code.eval(())
   }
-
-  def main(args: Array[String]): Unit = {
-    args(0) match {
-      case "concrete" => testConcrete()
-      case "staged-concrete" => testStagedConcrete()
-      case "abstract" => testAbstract()
-      case "staged-abstract" => testStagedAbstract()
-    }
-  }
 }
