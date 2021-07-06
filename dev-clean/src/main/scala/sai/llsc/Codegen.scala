@@ -22,10 +22,12 @@ trait SymStagedLLVMGen extends CppSAICodeGenBase {
   val codegenFolder: String
 
   override def quote(s: Def): String = s match {
-    case Sym(n) =>
+    case Sym(n) => super.quote(s)
+    /*
       FunName.funMap.getOrElse(n, {
         FunName.blockMap.getOrElse(n, super.quote(s))
       })
+      */
     case _ => super.quote(s)
   }
 
@@ -39,7 +41,7 @@ trait SymStagedLLVMGen extends CppSAICodeGenBase {
 
   /*
   override def mustInline(n: Node): Boolean = n match {
-    case Node(_, "make_IntV", _, _) => true 
+    case Node(_, "make_IntV", _, _) => true
     case _ => super.mustInline(n)
   }
    */
@@ -51,6 +53,7 @@ trait SymStagedLLVMGen extends CppSAICodeGenBase {
     else if (m.toString.endsWith("$BlockLabel")) "BlockLabel"
     else if (m.toString.endsWith("$Mem")) "Mem"
     else if (m.toString.endsWith("$SS")) "SS"
+    else if (m.toString.endsWith("$LocKind")) "LocV::Kind"
     else if (m.toString.endsWith("SMTExpr")) "SExpr"
     else if (m.toString.endsWith("SMTBool")) "SExpr"
     else if (m.runtimeClass.getName.endsWith("Future"))
@@ -105,7 +108,7 @@ trait SymStagedLLVMGen extends CppSAICodeGenBase {
     case Node(s, "to-SMTBoolNeg", List(v), _) => es"to_SMTBoolNeg($v)"
     case Node(s, "ValPtr-deref", List(v), _) => es"*$v"
     case Node(s, "to-IntV", List(v), _) => es"$v->to_IntV()"
-    
+
     case Node(s, "cov-set-blocknum", List(n), _) => es"cov.set_num_blocks($n)"
     case Node(s, "cov-inc-block", List(id), _) => es"cov.inc_block($id)"
     case Node(s, "cov-inc-path", List(n), _) => es"cov.inc_path($n)"
@@ -174,7 +177,7 @@ trait SymStagedLLVMGen extends CppSAICodeGenBase {
         val filename = s"$codegenFolder/$funName.cpp"
         val out = new java.io.PrintStream(new FileOutputStream(filename, true))
         funStream.writeTo(out)
-        out.close 
+        out.close
       }
     }
   }

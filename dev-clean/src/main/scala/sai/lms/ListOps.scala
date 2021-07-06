@@ -15,6 +15,7 @@ trait ListOps { b: Base =>
       val mA = Backend.Const(manifest[A])
       val unwrapped_xs = Seq(mA) ++ xs.map(Unwrap)
       Wrap[List[A]](Adapter.g.reflectMutable("list-new", unwrapped_xs:_*))
+      //Wrap[List[A]](Adapter.g.reflect("list-new", unwrapped_xs:_*))
     }
     def fill[A: Manifest](x: Rep[Int])(e: Rep[A])(implicit pos: SourceContext) = {
       val mA = Backend.Const(manifest[A])
@@ -286,7 +287,7 @@ trait CppCodeGen_List extends ExtendedCCodeGen {
     case Node(s, "list-toArray", List(xs), _) =>
       ???
     case Node(s, "list-toSeq", List(xs), _) =>
-      ???  
+      ???
     case Node(s, "list-map", List(xs, b: Block), _) =>
       val retType = remap(typeBlockRes(b.res))
       emit(s"Vec::vmap<$retType>(")

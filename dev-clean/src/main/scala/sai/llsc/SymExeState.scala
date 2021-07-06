@@ -127,9 +127,11 @@ trait SymExeDefs extends SAIOps with StagedNondet {
 
   object SS {
     def init: Rep[SS] = "init-ss".reflectWriteWith[SS]()(Adapter.CTRL)
+    //def init: Rep[SS] = "init-ss".reflectWith[SS]()
     def init(m: Rep[Mem]): Rep[SS] = "init-ss".reflectWriteWith[SS](m)(Adapter.CTRL)
-    def checkPCToFile(s: Rep[SS]): Unit = "check_pc_to_file".reflectWriteWith[Unit](s)(Adapter.CTRL)
-    def checkPC(pc: Rep[PC]): Rep[Boolean] = "check_pc".reflectWriteWith[Boolean](pc)(Adapter.CTRL)
+    //def init(m: Rep[Mem]): Rep[SS] = "init-ss".reflectWith[SS](m)
+    def checkPCToFile(s: Rep[SS]): Unit = "check_pc_to_file".reflectWith[Unit](s)
+    def checkPC(pc: Rep[PC]): Rep[Boolean] = "check_pc".reflectWith[Boolean](pc)
   }
 
   class SSOps(ss: Rep[SS]) {
@@ -215,10 +217,12 @@ trait SymExeDefs extends SAIOps with StagedNondet {
   object IntV {
     def apply(i: Rep[Int]): Rep[Value] = IntV(i, DEFAULT_INT_BW)
     def apply(i: Rep[Int], bw: Int): Rep[Value] =
-      "make_IntV".reflectMutableWith[Value](i, bw)
+      "make_IntV".reflectWith[Value](i, bw)
+      //"make_IntV".reflectMutableWith[Value](i, bw)
     def apply(i: Rep[Long])(implicit d: DummyImplicit): Rep[Value] = IntV(i, DEFAULT_INT_BW)
     def apply(i: Rep[Long], bw: Int)(implicit d: DummyImplicit): Rep[Value] =
-      "make_IntV".reflectMutableWith[Value](i, bw)
+      "make_IntV".reflectWith[Value](i, bw)
+      //"make_IntV".reflectMutableWith[Value](i, bw)
     def unapply(v: Rep[Value]): Option[(Int, Int)] = Unwrap(v) match {
       case Adapter.g.Def("make_IntV", Backend.Const(v: Int)::Backend.Const(bw: Int)::_) =>
         Some((v, bw))
@@ -229,25 +233,31 @@ trait SymExeDefs extends SAIOps with StagedNondet {
     // TODO: shall we keep float kinds?
     def apply(f: Rep[Float]): Rep[Value] = "make_FloatV".reflectWriteWith[Value](f)(Adapter.CTRL)
   }
+  trait LocKind
   object LocV {
-    def kStack: Rep[Int] = "kStack".reflectMutableWith[Int]()
-    def kHeap: Rep[Int] = "kHeap".reflectMutableWith[Int]()
-    def apply(l: Rep[Addr], kind: Rep[Int], size: Rep[Int] = unit(-1)):
-      Rep[Value] = "make_LocV".reflectMutableWith[Value](l, kind, size)
+    //def kStack: Rep[Int] = "kStack".reflectMutableWith[Int]()
+    def kStack: Rep[LocKind] = "kStack".reflectWith[LocKind]()
+    //def kHeap: Rep[Int] = "kHeap".reflectMutableWith[Int]()
+    def kHeap: Rep[LocKind] = "kHeap".reflectWith[LocKind]()
+    def apply(l: Rep[Addr], kind: Rep[LocKind], size: Rep[Int] = unit(-1)):
+      //Rep[Value] = "make_LocV".reflectMutableWith[Value](l, kind, size)
+      Rep[Value] = "make_LocV".reflectWith[Value](l, kind, size)
   }
   object FunV {
     def apply(f: Rep[(SS, List[Value]) => List[(SS, Value)]]): Rep[Value] = f.asRepOf[Value]
   }
   object SymV {
     def apply(s: Rep[String]): Rep[Value] = apply(s, DEFAULT_INT_BW)
-    def apply(s: Rep[String], bw: Int): Rep[Value] = "make_SymV".reflectWriteWith[Value](s, bw)(Adapter.CTRL)
+    //def apply(s: Rep[String], bw: Int): Rep[Value] = "make_SymV".reflectWriteWith[Value](s, bw)(Adapter.CTRL)
+    def apply(s: Rep[String], bw: Int): Rep[Value] = "make_SymV".reflectWith[Value](s, bw)
     def makeSymVList(i: Int): Rep[List[Value]] = {
       List[Value](Range(0, i).map(x => apply("x" + x.toString)):_*)
     }
   }
   object NullV {
     // for now
-    def apply(): Rep[Value] = "null-v".reflectMutableWith[Value]()
+    //def apply(): Rep[Value] = "null-v".reflectMutableWith[Value]()
+    def apply(): Rep[Value] = "null-v".reflectWith[Value]()
   }
 
   object IntOp2 {
@@ -266,7 +276,7 @@ trait SymExeDefs extends SAIOps with StagedNondet {
       case _ => "proj_IntV".reflectWith[Int](v)
     }
     def float: Rep[Float] = "proj_FloatV".reflectWith[Float](v)
-    def kind: Rep[Int] = "proj_LocV_kind".reflectWith[Int](v)
+    def kind: Rep[LocKind] = "proj_LocV_kind".reflectWith[LocKind](v)
     def structAt(i: Rep[Int]) = "structV_at".reflectWith[Value](v, i)
     def apply(s: Rep[SS], args: Rep[List[Value]]): Rep[List[(SS, Value)]] = {
       Unwrap(v) match {

@@ -415,12 +415,15 @@ trait LLSCEngine extends SAIOps with StagedNondet with SymExeDefs {
           ss <- getState
           cndVal <- eval(cnd)(ty)
           u <- reflect {
-            if (cndVal.isConc) {
+            val trueBr =
               if (cndVal.int == 1) reify(ss)(execBlock(funName, thnLab))
               else reify(ss)(execBlock(funName, elsLab))
+              //else if (cndVal.int == 0) reify(ss)(execBlock(funName, elsLab))
+              //else List[(SS, Value)]()
+            if (cndVal.isConc) {
+              trueBr
             } else {
-              symExecBr(ss, cndVal.toSMTBool, cndVal.toSMTBoolNeg, thnLab, elsLab, funName)
-              /*
+              //symExecBr(ss, cndVal.toSMTBool, cndVal.toSMTBoolNeg, thnLab, elsLab, funName)
               val tpcSat = SS.checkPC(ss.pc + cndVal.toSMTBool)
               val fpcSat = SS.checkPC(ss.pc + cndVal.toSMTBoolNeg)
               val b1 = for {
@@ -432,6 +435,7 @@ trait LLSCEngine extends SAIOps with StagedNondet with SymExeDefs {
                 v <- execBlock(funName, elsLab)
               } yield v
               if (tpcSat && fpcSat) {
+                /*
                 Coverage.incPath(1)
                 // TODO: randomly select a branch
                 if (ThreadPool.canPar) {
@@ -439,6 +443,8 @@ trait LLSCEngine extends SAIOps with StagedNondet with SymExeDefs {
                   val rb2 = reify(ss) { b2 } // must reify b2 before get the async, order matters here
                   ThreadPool.get(asyncb1) ++ rb2
                 } else reify(ss) { choice(b1, b2) }
+                */
+                reify(ss) { choice(b1, b2) }
               } else if (tpcSat) {
                 reify(ss) { b1 }
               } else if (fpcSat) {
@@ -446,7 +452,6 @@ trait LLSCEngine extends SAIOps with StagedNondet with SymExeDefs {
               } else {
                 List[(SS, Value)]()
               }
-              */
             }
           }
         } yield u
@@ -530,7 +535,7 @@ trait LLSCEngine extends SAIOps with StagedNondet with SymExeDefs {
     for {
       s <- getState
       v <- {
-        unchecked("// jump to block: " + block.label.get)
+        //unchecked("// jump to block: " + block.label.get)
         reflect(CompileTimeRuntime.getBBFun(funName, block)(s))
       }
     } yield v
@@ -576,8 +581,8 @@ trait LLSCEngine extends SAIOps with StagedNondet with SymExeDefs {
 
   def precompileBlocks(funName: String, blocks: List[BB]): Unit = {
     def runBlock(b: BB)(ss: Rep[SS]): Rep[List[(SS, Value)]] = {
-      unchecked("// compiling block: " + funName + " - " + b.label.get)
-      Coverage.incBlock(funName, b.label.get)
+      //unchecked("// compiling block: " + funName + " - " + b.label.get)
+      //Coverage.incBlock(funName, b.label.get)
       val runInstList: Comp[E, Rep[Value]] = for {
         _ <- mapM(b.ins)(execInst(_)(funName))
         v <- execTerm(b.term, b.label.getOrElse(""))(funName)
@@ -587,7 +592,7 @@ trait LLSCEngine extends SAIOps with StagedNondet with SymExeDefs {
 
     for (b <- blocks) {
       Predef.assert(!CompileTimeRuntime.BBFuns.contains((funName, b)))
-      val repRunBlock: Rep[SS => List[(SS, Value)]] = topFun(runBlock(b))
+      val repRunBlock: Rep[SS => List[(SS, Value)]] = fun(runBlock(b))
       val n = Unwrap(repRunBlock).asInstanceOf[Backend.Sym].n
       val realFunName = if (funName != "@main") funName.tail else "llsc_main"
       FunName.blockMap(n) = s"${realFunName}_Block$n"
@@ -601,7 +606,7 @@ trait LLSCEngine extends SAIOps with StagedNondet with SymExeDefs {
         case TypedParam(ty, attrs, localId) => f.id + "_" + localId.get
         case Vararg => ""
       }
-      unchecked("// compiling function: " + f.id)
+      //unchecked("// compiling function: " + f.id)
       val m: Comp[E, Rep[Value]] = for {
         _ <- stackUpdate(params, args)
         s <- getState
@@ -612,7 +617,7 @@ trait LLSCEngine extends SAIOps with StagedNondet with SymExeDefs {
 
     for (f <- funs) {
       Predef.assert(!CompileTimeRuntime.FunFuns.contains(f.id))
-      val repRunFun: Rep[(SS, List[Value]) => List[(SS, Value)]] = topFun(runFun(f))
+      val repRunFun: Rep[(SS, List[Value]) => List[(SS, Value)]] = fun(runFun(f))
       val n = Unwrap(repRunFun).asInstanceOf[Backend.Sym].n
       FunName.funMap(n) = if (f.id != "@main") f.id.tail else "llsc_main"
       CompileTimeRuntime.FunFuns(f.id) = repRunFun

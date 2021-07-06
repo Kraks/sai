@@ -107,14 +107,17 @@ object RunLLSC {
         val res = exec(m, fname, args, false, 4) // FIXME: pass isCommandLine, symarg=4 seems doesn't work on mp1p?
         // query SMT for 1 test
         //SS.checkPCToFile(res(0)._1)
+        /*
         res.foreach { s =>
           //println(r._2.deref)
           SS.checkPCToFile(s._1)
         }
+        */
+        println(res.size)
         ()
       }
     }
-  
+
   def runLLSC(m: Module, name: String, fname: String, nSym: Int = 0) {
     val (_, t) = sai.utils.Utils.time {
       val code = specialize(m, name, fname, nSym)

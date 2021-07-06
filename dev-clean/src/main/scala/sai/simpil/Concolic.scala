@@ -2,6 +2,9 @@ package sai.simpil
 
 import sai.lang.SimpIL
 import sai.lang.SimpIL._
+
+// GW: temporarily commented due to missing dependency
+/*
 import z3.scala._
 
 object ConcolicV {
@@ -9,7 +12,7 @@ object ConcolicV {
   type SExp = Z3AST
   case class IntV(x: Int) extends Value
   case class SymV(e: SExp) extends Value
-  
+
   def toNegSExp(e: SExp, z3: Z3Context) = {
     z3.mkNot(e)
   }
@@ -42,7 +45,7 @@ object Concolic {
   // Δ concrete env, μ concrete store
   // γ symbolic env, η symbolic store
   def exec(s: Stmt, Δ: Env, μ: Store, Π: PCond, pc: PC, Σ: Prg, γ: Env, η: Store, z3: Z3Context): Result = s match {
-    case Assign(x, e) => 
+    case Assign(x, e) =>
       val v = eval(e, Δ, μ)
       val Δ_* = Δ + (x → v)
       val sv = seval(e, Δ, μ, γ, η, z3)
@@ -67,12 +70,12 @@ object Concolic {
       exec(Σ(pc+1), Δ, μ_*, Π, pc+1, Σ, γ, η_*, z3)
     case Goto(e) => eval(e, Δ, μ) match {
       case IntV(ℓ) => exec(Σ(ℓ), Δ, μ, Π, ℓ, Σ, γ, η, z3)
-    } 
+    }
     case Assert(e) => eval(e, Δ, μ) match {
       case IntV(1) => exec(Σ(pc+1), Δ, μ, Π, pc+1, Σ, γ, η, z3)
       case IntV(_) => (Map(), Map(), List(z3.mkFalse()))
     }
-    case Cond(cnd, t1, t2) => 
+    case Cond(cnd, t1, t2) =>
       val scnd = seval(cnd, Δ, μ, γ, η, z3)
       val pcnd = scnd match {
         case IntV(x) => z3.mkTrue
@@ -97,10 +100,10 @@ object Concolic {
     case Var(x) =>
       if (γ.contains(x)) γ(x) else Δ(x)
     case Load(e) => eval(e, Δ, μ) match {
-      case IntV(α) => 
+      case IntV(α) =>
         if (η.contains(α)) η(α) else μ(α)
     }
-    case BinOp(op, e1, e2) => 
+    case BinOp(op, e1, e2) =>
       val s1 = seval(e1, Δ, μ, γ, η, z3)
       val s2 = seval(e2, Δ, μ, γ, η, z3)
       (s1, s2) match {
@@ -109,7 +112,7 @@ object Concolic {
         case (SymV(e1), IntV(v1)) => sevalBinOp(op, e1, z3.mkInt(v1, z3.mkIntSort), z3)
         case (SymV(e1), SymV(e2)) => sevalBinOp(op, e1, e2, z3)
       }
-    case UnaryOp(op, e) => 
+    case UnaryOp(op, e) =>
       val s1 = seval(e, Δ, μ, γ, η, z3)
       s1 match {
         case IntV(x) => evalUnaryOp(op, x)
@@ -171,7 +174,7 @@ object Concolic {
     val (δ, μ, γ, η, _) = input match {
       case None => gen_initial_state(p)
       case Some(i) => i
-    } 
+    }
     var tests = Set[Input]((δ, μ, γ, η, 0))
     val workList = scala.collection.mutable.Set[Input]((δ, μ, γ, η, 0))
     var i = 1
@@ -195,12 +198,12 @@ object Concolic {
     val γ = γ_i.map(s => (s, SymV(z3.mkIntConst(s)))).toMap
     val η = η_i.map(a => (a, SymV(z3.mkIntConst(a.toString)))).toMap
     var (_, _, π) = p match {
-      case Prog(stmts) => exec(stmts(0), δ, μ, List(), 0, 
+      case Prog(stmts) => exec(stmts(0), δ, μ, List(), 0,
         stmts.zipWithIndex.map(_.swap).toMap, γ, η, z3)
     }
     for (j <- bound until π.length) {
       val π_prime = π.take(j) :+ toNegSExp(π(j), z3)
-      newinputs += gen_new_input((δ, μ, γ, η, j + 1), π_prime, z3) 
+      newinputs += gen_new_input((δ, μ, γ, η, j + 1), π_prime, z3)
     }
     newinputs.flatten
   }
@@ -244,7 +247,7 @@ object Concolic {
 
 object TestConcolic extends App {
   import Concolic._, ConcolicV._
-  
+
   /* input: y <- Int
     x = 5
     if (x < y) halt
@@ -290,12 +293,12 @@ object TestConcolic extends App {
       Halt(Var("x"))
     )
   )
-  
+
   def main() {
     runConcolic(ex1, Some((Map(("y" -> IntV(8))), Map(), Set("y"), Set(), 0)))
     runConcolic(ex2, Some((Map(("x" -> IntV(3)), ("y" -> IntV(8))), Map(), Set("y", "x"), Set(), 0)))
   }
-  
+
   main()
 }
 
@@ -316,3 +319,4 @@ object ScalaZ3Test extends App {
 
   main()
 }
+*/

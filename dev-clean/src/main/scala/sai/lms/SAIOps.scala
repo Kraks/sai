@@ -39,14 +39,19 @@ trait SAIOps extends Base
   implicit class StringOps(op: String) {
     def reflectWith[T: Manifest](rs: Rep[_]*): Rep[T] = Wrap[T](Adapter.g.reflect(op, rs.map(Unwrap):_*))
     def reflectReadWith[T: Manifest](rs: Rep[_]*)(es: Backend.Exp*): Rep[T] =
+      //reflectWith[T](rs)
       Wrap[T](Adapter.g.reflectRead(op, rs.map(Unwrap):_*)(es:_*))
     def reflectWriteWith[T: Manifest](rs: Rep[_]*)(es: Backend.Exp*): Rep[T] =
+      //reflectWith[T](rs)
       Wrap[T](Adapter.g.reflectWrite(op, rs.map(Unwrap):_*)(es:_*))
     def reflectMutableWith[T: Manifest](rs: Rep[_]*): Rep[T] =
+      //reflectWith[T](rs)
       Wrap[T](Adapter.g.reflectMutable(op, rs.map(Unwrap):_*))
   }
 
   def print(x: Rep[Any]): Unit = Adapter.g.reflectWrite("print",Unwrap(x))(Adapter.CTRL)
+
+  val localTopLevelFunctions = new scala.collection.mutable.HashMap[AnyRef,Backend.Sym]()
 
   override def __fun[T: Manifest](f: AnyRef, arity: Int, gf: List[Backend.Exp] => Backend.Exp, captures: Backend.Exp*): Backend.Exp = {
     // No λforward
@@ -61,6 +66,7 @@ trait SAIOps extends Base
         Adapter.funTable = Adapter.funTable.map {
           case (fn2, can2) => if (can == can2) (fn, can) else (fn2, can2)
         }
+        localTopLevelFunctions.getOrElseUpdate(can, res)
         res
     }
   }
