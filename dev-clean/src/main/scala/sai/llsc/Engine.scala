@@ -364,9 +364,15 @@ trait LLSCEngine extends SAIOps with StagedNondet with SymExeDefs {
           if (bb == labels(0) || labels.length == 1) vs(0)
           else selectValue(bb, vs.tail, labels.tail)
         }
+        /*
+        def selectValue(bb: Rep[BlockLabel], vs: List[Rep[Value]], labels: List[BlockLabel]): Rep[Value] = {
+          if (labels.length == 1) {
+            "select_value".reflectWith[Value](bb, labels(0), vs(0))
+          } else selectValue(bb, vs.tail, labels.tail)
+        }
+         */
         val incsValues: List[LLVMValue] = incs.map(inc => inc.value)
         val incsLabels: List[BlockLabel] = incs.map(inc => inc.label.hashCode)
-
         for {
           vs <- mapM(incsValues)(eval(_)(ty))
           s <- getState
@@ -417,9 +423,9 @@ trait LLSCEngine extends SAIOps with StagedNondet with SymExeDefs {
           u <- reflect {
             val trueBr =
               if (cndVal.int == 1) reify(ss)(execBlock(funName, thnLab))
-              else reify(ss)(execBlock(funName, elsLab))
-              //else if (cndVal.int == 0) reify(ss)(execBlock(funName, elsLab))
-              //else List[(SS, Value)]()
+              //else reify(ss)(execBlock(funName, elsLab))
+              else if (cndVal.int == 0) reify(ss)(execBlock(funName, elsLab))
+              else List[(SS, Value)]()
             if (cndVal.isConc) {
               trueBr
             } else {

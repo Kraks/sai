@@ -2,7 +2,7 @@
 #include "klee/klee.h"
 #endif
 
-#define SIZE 5
+#define SIZE 7
 
 int d[SIZE];
 
@@ -12,7 +12,7 @@ void qsort(int l, int r)
 	{
 		int x = d[r];
 		int j = l - 1;
-		
+
 		for (int i = l; i <= r; i++)
 		{
 			if (d[i] <= x)
@@ -23,7 +23,7 @@ void qsort(int l, int r)
 				d[j] = temp;
 			}
 		}
-		
+
 		qsort(l, j - 1);
 		qsort(j + 1, r);
 	}

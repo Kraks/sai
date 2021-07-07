@@ -2,7 +2,7 @@
 #include "klee/klee.h"
 #endif
 
-#define SIZE 4
+#define SIZE 6
 
 void bubble_sort(int *d, int n)
 {
@@ -28,8 +28,8 @@ int main()
 #else
   make_symbolic(data, sizeof(int) * SIZE);
 #endif
-	
+
 	bubble_sort(data, SIZE);
-	
+
 	return 0;
 }

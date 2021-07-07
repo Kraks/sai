@@ -142,7 +142,7 @@ inline IntData proj_IntV(Ptr<Value> v) {
   // return std::dynamic_pointer_cast<IntV>(v)->i;
   auto i = std::dynamic_pointer_cast<IntV>(v);
   if (i) return i->i;
-  return 0;
+  return -1;
 }
 
 struct FloatV : Value {

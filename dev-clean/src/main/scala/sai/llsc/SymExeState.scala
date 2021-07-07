@@ -126,12 +126,14 @@ trait SymExeDefs extends SAIOps with StagedNondet {
   final val ARCH_WORD_SIZE: Int = 64
 
   object SS {
-    def init: Rep[SS] = "init-ss".reflectWriteWith[SS]()(Adapter.CTRL)
-    //def init: Rep[SS] = "init-ss".reflectWith[SS]()
-    def init(m: Rep[Mem]): Rep[SS] = "init-ss".reflectWriteWith[SS](m)(Adapter.CTRL)
-    //def init(m: Rep[Mem]): Rep[SS] = "init-ss".reflectWith[SS](m)
-    def checkPCToFile(s: Rep[SS]): Unit = "check_pc_to_file".reflectWith[Unit](s)
-    def checkPC(pc: Rep[PC]): Rep[Boolean] = "check_pc".reflectWith[Boolean](pc)
+    //def init: Rep[SS] = "init-ss".reflectWriteWith[SS]()(Adapter.CTRL)
+    def init: Rep[SS] = "init-ss".reflectWith[SS]()
+    //def init(m: Rep[Mem]): Rep[SS] = "init-ss".reflectWriteWith[SS](m)(Adapter.CTRL)
+    def init(m: Rep[Mem]): Rep[SS] = "init-ss".reflectWith[SS](m)
+    def checkPCToFile(s: Rep[SS]): Unit = "check_pc_to_file".reflectWriteWith[Unit](s)(Adapter.CTRL)
+    def checkPC(pc: Rep[PC]): Rep[Boolean] = "check_pc".reflectWriteWith[Boolean](pc)(Adapter.CTRL)
+    //def checkPCToFile(s: Rep[SS]): Unit = "check_pc_to_file".reflectWith[Unit](s)
+    //def checkPC(pc: Rep[PC]): Rep[Boolean] = "check_pc".reflectWith[Boolean](pc)
   }
 
   class SSOps(ss: Rep[SS]) {
@@ -291,7 +293,7 @@ trait SymExeDefs extends SAIOps with StagedNondet {
 
     def bv_sext(bw: Rep[Int]): Rep[Value] =  "bv_sext".reflectWith[Value](v, bw)
     def isConc: Rep[Boolean] = "is-conc".reflectWith[Boolean](v)
-    def toSMTBool: Rep[SMTBool] = "to-SMTBool".reflectWith[SMTBool](v)
+    def toSMTBool: Rep[SMTBool] = "to-SMTBool".reflectWriteWith[SMTBool](v)(Adapter.CTRL)
     def toSMTBoolNeg: Rep[SMTBool] = "to-SMTBoolNeg".reflectWith[SMTBool](v)
 
     // TODO: toSMTBool vs toSMTExpr?
