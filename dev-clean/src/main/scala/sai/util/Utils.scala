@@ -10,6 +10,15 @@ object Utils {
     //println("Elapsed time: " + t + "ms")
     (result, t)
   }
+
+  def time[R](n: Int)(block: => R): Timing = {
+    var times: List[Double] = List()
+    for (i <- 0 until n) {
+      val (res, t) = time(block)
+      times = t::times
+    }
+    Timing(times)
+  }
 }
 
 case class Timing(ts: List[Double]) {
