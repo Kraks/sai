@@ -205,6 +205,84 @@ object SumSquareEven extends FusionExp {
   }
 }
 
+object Maps extends FusionExp { // TODO: evaluate
+  // by Luke
+  val sz = 1000000
+  def fused(): Int = {
+    var x2 = 0
+    var x4 = 0
+    while (x4 != sz) {
+      x2 = x2 + x4 * 2 * 3 * 4
+      x4 = x4 + 1
+    }
+    println(x2)
+    0
+  }
+  def manual(): Int = {
+    val linear = new Array[Int](sz)
+    for (i <- (0 until sz)) {
+      linear(i) = i
+    }
+    val constant = new Array[Int](sz)
+    for (i <- (0 until sz)) {
+      linear(i) = 1
+    }
+    val t1 = new Array[Int](sz)
+    for (i <- (0 until sz)) {
+      t1(i) = linear(i) * 2
+    }
+    val t2 = new Array[Int](sz)
+    for (i <- (0 until sz)) {
+      t2(i) = t1(i) * 3
+    }
+    val t3 = new Array[Int](sz)
+    for (i <- (0 until sz)) {
+      t3(i) = t2(i) * 4
+    }
+    var res = 0
+    for (i <- (0 until sz)) {
+      res = res + t3(i)
+    }
+    println(res)
+    0
+  }
+}
+
+object LinearSum extends FusionExp { // TODO: evaluate
+  // by Luke
+  val sz = 1000000
+  def fused(): Int = {
+    var x2 = 0
+    var x4 = 0
+    while (x4 != sz) {
+      x2 = x2 + 1 + 2 * x4
+      x4 = x4 + 1
+    }
+    println(x2)
+    0
+  }
+  def manual(): Int = {
+    val constant = new Array[Int](sz)
+    for (i <- (0 until sz)) {
+      constant(i) = 1
+    }
+    val linear = new Array[Int](sz)
+    for (i <- (0 until sz)) {
+      linear(i) = i
+    }
+    val t = new Array[Int](sz)
+    for (i <- (0 until sz)) {
+      t(i) = constant(i) + 2 * linear(i)
+    }
+    var res = 0
+    for (i <- (0 until sz)) {
+      res = res + t(i)
+    }
+    println(res)
+    0
+  }
+}
+
 object FusionExp {
   def main(args: Array[String]) = {
     val n = 20
@@ -215,9 +293,11 @@ object FusionExp {
       val nolpTime = time { e.manual() }
       println(nolpTime)
     }
-    runExp(MeanVarFusion)
-    runExp(PtProd)
-    runExp(DotProd)
-    runExp(SumSquareEven)
+    //runExp(MeanVarFusion)
+    //runExp(PtProd)
+    //runExp(DotProd)
+    //runExp(SumSquareEven)
+    runExp(Maps)
+    runExp(LinearSum)
   }
 }
