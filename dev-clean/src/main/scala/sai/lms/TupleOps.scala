@@ -94,6 +94,7 @@ trait TupleOps { b: Base =>
 
 trait TupleOpsOpt extends TupleOps { b: Base =>
   implicit class Tuple2OpsOpt[A: Manifest, B: Manifest](t: Rep[(A, B)]) extends Tuple2Ops[A, B](t) {
+    /*
     override def _1: Rep[A] = Unwrap(t) match {
       case Adapter.g.Def("tuple2-new", List(t1: Backend.Exp, t2: Backend.Exp)) => Wrap[A](t1)
       case _ => super._1
@@ -102,9 +103,11 @@ trait TupleOpsOpt extends TupleOps { b: Base =>
       case Adapter.g.Def("tuple2-new", List(t1: Backend.Exp, t2: Backend.Exp)) => Wrap[B](t2)
       case _ => super._2
     }
+     */
   }
 
   implicit class Tuple3OpsOpt[A: Manifest, B: Manifest, C: Manifest](t: Rep[(A, B, C)]) extends Tuple3Ops[A, B, C](t) {
+    /*
     override def _1: Rep[A] = Unwrap(t) match {
       case Adapter.g.Def("tuple3-new", List(t1: Backend.Exp, t2: Backend.Exp, t3: Backend.Exp)) =>
         Wrap[A](t1)
@@ -120,9 +123,11 @@ trait TupleOpsOpt extends TupleOps { b: Base =>
         Wrap[C](t3)
       case _ => super._3
     }
+     */
   }
 
   implicit class Tuple4OpsOpt[A: Manifest, B: Manifest, C: Manifest, D: Manifest](t: Rep[(A, B, C, D)]) extends Tuple4Ops[A, B, C, D](t) {
+    /*
     override def _1: Rep[A] = Unwrap(t) match {
       case Adapter.g.Def("tuple4-new", List(t1: Backend.Exp, t2: Backend.Exp, t3: Backend.Exp, t4: Backend.Exp)) =>
         Wrap[A](t1)
@@ -143,6 +148,7 @@ trait TupleOpsOpt extends TupleOps { b: Base =>
         Wrap[D](t4)
       case _ => super._4
     }
+    */
   }
 }
 

@@ -32,7 +32,9 @@ case class Timing(ts: List[Double]) {
   val perc75 = sorted_ts(((sorted_ts.size / 4) * 3).toInt)
   val perc95 = sorted_ts(sorted_ts.size - (sorted_ts.size/20).toInt - 1)
   def toSec(t: Double): Double = t
-  override def toString: String = s"#: ${ts.size}, Mean: ${toSec(mean)}, Median: ${toSec(perc50)}"
+
+  //override def toString: String = s"#: ${ts.size}, Mean: ${toSec(mean)}, Median: ${toSec(perc50)}"
+  override def toString: String = ts.mkString(", ")
 
   def median_speedup(t2: Timing): Double = {
     val m_t1 = toSec(perc50)

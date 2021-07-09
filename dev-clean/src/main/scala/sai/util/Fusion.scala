@@ -21,8 +21,8 @@ object MeanVarFusion extends FusionExp {
       x3 = x3 + 1
     }
     val x5 = x1 / sz
-    println(x5)
-    println(x2 / sz - x5 * x5)
+    //println(x5)
+    //println(x2 / sz - x5 * x5)
     0
   }
 
@@ -49,8 +49,8 @@ object MeanVarFusion extends FusionExp {
       ssum += affine(i) * affine(i)
     }
     val v = ssum / sz - m * m
-    println(m)
-    println(v)
+    //println(m)
+    //println(v)
     0
   }
 }
@@ -67,7 +67,7 @@ object PtProd extends FusionExp {
       x1(x3) = x5 * (x5 * x5)
       x2 = x2 + 1
     }
-    println(x1(100))
+    //println(x1(100))
     0
   }
 
@@ -104,7 +104,7 @@ object PtProd extends FusionExp {
     for (i <- (0 until sz)) {
       prod4(i) = prod2(i) * prod3(i)
     }
-    println(prod4(100))
+    //println(prod4(100))
     0
   }
 }
@@ -119,7 +119,7 @@ object DotProd extends FusionExp {
       x1 = x1 + 2 * x3 * (3 * x3)
       x2 = x2 + 1
     }
-    println(x1)
+    //println(x1)
     0
   }
   def manual(): Int = {
@@ -145,7 +145,7 @@ object DotProd extends FusionExp {
     for (i <- 0 until sz) {
       sum += prod(i)
     }
-    println(sum)
+    //println(sum)
     0
   }
 }
@@ -176,7 +176,7 @@ object SumSquareEven extends FusionExp {
       x4 = x4 + (x3 * x3)
       x2 = x2 + 1
     }
-    println(x4)
+    //println(x4)
     0
   }
   def manual(): Int = {
@@ -200,7 +200,7 @@ object SumSquareEven extends FusionExp {
     for (i <- (0 until sz)) {
       res = res + t2(i)
     }
-    println(res)
+    //println(res)
     0
   }
 }
@@ -215,17 +215,13 @@ object Maps extends FusionExp { // TODO: evaluate
       x2 = x2 + x4 * 2 * 3 * 4
       x4 = x4 + 1
     }
-    println(x2)
+    //println(x2)
     0
   }
   def manual(): Int = {
     val linear = new Array[Int](sz)
     for (i <- (0 until sz)) {
       linear(i) = i
-    }
-    val constant = new Array[Int](sz)
-    for (i <- (0 until sz)) {
-      linear(i) = 1
     }
     val t1 = new Array[Int](sz)
     for (i <- (0 until sz)) {
@@ -243,7 +239,7 @@ object Maps extends FusionExp { // TODO: evaluate
     for (i <- (0 until sz)) {
       res = res + t3(i)
     }
-    println(res)
+    //println(res)
     0
   }
 }
@@ -258,7 +254,7 @@ object LinearSum extends FusionExp { // TODO: evaluate
       x2 = x2 + 1 + 2 * x4
       x4 = x4 + 1
     }
-    println(x2)
+    //println(x2)
     0
   }
   def manual(): Int = {
@@ -278,7 +274,7 @@ object LinearSum extends FusionExp { // TODO: evaluate
     for (i <- (0 until sz)) {
       res = res + t(i)
     }
-    println(res)
+    //println(res)
     0
   }
 }
@@ -287,17 +283,19 @@ object FusionExp {
   def main(args: Array[String]) = {
     val n = 20
     def time[R](b: => R) = Utils.time(n)(b)
-    def runExp(e: FusionExp): Unit = {
+    def runExp(e: FusionExp, id: String): Unit = {
       val lpTime = time { e.fused() }
+      print(id); print(", lpTime, ")
       println(lpTime)
       val nolpTime = time { e.manual() }
+      print(id); print(", nolpTime, ")
       println(nolpTime)
     }
-    //runExp(MeanVarFusion)
-    //runExp(PtProd)
-    //runExp(DotProd)
-    //runExp(SumSquareEven)
-    runExp(Maps)
-    runExp(LinearSum)
+    //runExp(MeanVarFusion, "Mean/Variance")
+    //runExp(PtProd, "PtProd")
+    //runExp(DotProd, "DotProd")
+    //runExp(SumSquareEven, "SumSqrEven")
+    runExp(Maps, "Maps")
+    //runExp(LinearSum, "LinearSum")
   }
 }

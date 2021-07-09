@@ -56,6 +56,7 @@ trait SetOpsOpt extends SetOps { b: Base =>
   implicit override def __liftVarSet[A: Manifest](xs: Var[Set[A]]): SetOps[A] = new SetOpsOpt(readVar(xs))
 
   implicit class SetOpsOpt[A: Manifest](xs: Rep[Set[A]]) extends SetOps[A](xs) {
+    /*
     override def ++(ys: Rep[Set[A]]): Rep[Set[A]] = (Unwrap(xs), Unwrap(ys)) match {
       case (Adapter.g.Def("set-new", mA::(xs: List[Backend.Exp])),
             Adapter.g.Def("set-new",  _::(ys: List[Backend.Exp]))) =>
@@ -67,6 +68,7 @@ trait SetOpsOpt extends SetOps { b: Base =>
         xs
       case _ => super.++(ys)
     }
+    */
     override def foldLeft[B: Manifest](z: Rep[B])(f: (Rep[B], Rep[A]) => Rep[B]): Rep[B] =
       Unwrap(xs) match {
         case Adapter.g.Def("set-new", mA::(xs: List[Backend.Exp])) => 

@@ -179,7 +179,7 @@ trait SymExeDefs extends SAIOps with StagedNondet {
         case _ => default
       }
 
-    override def lookup(x: String): Rep[Value] = lookupOpt(x.hashCode, Unwrap(ss), super.lookup(x), 5)
+    //override def lookup(x: String): Rep[Value] = lookupOpt(x.hashCode, Unwrap(ss), super.lookup(x), 5)
     override def assign(x: String, v: Rep[Value]): Rep[SS] = Unwrap(ss) match {
       /*
       case Adapter.g.Def("ss-assign", ss0::Backend.Const(y: Int)::(w: Backend.Exp)::Nil) =>
@@ -274,7 +274,7 @@ trait SymExeDefs extends SAIOps with StagedNondet {
     // TODO: optimization like int
     def loc: Rep[Addr] = "proj_LocV".reflectWith[Addr](v)
     def int: Rep[Int] = v match {
-      case IntV(n, bw) => unit(n)
+      //case IntV(n, bw) => unit(n)
       case _ => "proj_IntV".reflectWith[Int](v)
     }
     def float: Rep[Float] = "proj_FloatV".reflectWith[Float](v)
@@ -315,8 +315,12 @@ trait SymExeDefs extends SAIOps with StagedNondet {
       "sym_print", "malloc", "realloc", "llsc_assert", "make_symbolic",
       "__assert_fail"
     )
-    def print: Rep[Value] = "llsc-external-wrapper".reflectWith[Value]("sym_print")
-    def noop: Rep[Value] = "llsc-external-wrapper".reflectWith[Value]("noop")
+    def print: Rep[Value] =
+      Wrap[Value](Adapter.g.reflect("llsc-external-wrapper", Backend.Const("sym_print")))
+      //"llsc-external-wrapper".reflectWith[Value]("sym_print")
+    def noop: Rep[Value] =
+      Wrap[Value](Adapter.g.reflect("llsc-external-wrapper", Backend.Const("noop")))
+      //"llsc-external-wrapper".reflectWith[Value]("noop")
   }
 
   object Intrinsics {

@@ -87,6 +87,7 @@ trait ListOpsOpt extends ListOps { b: Base =>
   implicit class ListOpsOpt[A: Manifest](xs: Rep[List[A]]) extends ListOps[A](xs) {
     // TODO: apply
     override def ++(ys: Rep[List[A]]): Rep[List[A]] = (Unwrap(xs), Unwrap(ys)) match {
+      /*
       case (Adapter.g.Def("list-new", mA::(xs: List[Backend.Exp])),
             Adapter.g.Def("list-new",  _::(ys: List[Backend.Exp]))) =>
         val unwrapped_xsys = Seq(mA) ++ xs ++ ys
@@ -95,8 +96,10 @@ trait ListOpsOpt extends ListOps { b: Base =>
         ys
       case (_, Adapter.g.Def("list-new", mA::(ys: List[Backend.Exp]))) if ys.isEmpty =>
         xs
+       */
       case _ => super.++(ys)
     }
+    /*
     override def foldLeft[B: Manifest](z: Rep[B])(f: (Rep[B], Rep[A]) => Rep[B]): Rep[B] =
       Unwrap(xs) match {
         case Adapter.g.Def("list-new", mA::(xs: List[Backend.Exp])) =>
@@ -122,6 +125,7 @@ trait ListOpsOpt extends ListOps { b: Base =>
             case _ => super.foldLeft(z)(f)
           }
       }
+     */
   }
 }
 

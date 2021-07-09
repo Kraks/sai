@@ -154,7 +154,9 @@ trait LLSCEngine extends SAIOps with StagedNondet with SymExeDefs {
           case id if External.modeled_external.contains(id.tail) => id.tail match {
             // case "malloc" => External.mallocV
             // case "realloc" => External.reallocV
-            case _ => "llsc-external-wrapper".reflectWith[Value](id.tail)
+            case _ =>
+              Wrap[Value](Adapter.g.reflect("llsc-external-wrapper", Backend.Const(id.tail)))
+              //"llsc-external-wrapper".reflectWith[Value](id.tail)
           }
           case id if id.startsWith("@llvm") => Intrinsics.match_intrinsics(id)
           // Should be a noop
@@ -423,7 +425,7 @@ trait LLSCEngine extends SAIOps with StagedNondet with SymExeDefs {
           u <- reflect {
             val trueBr =
               if (cndVal.int == 1) reify(ss)(execBlock(funName, thnLab))
-              //else reify(ss)(execBlock(funName, elsLab))
+            //else reify(ss)(execBlock(funName, elsLab))
               else if (cndVal.int == 0) reify(ss)(execBlock(funName, elsLab))
               else List[(SS, Value)]()
             if (cndVal.isConc) {
