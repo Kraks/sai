@@ -14,5 +14,6 @@ RUN mkdir /llsc
 COPY init_setup.sh /llsc/init_setup.sh
 RUN bash /llsc/init_setup.sh
 
-CMD cd /llsc
+ENV PATH="/llsc/scala-2.12.10/bin:${PATH}"
 
+CMD cd /llsc
