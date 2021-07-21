@@ -348,7 +348,8 @@ inline Ptr<Value> bv_sext(Ptr<Value> v, int bw) {
       // Note: instead of passing new bw as an operand
       // we override the original bw here
       SExpr e1 = s1->to_SMTExpr();
-      return std::make_shared<SymV>(op_sext, immer::flex_vector({ e1 }), bw);
+      return std::make_shared<SymV>(op_sext,
+        immer::flex_vector({ e1 }), bw);
     } else {
       ABORT("Sext an invalid value, exit");
     }
@@ -892,7 +893,6 @@ sym_exec_br(SS ss, SExpr t_cond, SExpr f_cond,
   auto tbr_sat = check_pc(pc.insert(t_cond));
   auto fbr_sat = check_pc(pc.insert(f_cond));
   if (tbr_sat && fbr_sat) {
-    std::cout << "both\n";
     cov.inc_path(1);
     SS tbr_ss = ss.addPC(t_cond);
     SS fbr_ss = ss.addPC(f_cond);
@@ -905,11 +905,9 @@ sym_exec_br(SS ss, SExpr t_cond, SExpr f_cond,
       return tf_res.get() + ff_res;
     } else return tf(tbr_ss) + ff(fbr_ss);
   } else if (tbr_sat) {
-    std::cout << "true\n";
     SS tbr_ss = ss.addPC(t_cond);
     return tf(tbr_ss);
   } else if (fbr_sat) {
-    std::cout << "false\n";
     SS fbr_ss = ss.addPC(f_cond);
     return ff(fbr_ss);
   } else {
