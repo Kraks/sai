@@ -173,7 +173,7 @@ struct LocV : Value {
   Kind k;
   int size;
 
-  LocV(unsigned int l, Kind k, int size) : l(l), k(k), size(size) {}
+  LocV(Addr l, Kind k, int size) : l(l), k(k), size(size) {}
   LocV(const LocV& v) { l = v.l; }
   virtual std::ostream& toString(std::ostream& os) const override {
     return os << "LocV(" << l << ")";
@@ -188,7 +188,7 @@ struct LocV : Value {
     ABORT("is_conc: unexpected value LocV.");
   }
   virtual PtrVal to_IntV() const override { return std::make_shared<IntV>(l, addr_bw); }
-  virtual int get_bw() const override { ABORT("get_bw: unexpected value LocV."); }
+  virtual int get_bw() const override { return addr_bw; }
 };
 
 inline PtrVal make_LocV(unsigned int i, LocV::Kind k, int size) {
