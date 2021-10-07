@@ -31,7 +31,9 @@ inline immer::flex_vector<std::pair<SS, PtrVal>> malloc(SS state, immer::flex_ve
   IntData bytes = proj_IntV(args.at(0));
   auto emptyMem = immer::flex_vector<PtrVal>(bytes, make_IntV(0));
   PtrVal memLoc = make_LocV(state.heap_size(), LocV::kHeap, bytes);
-  return immer::flex_vector<std::pair<SS, PtrVal>>{{state.heap_append(emptyMem), memLoc}};
+  // simulating the failed branch
+  PtrVal nullLoc = make_LocV(-1, LocV::kHeap, -1);
+  return immer::flex_vector<std::pair<SS, PtrVal>>{{state.heap_append(emptyMem), memLoc}, {state, nullLoc}};
 }
 
 inline immer::flex_vector<std::pair<SS, PtrVal>> realloc(SS state, immer::flex_vector<PtrVal> args) {
