@@ -86,6 +86,10 @@ inline std::string int_op2string(iOP op) {
   return "unknown op";
 }
 
+class LLSCException: public std::exception {
+  virtual const char* what() const noexcept = 0;
+};
+
 struct Value;
 // lazy construction of all the SMT expressions
 using SExpr = std::shared_ptr<Value>;
@@ -580,6 +584,24 @@ class PC {
     void print() { print_set(pc); }
 };
 
+
+class SyscallException: public LLSCException {
+  private:
+    std::string syscall;
+    std::string description;
+  public:
+    SyscallException(const std::string& syscall, const std::string& description):
+      LLSCException(),
+      syscall(syscall),
+      description(description) { };
+    const char* what() const noexcept override {
+      return const_cast<const char*>((std::string("SyscallException\n\tsyscall: ") + syscall +
+        std::string("\n\tdescription: ") + description).c_str());
+    }
+    std::string get_syscall() const { return syscall; }
+};
+
+
 /* TODO: Is the name field necessary? <2021-10-12, David Deng> */
 class File {
   private:
@@ -646,37 +668,56 @@ inline File make_SymFile(std::string name, size_t size) {
 
 // An opened file
 struct Stream {
-  File file;
-  int mode; // a combination of O_RDONLY, O_WRONLY, O_RDWR, etc.
-  size_t offset;
-  Stream(File file, int mode): file(file), mode(mode), offset(0) {}
+  private:
+    File file;
+    int mode; // a combination of O_RDONLY, O_WRONLY, O_RDWR, etc.
+    size_t cursor;
+  public:
+  Stream(File file): file(file), mode(O_RDONLY), cursor(0) {}
+  Stream(File file, int mode): file(file), mode(mode), cursor(0) {}
+  Stream(File file, int mode, size_t cursor): file(file), mode(mode), cursor(cursor) {}
+  Stream seek_start(long offset) {
+    if (offset < 0) throw SyscallException("lseek", "can't seek a negative value from the start of the file");
+    return Stream(file, mode, offset);
+  }
+  Stream seek_end(long offset) {
+    long new_cursor = file.get_size() + offset;
+    if (new_cursor < 0) throw SyscallException("lseek", "can't seek beyond the beginning of the file");
+    return Stream(file, mode, new_cursor);
+  }
+  Stream seek_cur(long offset) {
+    long new_cursor = cursor + offset;
+    if (new_cursor < 0) throw SyscallException("lseek", "can't seek beyond the beginning of the file");
+    return Stream(file, mode, new_cursor);
+  }
+  size_t get_cursor() const { return cursor; }
 };
 
-/* class FS { */
-/*   private: */
-/*     /1* TODO: How does immer handle memory leak if map.find returns a raw pointer? <2021-10-12, David Deng> *1/ */
-/*     /1* NOTE: Use at instead of find for immer::map <2021-10-12, David Deng> *1/ */
+class FS {
+  private:
+    /* TODO: How does immer handle memory leak if map.find returns a raw pointer? <2021-10-12, David Deng> */
+    /* NOTE: Use at instead of find for immer::map <2021-10-12, David Deng> */
 
-/*     immer::map<Fd, Stream> opened_files; */
-/*     immer::map<std::string, File> files; */
-/*     Fd next_fd; */
+    immer::map<Fd, Stream> opened_files;
+    immer::map<std::string, File> files;
+    Fd next_fd;
 
-/*   public: */
-/*     FS() { */
-/*       next_fd = 3; */
-/*       files = files.set("A", make_SymFile("A", 6)); */
-/*     } */
-/*     // immutable operations */
-/*     File get_file(std::string name) { */
-/*     } */
-/*     // mutable operations */
-/*     FS open_file(std::string name, int mode) { */
-/*       /1* TODO: handle different mode <2021-10-12, David Deng> *1/ */
-/*       File* f; */
-/*       if (!(f = files.find(name))) return; */
-/*     } */
-/*     /1* TODO: initialize stdin and stdout with Fd 0 and 1 <2021-10-12, David Deng> *1/ */
-/* } */
+  public:
+    /* FS() { */
+    /*   next_fd = 3; */
+    /*   files = files.set("A", make_SymFile("A", 6)); */
+    /* } */
+    /* // immutable operations */
+    /* File get_file(std::string name) { */
+    /* } */
+    /* // mutable operations */
+    /* FS open_file(std::string name, int mode) { */
+    /*   /1* TODO: handle different mode <2021-10-12, David Deng> *1/ */
+    /*   File* f; */
+    /*   if (!(f = files.find(name))) return; */
+    /* } */
+    /* /1* TODO: initialize stdin and stdout with Fd 0 and 1 <2021-10-12, David Deng> *1/ */
+};
 
 class SS {
   private:
@@ -684,8 +725,10 @@ class SS {
     Stack stack;
     PC pc;
     BlockLabel bb;
+    FS fs;
   public:
     SS(Mem heap, Stack stack, PC pc, BlockLabel bb) : heap(heap), stack(stack), pc(pc), bb(bb) {}
+    SS(Mem heap, Stack stack, PC pc, BlockLabel bb, FS fs) : heap(heap), stack(stack), pc(pc), bb(bb), fs(fs) {}
     PtrVal env_lookup(Id id) { return stack.lookup_id(id); }
     size_t heap_size() { return heap.size(); }
     size_t stack_size() { return stack.mem_size(); }
@@ -743,6 +786,8 @@ class SS {
     immer::set<SExpr> getPC() { return pc.getPC(); }
     // TODO temp solution
     PtrVal getVarargLoc() {return stack.getVarargLoc(); }
+    SS set_fs(FS new_fs) { return SS(heap, stack, pc, bb, new_fs); }
+    FS get_fs() { return fs; }
 };
 
 inline const Mem mt_mem = Mem(immer::flex_vector<PtrVal>{});

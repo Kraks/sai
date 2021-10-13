@@ -2,7 +2,7 @@
 #include <assert.h>
 #include "../llsc.hpp"
 
-int main() {
+void test_file() {
   PtrVal intV_0 = make_IntV(0);
   PtrVal intV_1 = make_IntV(1);
   PtrVal intV_2 = make_IntV(2);
@@ -60,5 +60,50 @@ int main() {
           f.write_at_no_fill(immer::flex_vector<PtrVal>{intV_4}, 3).get_content()),
         "write_at and write_at_no_fill should behave the same when not writing after the end");
   }
+}
 
+void test_stream() {
+  PtrVal intV_0 = make_IntV(0);
+  PtrVal intV_1 = make_IntV(1);
+  PtrVal intV_2 = make_IntV(2);
+  File f = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2});
+  Stream s = Stream(f);
+  {
+    ASSERT((s.get_cursor() == 0), "cursor should default to 0");
+  }
+  {
+    // test seek
+    ASSERT((s.seek_start(15).get_cursor() == 15), "seek start");
+    ASSERT((s.seek_end(15).get_cursor() == 18), "seek start");
+    ASSERT((s.seek_cur(7).seek_cur(8).get_cursor() == 15), "seek start");
+  }
+  {
+    // test seek exception
+    try {
+      s.seek_start(-1);
+      ASSERT(false, "Should throw an exception");
+    } catch (SyscallException& e) {
+      ASSERT(e.get_syscall() == "lseek", "the correct exception should be thrown");
+    }
+
+    try {
+      s.seek_cur(1).seek_cur(-2);
+      ASSERT(false, "Should throw an exception");
+    } catch (SyscallException& e) {
+      ASSERT(e.get_syscall() == "lseek", "the correct exception should be thrown");
+    }
+
+    try {
+      s.seek_end(-5);
+      ASSERT(false, "Should throw an exception");
+    } catch (SyscallException& e) {
+      ASSERT(e.get_syscall() == "lseek", "the correct exception should be thrown");
+    }
+  }
+
+}
+
+int main() {
+  /* test_file(); */
+  test_stream();
 }
