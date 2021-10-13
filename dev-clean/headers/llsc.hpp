@@ -45,6 +45,7 @@ using BlockLabel = int;
 using Id = int;
 using Addr = unsigned int;
 using IntData = long long int;
+using Fd = unsigned int;
 
 enum iOP {
   op_add, op_sub, op_mul, op_sdiv, op_udiv,
@@ -578,6 +579,81 @@ class PC {
     immer::set<SExpr> getPC() { return pc; }
     void print() { print_set(pc); }
 };
+
+/* TODO: Is the name field necessary? <2021-10-12, David Deng> */
+class File {
+  private:
+    std::string name;
+    immer::flex_vector<PtrVal> content;
+  public:
+    friend std::ostream& operator<<(std::ostream& os, const File& f) {
+      os << "File(name=" << f.name << ", content=[" << std::endl;
+      for (auto ptrval: f.content) {
+        os << "\t" << *ptrval << "," << std::endl;
+      }
+      os << "])";
+      return os;
+    }
+    File(std::string name): name(name) {}
+    File(std::string name, immer::flex_vector<PtrVal> content): name(name), content(content) {}
+    File(const File& f): name(f.name), content(f.content) {}
+    File write_at(immer::flex_vector<PtrVal> new_content, size_t pos) {
+      return File(name, content.take(pos) + new_content + content.drop(pos + new_content.size()));
+    }
+    File clear() {
+      return File(name);
+    }
+    immer::flex_vector<PtrVal> read_at(size_t pos, size_t length) {
+      return content.drop(pos).take(length);
+    }
+};
+
+// return a symbolic file with size bytes
+inline File make_SymFile(std::string name, size_t size) {
+  immer::flex_vector<PtrVal> content;
+  for (int i = 0; i < size; i++) {
+    content = content.push_back(make_SymV(std::string("FILE_") + name + std::string("_BYTE_") + std::to_string(i)));
+  }
+  return File(name, content);
+};
+
+/* TODO: what is the rule about the lowest file descriptor guarantee?
+ * How do we model that rule? Is there a usecase for that?
+ * Use a particular data structure? <2021-10-12, David Deng> */
+
+// An opened file
+struct Stream {
+  File file;
+  int mode; // a combination of O_RDONLY, O_WRONLY, O_RDWR, etc.
+  size_t offset;
+  Stream(File file, int mode): file(file), mode(mode), offset(0) {}
+};
+
+/* class FS { */
+/*   private: */
+/*     /1* TODO: How does immer handle memory leak if map.find returns a raw pointer? <2021-10-12, David Deng> *1/ */
+/*     /1* NOTE: Use at instead of find for immer::map <2021-10-12, David Deng> *1/ */
+
+/*     immer::map<Fd, Stream> opened_files; */
+/*     immer::map<std::string, File> files; */
+/*     Fd next_fd; */
+
+/*   public: */
+/*     FS() { */
+/*       next_fd = 3; */
+/*       files = files.set("A", make_SymFile("A", 6)); */
+/*     } */
+/*     // immutable operations */
+/*     File get_file(std::string name) { */
+/*     } */
+/*     // mutable operations */
+/*     FS open_file(std::string name, int mode) { */
+/*       /1* TODO: handle different mode <2021-10-12, David Deng> *1/ */
+/*       File* f; */
+/*       if (!(f = files.find(name))) return; */
+/*     } */
+/*     /1* TODO: initialize stdin and stdout with Fd 0 and 1 <2021-10-12, David Deng> *1/ */
+/* } */
 
 class SS {
   private:
