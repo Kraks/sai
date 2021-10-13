@@ -597,14 +597,37 @@ class File {
     File(std::string name): name(name) {}
     File(std::string name, immer::flex_vector<PtrVal> content): name(name), content(content) {}
     File(const File& f): name(f.name), content(f.content) {}
-    File write_at(immer::flex_vector<PtrVal> new_content, size_t pos) {
+
+    // if writing beyond the last byte, will simply append to the end without filling
+    File write_at_no_fill(immer::flex_vector<PtrVal> new_content, size_t pos) {
       return File(name, content.take(pos) + new_content + content.drop(pos + new_content.size()));
+    }
+    File write_at(immer::flex_vector<PtrVal> new_content, size_t pos, PtrVal fill_val) {
+      int fill_size = pos - content.size();
+      if (fill_size > 0) {
+        // fill the new values to reflect the actual pos
+        return File(name, content + immer::flex_vector(fill_size, fill_val)).write_at_no_fill(new_content, pos);
+      } else {
+        return write_at_no_fill(new_content, pos);
+      }
+    }
+    File append(immer::flex_vector<PtrVal> new_content) {
+      return write_at_no_fill(new_content, content.size());
     }
     File clear() {
       return File(name);
     }
-    immer::flex_vector<PtrVal> read_at(size_t pos, size_t length) {
+    size_t get_size() const {
+      return content.size();
+    }
+    std::string get_name() const {
+      return name;
+    }
+    immer::flex_vector<PtrVal> read_at(size_t pos, size_t length) const {
       return content.drop(pos).take(length);
+    }
+    immer::flex_vector<PtrVal> get_content() const {
+      return read_at(0, content.size());
     }
 };
 
