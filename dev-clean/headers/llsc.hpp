@@ -25,6 +25,9 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/resource.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <getopt.h>
 
 #include <sai.hpp>
 //#include <thread_pool.hpp>
@@ -1170,25 +1173,59 @@ struct CoverageMonitor {
 
 inline CoverageMonitor cov;
 
+// TODO: move this to llsc_external.hpp?
+inline bool exlib_failure_branch = false;
+
 // XXX: can also specify symbolic argument here?
 inline void handle_cli_args(int argc, char** argv) {
-  if (argc < 2 || argc > 3) {
-    printf("usage: %s <#threads> [--disable-solver]\n", argv[0]);
-    exit(-1);
+  int c;
+  while (1) {
+    static struct option long_options[] =
+    {
+      /* These options set a flag. */
+      {"disable-solver",       no_argument, &use_solver,           0},
+      {"exlib-failure-branch", no_argument, &exlib_failure_branch, 1},
+      {0,                      0,           0,                     0}
+    };
+    int option_index = 0;
+
+    c = getopt_long(argc, argv, "", long_options, &option_index);
+
+    /* Detect the end of the options. */
+    if (c == -1)
+      break;
+
+    switch (c)
+    {
+      case 0:
+        /* setting flags */
+        break;
+      case '?':
+        // parsing error, should be printed by getopt
+      default:
+        printf("usage: %s <#threads> [--disable-solver] [--exlib-failure-branch]\n", argv[0]);
+        exit(-1);
+    }
+
   }
-  int t = std::stoi(argv[1]);
-  if (t <= 0) {
-    std::cout << "Invalid #threads, use 1 instead.\\n";
-    MAX_ASYNC = 0;
-  } else {
-    MAX_ASYNC = t - 1;
-  }
-  if (MAX_ASYNC == 0) {
-    // It is safe the reuse the global_vc object within one thread, but not otherwise.
-    use_global_solver = true;
-  }
-  if (argc == 3 && std::string(argv[2]) == "--disable-solver") {
-    use_solver = false;
+  // parsing non-options
+  if (optind < argc) {
+    if (optind != argc - 1) {
+      // more than one non-options
+      printf("usage: %s <#threads> [--disable-solver] [--exlib-failure-branch]\n", argv[0]);
+      exit(-1);
+    }
+    int t = std::stoi(argv[optind]);
+    if (t <= 0) {
+      std::cout << "Invalid #threads, use 1 instead.\\n";
+      MAX_ASYNC = 0;
+    } else {
+      MAX_ASYNC = t - 1;
+    }
+    if (MAX_ASYNC == 0) {
+      // It is safe the reuse the global_vc object within one thread, but not otherwise.
+      use_global_solver = true;
+    }
   }
 }
 
