@@ -861,7 +861,7 @@ auto create_async(std::function<T()> f) -> std::future<T> {
 }
 
 // STP interaction
-inline bool use_solver = true;
+inline int use_solver = true;
 inline bool use_global_solver = false;
 inline unsigned int test_query_num = 0;
 inline unsigned int br_query_num = 0;
@@ -1207,9 +1207,9 @@ inline void handle_cli_args(int argc, char** argv) {
     static struct option long_options[] =
     {
       /* These options set a flag. */
-      {"disable-solver",       no_argument, &use_solver,           0},
-      {"exlib-failure-branch", no_argument, &exlib_failure_branch, 1},
-      {0,                      0,           0,                     0}
+      {"disable-solver",       no_argument, 0, 'd'},
+      {"exlib-failure-branch", no_argument, 0, 'f'},
+      {0,                      0,           0, 0}
     };
     int option_index = 0;
 
@@ -1222,7 +1222,12 @@ inline void handle_cli_args(int argc, char** argv) {
     switch (c)
     {
       case 0:
-        /* setting flags */
+        break;
+      case 'd':
+        use_solver = false;
+        break;
+      case 'f':
+        exlib_failure_branch = true;
         break;
       case '?':
         // parsing error, should be printed by getopt
