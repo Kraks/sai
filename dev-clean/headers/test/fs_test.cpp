@@ -72,35 +72,24 @@ void test_stream() {
     ASSERT((s.get_cursor() == 0), "cursor should default to 0");
   }
   {
+    Stream seeked(File("empty"));
     // test seek
-    ASSERT((s.seek_start(15).get_cursor() == 15), "seek start");
-    ASSERT((s.seek_end(15).get_cursor() == 18), "seek start");
-    ASSERT((s.seek_cur(7).seek_cur(8).get_cursor() == 15), "seek start");
+    seeked = s.seek_start(15);
+    ASSERT(seeked.get_cursor() == 15, "seek start");
+    ASSERT(seeked.status_good(), "no error set");
+    seeked = s.seek_end(15);
+    ASSERT(seeked.get_cursor() == 18, "seek end");
+    ASSERT(seeked.status_good(), "no error set");
+    seeked = s.seek_cur(7).seek_cur(8);
+    ASSERT(seeked.get_cursor() == 15, "seek cursor");
+    ASSERT(seeked.status_good(), "no error set");
   }
   {
-    // test seek exception
-    try {
-      s.seek_start(-1);
-      ASSERT(false, "Should throw an exception");
-    } catch (SyscallException& e) {
-      ASSERT(e.get_syscall() == "lseek", "the correct exception should be thrown");
-    }
-
-    try {
-      s.seek_cur(1).seek_cur(-2);
-      ASSERT(false, "Should throw an exception");
-    } catch (SyscallException& e) {
-      ASSERT(e.get_syscall() == "lseek", "the correct exception should be thrown");
-    }
-
-    try {
-      s.seek_end(-5);
-      ASSERT(false, "Should throw an exception");
-    } catch (SyscallException& e) {
-      ASSERT(e.get_syscall() == "lseek", "the correct exception should be thrown");
-    }
+    // test seek error
+    ASSERT(s.seek_start(-1).seek_fail(), "should set error");
+    ASSERT(s.seek_cur(1).seek_cur(-2).seek_fail(), "should set error");
+    ASSERT(s.seek_end(-5).seek_fail(), "should set error");
   }
-
 }
 
 int main() {
