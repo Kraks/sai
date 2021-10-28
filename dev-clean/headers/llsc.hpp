@@ -395,6 +395,12 @@ inline PtrVal int_op_2(iOP op, PtrVal v1, PtrVal v2) {
   }
 }
 
+const ValueType IntV::type_tag;
+const ValueType FloatV::type_tag;
+const ValueType LocV::type_tag;
+const ValueType SymV::type_tag;
+const ValueType StructV::type_tag;
+
 enum fOP {
   op_fadd, op_fsub, op_fmul, op_fdiv
 };
