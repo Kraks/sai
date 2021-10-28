@@ -89,10 +89,6 @@ inline std::string int_op2string(iOP op) {
   return "unknown op";
 }
 
-class LLSCException: public std::exception {
-  virtual const char* what() const noexcept = 0;
-};
-
 struct Value;
 // lazy construction of all the SMT expressions
 using SExpr = std::shared_ptr<Value>;
@@ -561,24 +557,6 @@ class PC {
     void print() { print_set(pc); }
 };
 
-
-class SyscallException: public LLSCException {
-  private:
-    std::string syscall;
-    std::string description;
-  public:
-    SyscallException(const std::string& syscall, const std::string& description):
-      LLSCException(),
-      syscall(syscall),
-      description(description) { };
-    const char* what() const noexcept override {
-      return const_cast<const char*>((std::string("SyscallException\n\tsyscall: ") + syscall +
-        std::string("\n\tdescription: ") + description).c_str());
-    }
-    std::string get_syscall() const { return syscall; }
-};
-
-
 /* TODO: Is the name field necessary? <2021-10-12, David Deng> */
 class File {
   private:
@@ -646,28 +624,53 @@ inline File make_SymFile(std::string name, size_t size) {
 // An opened file
 struct Stream {
   private:
+    using status_t = unsigned short;
     File file;
     int mode; // a combination of O_RDONLY, O_WRONLY, O_RDWR, etc.
     size_t cursor;
+    status_t status {status_good_bit};
   public:
-  Stream(File file): file(file), mode(O_RDONLY), cursor(0) {}
-  Stream(File file, int mode): file(file), mode(mode), cursor(0) {}
-  Stream(File file, int mode, size_t cursor): file(file), mode(mode), cursor(cursor) {}
-  Stream seek_start(long offset) {
-    if (offset < 0) throw SyscallException("lseek", "can't seek a negative value from the start of the file");
-    return Stream(file, mode, offset);
-  }
-  Stream seek_end(long offset) {
-    long new_cursor = file.get_size() + offset;
-    if (new_cursor < 0) throw SyscallException("lseek", "can't seek beyond the beginning of the file");
-    return Stream(file, mode, new_cursor);
-  }
-  Stream seek_cur(long offset) {
-    long new_cursor = cursor + offset;
-    if (new_cursor < 0) throw SyscallException("lseek", "can't seek beyond the beginning of the file");
-    return Stream(file, mode, new_cursor);
-  }
-  size_t get_cursor() const { return cursor; }
+    // error handling
+    static const status_t status_good_bit = 0x0;
+    static const status_t seek_fail_bit = 0x1 << 1;
+    inline status_t get_status() const { return status; }
+    inline Stream set_status(status_t s) { return Stream(file, mode, cursor, status | s); }
+    inline Stream clear_status(status_t s = status_good_bit) { return Stream(file, mode, cursor, s); }
+    inline bool status_good() const { return ~(status ^ status_good_bit); } // status must match status_good_bit
+    inline bool seek_fail() const { return status & seek_fail_bit; }
+
+    Stream(File file): 
+      file(file), 
+      mode(O_RDONLY), 
+      cursor(0) {}
+    Stream(File file, int mode): 
+      file(file), 
+      mode(mode), 
+      cursor(0) {}
+    Stream(File file, int mode, size_t cursor): 
+      file(file), 
+      mode(mode), 
+      cursor(cursor) {}
+    Stream(File file, int mode, size_t cursor, status_t status): 
+      file(file), 
+      mode(mode), 
+      cursor(cursor), 
+      status(status) {}
+    Stream seek_start(long offset) {
+      if (offset < 0) return set_status(seek_fail_bit);
+      return Stream(file, mode, offset);
+    }
+    Stream seek_end(long offset) {
+      long new_cursor = file.get_size() + offset;
+      if (new_cursor < 0) return set_status(seek_fail_bit);
+      return Stream(file, mode, new_cursor);
+    }
+    Stream seek_cur(long offset) {
+      long new_cursor = cursor + offset;
+      if (new_cursor < 0) return set_status(seek_fail_bit);
+      return Stream(file, mode, new_cursor);
+    }
+    size_t get_cursor() const { return cursor; }
 };
 
 class FS {
