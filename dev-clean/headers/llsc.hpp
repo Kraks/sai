@@ -260,7 +260,7 @@ struct LocV : Value {
   }
   virtual PtrVal to_IntV() const override { return std::make_shared<IntV>(l, addr_bw); }
   virtual int get_bw() const override { return addr_bw; }
-  
+
   static const ValueType type_tag = ValueType::tyLoc;
   virtual ValueType get_type() const override { return type_tag; }
   virtual int compare(const Value *v) const override {
@@ -313,7 +313,7 @@ struct SymV : Value {
   virtual bool is_conc() const override { return false; }
   virtual PtrVal to_IntV() const override { return nullptr; }
   virtual int get_bw() const override { return bw; }
-  
+
   static const ValueType type_tag = ValueType::tySym;
   virtual ValueType get_type() const override { return type_tag; }
   virtual int compare(const Value *v) const override {
@@ -360,7 +360,7 @@ struct StructV : Value {
   }
   virtual PtrVal to_IntV() const override { return nullptr; }
   virtual int get_bw() const override { ABORT("get_bw: unexpected value StructV."); }
-  
+
   static const ValueType type_tag = ValueType::tyStruct;
   virtual ValueType get_type() const override { return type_tag; }
   virtual int compare(const Value *v) const override {
@@ -389,7 +389,7 @@ inline PtrVal int_op_2(iOP op, PtrVal v1, PtrVal v2) {
       return make_IntV(i1->i - i2->i, bw1);
     } else if (op == op_mul) {
       return make_IntV(i1->i * i2->i, bw1);
-    // FIXME: singed and unsigned div
+      // FIXME: singed and unsigned div
     } else if (op == op_sdiv || op == op_udiv) {
       return make_IntV(i1->i / i2->i, bw1);
     } else if (op == op_eq) {
@@ -412,7 +412,7 @@ inline PtrVal int_op_2(iOP op, PtrVal v1, PtrVal v2) {
       return make_IntV(i1->i | i2->i, bw1);
     } else if (op == op_xor) {
       return make_IntV(i1->i ^ i2->i, bw1);
-     }else {
+    }else {
       std::cout << op << std::endl;
       ABORT("invalid operator");
     }
@@ -460,7 +460,7 @@ inline PtrVal bv_sext(PtrVal v, int bw) {
       // we override the original bw here
       SExpr e1 = s1->to_SMTExpr();
       return std::make_shared<SymV>(op_sext,
-        immer::flex_vector({ e1 }), bw);
+          immer::flex_vector({ e1 }), bw);
     } else {
       ABORT("Sext an invalid value, exit");
     }
@@ -809,7 +809,7 @@ inline const BlockLabel mt_bb = 0;
 inline const SS mt_ss = SS(mt_mem, mt_stack, mt_pc, mt_bb);
 
 inline const immer::flex_vector<std::pair<SS, PtrVal>> mt_path_result =
-  immer::flex_vector<std::pair<SS, PtrVal>>{};
+immer::flex_vector<std::pair<SS, PtrVal>>{};
 
 /* Stack manipulation */
 
@@ -860,12 +860,12 @@ auto create_async(std::function<T()> f) -> std::future<T> {
   lk.unlock();
 
   std::future<T> fu = std::async(std::launch::async, [&]{
-    T t = f();
-    std::unique_lock<std::mutex> lk(m);
-    num_async--;
-    lk.unlock();
-    return t;
-  });
+      T t = f();
+      std::unique_lock<std::mutex> lk(m);
+      num_async--;
+      lk.unlock();
+      return t;
+      });
   return fu;
 }
 
@@ -892,7 +892,7 @@ inline Expr construct_STP_expr(VC vc, PtrVal e, VarSet &vars) {
     //if (it == stp_env.end()) {
     Expr stp_expr = vc_varExpr(vc, name.c_str(), vc_bvType(vc, sym_e->bw));
     vars.insert(sym_e);
-      //stp_env.insert(std::make_pair(name, stp_expr));
+    //stp_env.insert(std::make_pair(name, stp_expr));
     return stp_expr;
     //}
     //return it->second;
@@ -1092,18 +1092,18 @@ inline void check_pc_to_file(SS state) {
   auto result = c.make_query(state.getPC());
 
   switch (result) {
-  case 0:
-    output << "Query is invalid" << std::endl;
-    break;
-  case 1:
-    output << "Query is Valid" << std::endl;
-    break;
-  case 2:
-    output << "Could not answer the query" << std::endl;
-    break;
-  case 3:
-    output << "Timeout" << std::endl;
-    break;
+    case 0:
+      output << "Query is invalid" << std::endl;
+      break;
+    case 1:
+      output << "Query is Valid" << std::endl;
+      break;
+    case 2:
+      output << "Could not answer the query" << std::endl;
+      break;
+    case 3:
+      output << "Timeout" << std::endl;
+      break;
   }
 
   if (result == 0) {
@@ -1112,7 +1112,7 @@ inline void check_pc_to_file(SS state) {
     filename << "tests/" << test_query_num << ".test";
     int out_fd = open(filename.str().c_str(), O_RDWR | O_CREAT, 0777);
     if (out_fd == -1) {
-        ABORT("Cannot create the test case file, abort.\n");
+      ABORT("Cannot create the test case file, abort.\n");
     }
 
     auto &cex = *c.get_counterexample();
@@ -1166,16 +1166,16 @@ struct CoverageMonitor {
       size_t covered = 0;
       for (auto v : block_cov) { if (v != 0) covered++; }
       std::cout << "#blocks: "
-                << covered << "/"
-                << num_blocks << "; "
-                << std::flush;
+        << covered << "/"
+        << num_blocks << "; "
+        << std::flush;
     }
     void print_block_cov_detail() {
       print_block_cov();
       for (int i = 0; i < block_cov.size(); i++) {
         std::cout << "Block: " << i << "; "
-                  << "visited: " << block_cov[i] << "\n"
-                  << std::flush;
+          << "visited: " << block_cov[i] << "\n"
+          << std::flush;
       }
     }
     void print_async() {
@@ -1188,19 +1188,19 @@ struct CoverageMonitor {
     void print_time() {
       steady_clock::time_point now = steady_clock::now();
       std::cout << "[" << (solver_time.count() / 1000.0) << "s/"
-                << (duration_cast<milliseconds>(now - start).count() / 1000.0) << "s] ";
+        << (duration_cast<milliseconds>(now - start).count() / 1000.0) << "s] ";
     }
     void start_monitor() {
       std::thread([this]{
-        while (this->block_cov.size() <= this->num_blocks) {
+          while (this->block_cov.size() <= this->num_blocks) {
           print_time();
           print_block_cov();
           print_path_cov();
           print_async();
           print_query_num();
           std::this_thread::sleep_for(seconds(1));
-        }
-      }).detach();
+          }
+          }).detach();
     }
 };
 
@@ -1269,8 +1269,8 @@ inline void handle_cli_args(int argc, char** argv) {
 
 inline immer::flex_vector<std::pair<SS, PtrVal>>
 sym_exec_br(SS ss, SExpr t_cond, SExpr f_cond,
-            immer::flex_vector<std::pair<SS, PtrVal>> (*tf)(SS),
-            immer::flex_vector<std::pair<SS, PtrVal>> (*ff)(SS)) {
+    immer::flex_vector<std::pair<SS, PtrVal>> (*tf)(SS),
+    immer::flex_vector<std::pair<SS, PtrVal>> (*ff)(SS)) {
   auto pc = ss.getPC();
   auto tbr_sat = check_pc(pc.insert(t_cond));
   auto fbr_sat = check_pc(pc.insert(f_cond));
@@ -1281,8 +1281,8 @@ sym_exec_br(SS ss, SExpr t_cond, SExpr f_cond,
     if (can_par()) {
       std::future<immer::flex_vector<std::pair<SS, PtrVal>>> tf_res =
         create_async<immer::flex_vector<std::pair<SS, PtrVal>>>([&]{
-          return tf(tbr_ss);
-        });
+            return tf(tbr_ss);
+            });
       auto ff_res = ff(fbr_ss);
       return tf_res.get() + ff_res;
     } else return tf(tbr_ss) + ff(fbr_ss);
@@ -1299,8 +1299,8 @@ sym_exec_br(SS ss, SExpr t_cond, SExpr f_cond,
 
 inline immer::flex_vector<std::pair<SS, PtrVal>>
 exec_br(SS ss, PtrVal cndVal,
-        immer::flex_vector<std::pair<SS, PtrVal>> (*tf)(SS),
-        immer::flex_vector<std::pair<SS, PtrVal>> (*ff)(SS)) {
+    immer::flex_vector<std::pair<SS, PtrVal>> (*tf)(SS),
+    immer::flex_vector<std::pair<SS, PtrVal>> (*ff)(SS)) {
   if (cndVal->is_conc()) {
     if (proj_IntV(cndVal) == 1) return tf(ss);
     return ff(ss);
