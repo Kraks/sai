@@ -288,9 +288,16 @@ inline LocV::Kind proj_LocV_kind(PtrVal v) {
 inline int proj_LocV_size(PtrVal v) {
   return std::dynamic_pointer_cast<LocV>(v)->size;
 }
+inline bool proj_LocV_null(PtrVal v) {
+  return std::dynamic_pointer_cast<LocV>(v)->l == -1;
+}
 
 inline PtrVal make_LocV_inc(PtrVal loc, int i) {
   return make_LocV(proj_LocV(loc) + i, proj_LocV_kind(loc), proj_LocV_size(loc));
+}
+
+inline PtrVal make_LocV_null() {
+  return make_LocV(-1, LocV::kHeap, -1);
 }
 
 struct SymV : Value {
@@ -423,11 +430,11 @@ inline PtrVal int_op_2(iOP op, PtrVal v1, PtrVal v2) {
   }
 }
 
-const ValueType IntV::type_tag;
-const ValueType FloatV::type_tag;
-const ValueType LocV::type_tag;
-const ValueType SymV::type_tag;
-const ValueType StructV::type_tag;
+inline const ValueType IntV::type_tag;
+inline const ValueType FloatV::type_tag;
+inline const ValueType LocV::type_tag;
+inline const ValueType SymV::type_tag;
+inline const ValueType StructV::type_tag;
 
 enum fOP {
   op_fadd, op_fsub, op_fmul, op_fdiv
@@ -656,20 +663,20 @@ inline File make_SymFile(std::string name, size_t size) {
 // An opened file
 struct Stream {
   private:
-    using status_t = unsigned short;
     File file;
     int mode; // a combination of O_RDONLY, O_WRONLY, O_RDWR, etc.
     size_t cursor;
+    using status_t = unsigned short;
     status_t status {status_good_bit};
   public:
     // error handling
     static const status_t status_good_bit = 0x0;
-    static const status_t seek_fail_bit = 0x1 << 1;
+    static const status_t status_seek_fail_bit = 0x1 << 1;
     inline status_t get_status() const { return status; }
     inline Stream set_status(status_t s) { return Stream(file, mode, cursor, status | s); }
     inline Stream clear_status(status_t s = status_good_bit) { return Stream(file, mode, cursor, s); }
     inline bool status_good() const { return ~(status ^ status_good_bit); } // status must match status_good_bit
-    inline bool seek_fail() const { return status & seek_fail_bit; }
+    inline bool status_seek_fail() const { return status & status_seek_fail_bit; }
 
     Stream(File file): 
       file(file), 
@@ -689,17 +696,17 @@ struct Stream {
       cursor(cursor), 
       status(status) {}
     Stream seek_start(long offset) {
-      if (offset < 0) return set_status(seek_fail_bit);
+      if (offset < 0) return set_status(status_seek_fail_bit);
       return Stream(file, mode, offset);
     }
     Stream seek_end(long offset) {
       long new_cursor = file.get_size() + offset;
-      if (new_cursor < 0) return set_status(seek_fail_bit);
+      if (new_cursor < 0) return set_status(status_seek_fail_bit);
       return Stream(file, mode, new_cursor);
     }
     Stream seek_cur(long offset) {
       long new_cursor = cursor + offset;
-      if (new_cursor < 0) return set_status(seek_fail_bit);
+      if (new_cursor < 0) return set_status(status_seek_fail_bit);
       return Stream(file, mode, new_cursor);
     }
     size_t get_cursor() const { return cursor; }
@@ -710,25 +717,71 @@ class FS {
     /* TODO: How does immer handle memory leak if map.find returns a raw pointer? <2021-10-12, David Deng> */
     /* NOTE: Use at instead of find for immer::map <2021-10-12, David Deng> */
 
-    immer::map<Fd, Stream> opened_files;
+    immer::map<Fd, Stream> open_files;
     immer::map<std::string, File> files;
     Fd next_fd;
+    Fd open_fd; // set by open()
 
+    using status_t = unsigned short;
+    status_t status {status_good_bit};
   public:
-    /* FS() { */
-    /*   next_fd = 3; */
-    /*   files = files.set("A", make_SymFile("A", 6)); */
-    /* } */
-    /* // immutable operations */
-    /* File get_file(std::string name) { */
-    /* } */
-    /* // mutable operations */
-    /* FS open_file(std::string name, int mode) { */
-    /*   /1* TODO: handle different mode <2021-10-12, David Deng> *1/ */
-    /*   File* f; */
-    /*   if (!(f = files.find(name))) return; */
-    /* } */
-    /* /1* TODO: initialize stdin and stdout with Fd 0 and 1 <2021-10-12, David Deng> *1/ */
+    static const status_t status_good_bit = 0x0;
+    static const status_t status_open_fail_bit = 0x1 << 1;
+    inline status_t get_status() const { return status; }
+    inline FS set_status(status_t s) { return FS(open_files, files, status | s, next_fd, open_fd); }
+    inline FS clear_status(status_t s = status_good_bit) { return FS(open_files, files, s, next_fd, open_fd); }
+    inline bool status_good() const { return ~(status ^ status_good_bit); } // status must match status_good_bit
+    inline bool status_open_fail() const { return status & status_open_fail_bit; }
+
+    inline Fd get_open_fd() {
+      return open_fd;
+    }
+
+    FS() {
+        // default initialize open_files and files
+        /* TODO: set up stdin and stdout using fd 1 and 2 <2021-11-03, David Deng> */
+        next_fd = 3;
+        open_fd = -1;
+        status = status_good_bit;
+        files = files.set("A", make_SymFile("A", 6));
+    }
+
+    FS(const FS &fs): 
+      open_files(fs.open_files),
+      files(fs.files),
+      status(fs.status),
+      next_fd(fs.next_fd),
+      open_fd(fs.open_fd) {}
+
+    FS(immer::map<Fd, Stream> open_files,
+        immer::map<std::string, File> files,
+        status_t status,
+        Fd next_fd,
+        Fd open_fd):
+      open_files(open_files),
+      files(files),
+      status(status),
+      next_fd(next_fd),
+      open_fd(open_fd) {}
+
+    Stream get_stream(Fd fd) {
+      if (!(open_files.find(fd))) /* Handle error here */
+        ASSERT(false, "cannot get stream that does not exist");
+      return open_files.at(fd);
+    }
+
+    FS open_file(std::string name, int mode) {
+      /* TODO: handle different mode <2021-10-12, David Deng> */
+      const File* f;
+      if (!(f = files.find(name))) /* Handle error here */
+        return set_status(status_open_fail_bit);
+      return FS(open_files.set(next_fd, Stream(*f)), files, status, next_fd+1, next_fd); // read only mode for now
+    }
+
+    FS close_file(Fd fd) {
+      /* TODO: set next_fd the lowest file descriptor? <2021-10-28, David Deng> */
+      return FS(open_files.erase(fd), files, status, next_fd, open_fd);
+    }
 };
 
 class SS {

@@ -33,7 +33,7 @@ inline immer::flex_vector<std::pair<SS, PtrVal>> malloc(SS state, immer::flex_ve
   PtrVal memLoc = make_LocV(state.heap_size(), LocV::kHeap, bytes);
   if (exlib_failure_branch) {
     // simulating the failed branch
-    PtrVal nullLoc = make_LocV(-1, LocV::kHeap, -1);
+    PtrVal nullLoc = make_LocV_null();
     return immer::flex_vector<std::pair<SS, PtrVal>>{{state.heap_append(emptyMem), memLoc}, {state, nullLoc}};
   } else {
     return immer::flex_vector<std::pair<SS, PtrVal>>{{state.heap_append(emptyMem), memLoc}};
@@ -54,6 +54,36 @@ inline immer::flex_vector<std::pair<SS, PtrVal>> realloc(SS state, immer::flex_v
     res = res.update(make_LocV_inc(memLoc, i), res.heap_lookup(src + i));
   }
   return immer::flex_vector<std::pair<SS, PtrVal>>{{res, memLoc}};
+}
+
+inline std::string get_string(PtrVal ptr, SS state) {
+  std::string name;
+  char c = static_cast<char>(proj_IntV(state.at(ptr))); // c = *ptr
+  while (c != '\0') {
+    name += c;
+    ptr = make_LocV_inc(ptr, 1); // ptr++
+    c = static_cast<char>(proj_IntV(state.at(ptr))); // c = *ptr
+  }
+  return name;
+}
+
+inline immer::flex_vector<std::pair<SS, PtrVal>> open(SS state, immer::flex_vector<PtrVal> args) {
+  PtrVal ptr = args.at(0);
+  std::string name = get_string(ptr, state);
+  /* TODO: add flags for open_file <2021-11-03, David Deng> */
+  FS fs = state.get_fs().open_file(name, 0);
+  if (fs.status_open_fail()) {
+    return immer::flex_vector<std::pair<SS, PtrVal>>{{state, make_IntV(-1)}};
+  }
+  auto fd = fs.get_open_fd();
+  return immer::flex_vector<std::pair<SS, PtrVal>>{{state.set_fs(fs), make_IntV(fd)}};
+}
+
+inline immer::flex_vector<std::pair<SS, PtrVal>> close(SS state, immer::flex_vector<PtrVal> args) {
+  Fd fd = proj_IntV(args.at(0));
+  FS fs = state.get_fs().close_file(fd);
+  /* TODO: handle error and return -1 <2021-11-03, David Deng> */
+  return immer::flex_vector<std::pair<SS, PtrVal>>{{state.set_fs(fs), make_IntV(0)}};
 }
 
 inline void handle_pc(immer::set<SExpr> pc) {
