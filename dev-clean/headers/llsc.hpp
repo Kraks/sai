@@ -898,7 +898,7 @@ auto create_async(std::function<T()> f) -> std::future<T> {
 }
 
 // STP interaction
-inline int use_solver = true;
+inline bool use_solver = true;
 inline bool use_global_solver = false;
 inline unsigned int test_query_num = 0;
 inline unsigned int br_query_num = 0;
