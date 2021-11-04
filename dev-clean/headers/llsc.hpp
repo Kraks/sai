@@ -25,8 +25,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/resource.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 #include <getopt.h>
 
 #include <sai.hpp>
@@ -49,6 +49,7 @@ using Id = int;
 using Addr = unsigned int;
 using IntData = long long int;
 using Fd = unsigned int;
+using status_t = unsigned short;
 
 enum iOP {
   op_add, op_sub, op_mul, op_sdiv, op_udiv,
@@ -99,6 +100,8 @@ inline VC global_vc = vc_createValidityChecker();
 
 using PtrVal = std::shared_ptr<Value>;
 
+struct IntV;
+
 struct Value : public std::enable_shared_from_this<Value> {
   friend std::ostream& operator<<(std::ostream&os, const Value& v) {
     return v.toString(os);
@@ -107,7 +110,7 @@ struct Value : public std::enable_shared_from_this<Value> {
   //TODO(GW): toSMTExpr vs toSMTBool?
   virtual SExpr to_SMTExpr() = 0;
   virtual SExpr to_SMTBool() = 0;
-  virtual PtrVal to_IntV() const = 0;
+  virtual std::shared_ptr<IntV> to_IntV() const = 0;
   virtual bool is_conc() const = 0;
   virtual int get_bw() const = 0;
   virtual int compare(const Value *v) const = 0;
@@ -169,7 +172,7 @@ struct IntV : Value {
   virtual SExpr to_SMTBool() override {
     ABORT("to_SMTBool: unexpected value IntV.");
   }
-  virtual PtrVal to_IntV() const override { return std::make_shared<IntV>(i, bw); }
+  virtual std::shared_ptr<IntV> to_IntV() const override { return std::make_shared<IntV>(i, bw); }
   virtual bool is_conc() const override { return true; }
   virtual int get_bw() const override { return bw; }
 
@@ -191,6 +194,12 @@ inline IntData proj_IntV(PtrVal v) {
   return std::dynamic_pointer_cast<IntV>(v)->i;
 }
 
+inline char proj_IntV_char(PtrVal v) {
+  std::shared_ptr<IntV> intV = v->to_IntV();
+  ASSERT(intV->get_bw() == 8, "proj_IntV_char: Bitwidth mismatch");
+  return static_cast<char>(proj_IntV(intV));
+}
+
 struct FloatV : Value {
   float f;
   FloatV(float f) : f(f) {}
@@ -205,7 +214,7 @@ struct FloatV : Value {
     ABORT("to_SMTBool: unexpected value FloatV.");
   }
   virtual bool is_conc() const override { return true; }
-  virtual PtrVal to_IntV() const override { return nullptr; }
+  virtual std::shared_ptr<IntV> to_IntV() const override { return nullptr; }
   virtual int get_bw() const override { ABORT("get_bw: unexpected value FloatV."); }
 
   virtual int compare(const Value *v) const override {
@@ -241,8 +250,14 @@ struct LocV : Value {
   virtual bool is_conc() const override {
     ABORT("is_conc: unexpected value LocV.");
   }
-  virtual PtrVal to_IntV() const override { return std::make_shared<IntV>(l, addr_bw); }
+  virtual std::shared_ptr<IntV> to_IntV() const override { return std::make_shared<IntV>(l, addr_bw); }
   virtual int get_bw() const override { return addr_bw; }
+
+  virtual int compare(const Value *v) const override {
+    auto that = static_cast<decltype(this)>(v);
+    COMPARE_3WAYS_RET(this->k, that->k);
+    return compare_3ways(this->l, that->l);
+  }
 };
 
 inline PtrVal make_LocV(unsigned int i, LocV::Kind k, int size) {
@@ -262,7 +277,7 @@ inline LocV::Kind proj_LocV_kind(PtrVal v) {
 inline int proj_LocV_size(PtrVal v) {
   return std::dynamic_pointer_cast<LocV>(v)->size;
 }
-inline bool proj_LocV_null(PtrVal v) {
+inline bool is_LocV_null(PtrVal v) {
   return std::dynamic_pointer_cast<LocV>(v)->l == -1;
 }
 
@@ -292,7 +307,7 @@ struct SymV : Value {
   virtual SExpr to_SMTExpr() override { return shared_from_this(); }
   virtual SExpr to_SMTBool() override { return shared_from_this(); }
   virtual bool is_conc() const override { return false; }
-  virtual PtrVal to_IntV() const override { return nullptr; }
+  virtual std::shared_ptr<IntV> to_IntV() const override { return nullptr; }
   virtual int get_bw() const override { return bw; }
 
   virtual int compare(const Value *v) const override {
@@ -336,7 +351,7 @@ struct StructV : Value {
   virtual bool is_conc() const override {
     ABORT("is_conc: unexpected value StructV.");
   }
-  virtual PtrVal to_IntV() const override { return nullptr; }
+  virtual std::shared_ptr<IntV> to_IntV() const override { return nullptr; }
   virtual int get_bw() const override { ABORT("get_bw: unexpected value StructV."); }
 
   virtual int compare(const Value *v) const override {
@@ -397,12 +412,6 @@ inline PtrVal int_op_2(iOP op, PtrVal v1, PtrVal v2) {
     return std::make_shared<SymV>(op, immer::flex_vector({ e1, e2 }), bw1);
   }
 }
-
-inline const ValueType IntV::type_tag;
-inline const ValueType FloatV::type_tag;
-inline const ValueType LocV::type_tag;
-inline const ValueType SymV::type_tag;
-inline const ValueType StructV::type_tag;
 
 enum fOP {
   op_fadd, op_fsub, op_fmul, op_fdiv
@@ -634,7 +643,6 @@ struct Stream {
     File file;
     int mode; // a combination of O_RDONLY, O_WRONLY, O_RDWR, etc.
     size_t cursor;
-    using status_t = unsigned short;
     status_t status {status_good_bit};
   public:
     // error handling
@@ -646,22 +654,22 @@ struct Stream {
     inline bool status_good() const { return ~(status ^ status_good_bit); } // status must match status_good_bit
     inline bool status_seek_fail() const { return status & status_seek_fail_bit; }
 
-    Stream(File file): 
-      file(file), 
-      mode(O_RDONLY), 
+    Stream(File file):
+      file(file),
+      mode(O_RDONLY),
       cursor(0) {}
-    Stream(File file, int mode): 
-      file(file), 
-      mode(mode), 
+    Stream(File file, int mode):
+      file(file),
+      mode(mode),
       cursor(0) {}
-    Stream(File file, int mode, size_t cursor): 
-      file(file), 
-      mode(mode), 
+    Stream(File file, int mode, size_t cursor):
+      file(file),
+      mode(mode),
       cursor(cursor) {}
-    Stream(File file, int mode, size_t cursor, status_t status): 
-      file(file), 
-      mode(mode), 
-      cursor(cursor), 
+    Stream(File file, int mode, size_t cursor, status_t status):
+      file(file),
+      mode(mode),
+      cursor(cursor),
       status(status) {}
     Stream seek_start(long offset) {
       if (offset < 0) return set_status(status_seek_fail_bit);
@@ -690,7 +698,6 @@ class FS {
     Fd next_fd;
     Fd open_fd; // set by open()
 
-    using status_t = unsigned short;
     status_t status {status_good_bit};
   public:
     static const status_t status_good_bit = 0x0;
@@ -714,7 +721,7 @@ class FS {
         files = files.set("A", make_SymFile("A", 6));
     }
 
-    FS(const FS &fs): 
+    FS(const FS &fs):
       open_files(fs.open_files),
       files(fs.files),
       status(fs.status),

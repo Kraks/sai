@@ -22,8 +22,6 @@
 
 // #define DEBUG
 
-// #define EXLIB_FAILURE_BRANCH
-
 // Auxiliary definitions
 
 using String = std::string;

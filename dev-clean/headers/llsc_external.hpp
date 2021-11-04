@@ -58,11 +58,11 @@ inline immer::flex_vector<std::pair<SS, PtrVal>> realloc(SS state, immer::flex_v
 
 inline std::string get_string(PtrVal ptr, SS state) {
   std::string name;
-  char c = static_cast<char>(proj_IntV(state.at(ptr))); // c = *ptr
+  char c = proj_IntV_char(state.at(ptr)); // c = *ptr
   while (c != '\0') {
     name += c;
     ptr = make_LocV_inc(ptr, 1); // ptr++
-    c = static_cast<char>(proj_IntV(state.at(ptr))); // c = *ptr
+    c = proj_IntV_char(state.at(ptr)); // c = *ptr
   }
   return name;
 }
