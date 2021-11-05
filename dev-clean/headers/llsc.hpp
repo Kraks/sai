@@ -747,10 +747,9 @@ class FS {
 
     FS open_file(std::string name, int mode) {
       /* TODO: handle different mode <2021-10-12, David Deng> */
-      const File* f;
-      if (!(f = files.find(name))) /* Handle error here */
+      if (!(files.find(name))) /* Handle error here */
         return set_status(status_open_fail_bit);
-      return FS(open_files.set(next_fd, Stream(*f)), files, status, next_fd+1, next_fd); // read only mode for now
+      return FS(open_files.set(next_fd, Stream(files.at(name))), files, status, next_fd+1, next_fd); // read only mode for now
     }
 
     FS close_file(Fd fd) {
