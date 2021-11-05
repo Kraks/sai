@@ -693,68 +693,68 @@ class FS {
     /* TODO: How does immer handle memory leak if map.find returns a raw pointer? <2021-10-12, David Deng> */
     /* NOTE: Use at instead of find for immer::map <2021-10-12, David Deng> */
 
-    immer::map<Fd, Stream> open_files;
+    immer::map<Fd, Stream> opened_files;
     immer::map<std::string, File> files;
     Fd next_fd;
-    Fd open_fd; // set by open()
+    Fd last_opened_fd; // set by open_files()
 
     status_t status {status_good_bit};
   public:
     static const status_t status_good_bit = 0x0;
     static const status_t status_open_fail_bit = 0x1 << 1;
     inline status_t get_status() const { return status; }
-    inline FS set_status(status_t s) { return FS(open_files, files, status | s, next_fd, open_fd); }
-    inline FS clear_status(status_t s = status_good_bit) { return FS(open_files, files, s, next_fd, open_fd); }
+    inline FS set_status(status_t s) { return FS(opened_files, files, status | s, next_fd, last_opened_fd); }
+    inline FS clear_status(status_t s = status_good_bit) { return FS(opened_files, files, s, next_fd, last_opened_fd); }
     inline bool status_good() const { return ~(status ^ status_good_bit); } // status must match status_good_bit
     inline bool status_open_fail() const { return status & status_open_fail_bit; }
 
     inline Fd get_open_fd() {
-      return open_fd;
+      return last_opened_fd;
     }
 
     FS() {
-        // default initialize open_files and files
+        // default initialize opened_files and files
         /* TODO: set up stdin and stdout using fd 1 and 2 <2021-11-03, David Deng> */
         next_fd = 3;
-        open_fd = -1;
+        last_opened_fd = -1;
         status = status_good_bit;
         files = files.set("A", make_SymFile("A", 6));
     }
 
     FS(const FS &fs):
-      open_files(fs.open_files),
+      opened_files(fs.opened_files),
       files(fs.files),
       status(fs.status),
       next_fd(fs.next_fd),
-      open_fd(fs.open_fd) {}
+      last_opened_fd(fs.last_opened_fd) {}
 
-    FS(immer::map<Fd, Stream> open_files,
+    FS(immer::map<Fd, Stream> opened_files,
         immer::map<std::string, File> files,
         status_t status,
         Fd next_fd,
-        Fd open_fd):
-      open_files(open_files),
+        Fd last_opened_fd):
+      opened_files(opened_files),
       files(files),
       status(status),
       next_fd(next_fd),
-      open_fd(open_fd) {}
+      last_opened_fd(last_opened_fd) {}
 
     Stream get_stream(Fd fd) {
-      if (!(open_files.find(fd))) /* Handle error here */
+      if (!(opened_files.find(fd))) /* Handle error here */
         ASSERT(false, "cannot get stream that does not exist");
-      return open_files.at(fd);
+      return opened_files.at(fd);
     }
 
     FS open_file(std::string name, int mode) {
       /* TODO: handle different mode <2021-10-12, David Deng> */
       if (!(files.find(name))) /* Handle error here */
         return set_status(status_open_fail_bit);
-      return FS(open_files.set(next_fd, Stream(files.at(name))), files, status, next_fd+1, next_fd); // read only mode for now
+      return FS(opened_files.set(next_fd, Stream(files.at(name))), files, status, next_fd+1, next_fd); // read only mode for now
     }
 
     FS close_file(Fd fd) {
       /* TODO: set next_fd the lowest file descriptor? <2021-10-28, David Deng> */
-      return FS(open_files.erase(fd), files, status, next_fd, open_fd);
+      return FS(opened_files.erase(fd), files, status, next_fd, last_opened_fd);
     }
 };
 
