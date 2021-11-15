@@ -16,6 +16,18 @@ trait CppSAICodeGenBase extends ExtendedCPPCodeGen
     with CppCodeGen_Set  with STPCodeGen_SMTBase with STPCodeGen_SMTBV
     with STPCodeGen_SMTArray {
 
+  override def remap(m: Manifest[_]): String = {
+    val name = m.runtimeClass.getName
+    if (name.startsWith("scala.Function")) {
+      val ret = remap(m.typeArguments.last)
+      val params = m.typeArguments.dropRight(1).map(remap(_)).mkString(", ")
+      s"std::function<${ret}($params)>"
+    } else if (name.endsWith("$Ref")) {
+      val kty = m.typeArguments(0)
+      s"${remap(kty)}&"
+    } else super.remap(m)
+  }
+
   override def quote(s: Def): String = s match {
     case Const(()) => "std::monostate{}";
     case _ => super.quote(s)
@@ -45,7 +57,7 @@ trait CppSAICodeGenBase extends ExtendedCPPCodeGen
     def wraper(numStms: Int, l: Option[Node], y: Block)(f: => Unit) = {
       emitln("{")
       f
-      // Return a a monostate value, otherwise g++ -O3 will generate a binary with core dump
+      // Return a monostate value, otherwise g++ -O3 will generate a binary with core dump
       if (y.res == Const(())) es"return std::monostate{};"
       else es"return ${y.res};"
       emitln(quoteEff(y.eff))

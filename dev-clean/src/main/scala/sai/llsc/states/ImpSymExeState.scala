@@ -1,14 +1,7 @@
-package sai.llsc
+package sai.llsc.imp
 
 import sai.lang.llvm._
 import sai.lang.llvm.IR._
-
-import sai.structure.freer._
-import Eff._
-import Freer._
-import Handlers._
-import OpenUnion._
-import State._
 
 import lms.core._
 import lms.core.Backend._
@@ -35,7 +28,9 @@ import scala.collection.mutable.{Set => MultableSet}
  */
 
 @virtualize
-trait SymExeDefs extends SAIOps with StagedNondet {
+trait ImpSymExeDefs extends SAIOps {
+  type Cont = ((Ref[SS], Value) => Unit)
+
   object Coverage {
     import scala.collection.mutable.HashMap
     private var counter: Int = 0
@@ -61,55 +56,6 @@ trait SymExeDefs extends SAIOps with StagedNondet {
     def printTime: Rep[Unit] = "print-time".reflectWriteWith[Unit]()(Adapter.CTRL)
   }
 
-  trait Future[T]
-  object ThreadPool {
-    def enqueue[T: Manifest](f: Rep[Unit] => Rep[T]): Rep[Future[T]] = {
-      val block = Adapter.g.reify(x => Unwrap(f(Wrap[Unit](x))))
-      Wrap[Future[T]](Adapter.g.reflectWrite("tp-enqueue", block)(Adapter.CTRL))
-    }
-    def async[T: Manifest](f: Rep[Unit] => Rep[T]): Rep[Future[T]] = {
-      val block = Adapter.g.reify(x => Unwrap(f(Wrap[Unit](x))))
-      Wrap[Future[T]](Adapter.g.reflectWrite("tp-async", block)(Adapter.CTRL))
-    }
-    def get[T: Manifest](f: Rep[Future[T]]): Rep[T] =
-      "tp-future-get".reflectWriteWith[T](f)(Adapter.CTRL)
-
-    def canPar: Rep[Boolean] = "can-par".reflectWriteWith[Boolean]()(Adapter.CTRL)
-  }
-
-  def runParRepNondet[A: Manifest](comp: Comp[Nondet ⊗ ∅, Rep[A]]): Comp[∅, Rep[List[A]]] = {
-    (handler[Nondet, ∅, Rep[A], Rep[List[A]]] {
-      case Return(x) => ret(List(x))
-    } (new DeepH[Nondet, ∅, Rep[List[A]]] {
-      def apply[X] = {
-        case NondetList$(xs, k) => ret(xs.foldLeft(List[A]()) { case (acc, x) => acc ++ k(x) })
-        case BinChoice$((), k) =>
-          for {
-            xs <- k(true)
-            ys <- k(false)
-          } yield {
-            //System.out.println(xs, ys)
-            xs ++ ys
-          }
-      }
-    }))(comp)
-  }
-
-  def reify[T: Manifest](s: Rep[SS])(comp: Comp[E, Rep[T]]): Rep[List[(SS, T)]] = {
-    val p1: Comp[Nondet ⊗ ∅, (Rep[SS], Rep[T])] =
-      State.runState[Nondet ⊗ ∅, Rep[SS], Rep[T]](s)(comp)
-    val p2: Comp[Nondet ⊗ ∅, Rep[(SS, T)]] = p1.map(a => a)
-    val p3: Comp[∅, Rep[List[(SS, T)]]] = runRepNondet[(SS, T)](p2)
-    p3
-  }
-
-  def reflect[T: Manifest](res: Rep[List[(SS, T)]]): Comp[E, Rep[T]] = {
-    for {
-      ssu <- select[E, (SS, T)](res)
-      _ <- put[Rep[SS], E](ssu._1)
-    } yield ssu._2
-  }
-
   trait Mem
   trait Value
   trait Stack
@@ -119,11 +65,35 @@ trait SymExeDefs extends SAIOps with StagedNondet {
   type BlockLabel = Int
   type Addr = Int
   type PC = Set[SMTBool]
-  type E = State[Rep[SS], *] ⊗ (Nondet ⊗ ∅)
 
   final val BYTE_SIZE: Int = 8
   final val DEFAULT_INT_BW: Int = BYTE_SIZE * 4
   final val ARCH_WORD_SIZE: Int = 64
+
+  /* 0 -- all control dependency
+   * 1 -- read/write hard dependency
+   * 2 -- hard + soft dependency
+   */
+  var depLevel: Int = 2
+
+  // Auxiliary effectful reflect functions for the experiment
+  def reflectCtrl[T: Manifest](op: String, rs: Rep[_]*): Rep[T] =
+    Wrap[T](Adapter.g.reflectEffect(op, rs.map(Unwrap):_*)(Adapter.CTRL)(Adapter.CTRL))
+  def reflectRW[T: Manifest](op: String, rs: Rep[_]*)(rk: Rep[_]*)(wk: Rep[_]*): Rep[T] =
+    Wrap[T](Adapter.g.reflectEffect(op, rs.map(Unwrap):_*)(rk.map(Unwrap):_*)(wk.map(Unwrap):_*))
+
+  def reflectRead[T: Manifest](op: String, rs: Rep[_]*)(es: Rep[_]*): Rep[T] =
+    if (depLevel == 0) reflectCtrl[T](op, rs:_*)
+    else if (depLevel == 1) reflectRW[T](op, rs:_*)(es:_*)(es:_*)
+    else if (depLevel == 2) Wrap[T](Adapter.g.reflectRead(op, rs.map(Unwrap):_*)(es.map(Unwrap):_*))
+    else ???
+  def reflectWrite[T: Manifest](op: String, rs: Rep[_]*)(es: Rep[_]*): Rep[T] =
+    if (depLevel == 0) reflectCtrl[T](op, rs:_*)
+    else if (depLevel == 1) reflectRW[T](op, rs:_*)(es:_*)(es:_*)
+    else if (depLevel == 2) Wrap[T](Adapter.g.reflectWrite(op, rs.map(Unwrap):_*)(es.map(Unwrap):_*))
+    else ???
+
+  def currentMethodName: String = Thread.currentThread.getStackTrace()(2).getMethodName
 
   object SS {
     def init: Rep[SS] = "init-ss".reflectWriteWith[SS]()(Adapter.CTRL)
@@ -133,36 +103,38 @@ trait SymExeDefs extends SAIOps with StagedNondet {
   }
 
   class SSOps(ss: Rep[SS]) {
-    private def assignSeq(xs: List[Int], vs: Rep[List[Value]]): Rep[SS] =
-      "ss-assign-seq".reflectWith[SS](ss, xs, vs)
+    private def assignSeq(xs: List[Int], vs: Rep[List[Value]]): Rep[Unit] =
+      reflectWrite[Unit]("ss-assign-seq", ss, xs, vs)(ss)
 
-    def lookup(x: String): Rep[Value] = "ss-lookup-env".reflectWith[Value](ss, x.hashCode)
-    def assign(x: String, v: Rep[Value]): Rep[SS] = "ss-assign".reflectWith[SS](ss, x.hashCode, v)
-    def assign(xs: List[String], vs: Rep[List[Value]]): Rep[SS] = assignSeq(xs.map(_.hashCode), vs)
+    def lookup(x: String): Rep[Value] = reflectRead[Value]("ss-lookup-env", ss, x.hashCode)(ss)
+    def assign(x: String, v: Rep[Value]): Rep[Unit] = reflectWrite[Unit]("ss-assign", ss, x.hashCode, v)(ss)
+    def assign(xs: List[String], vs: Rep[List[Value]]): Rep[Unit] = assignSeq(xs.map(_.hashCode), vs)
     def lookup(addr: Rep[Value], size: Int = 1, isStruct: Int = 0): Rep[Value] = {
       require(size > 0)
-      if (isStruct == 0) "ss-lookup-addr".reflectWith[Value](ss, addr)
-      else "ss-lookup-addr-struct".reflectWith[Value](ss, addr, size)
+      if (isStruct == 0) reflectRead[Value]("ss-lookup-addr", ss, addr)(ss)
+      else reflectRead[Value]("ss-lookup-addr-struct", ss, addr, size)(ss)
     }
-    def update(a: Rep[Value], v: Rep[Value]): Rep[SS] = "ss-update".reflectWith[SS](ss, a, v)
-    def allocStack(n: Rep[Int]): Rep[SS] = "ss-alloc-stack".reflectWith[SS](ss, n)
+    def update(a: Rep[Value], v: Rep[Value]): Rep[Unit] = reflectWrite[Unit]("ss-update", ss, a, v)(ss)
+    def allocStack(n: Rep[Int]): Rep[Unit] = reflectWrite[Unit]("ss-alloc-stack", ss, n)(ss)
 
-    def heapLookup(addr: Rep[Addr]): Rep[Value] = "ss-lookup-heap".reflectWith[Value](ss, addr)
-    def heapSize: Rep[Int] = "ss-heap-size".reflectWith[Int](ss)
-    def heapAppend(vs: Rep[List[Value]]) = "ss-heap-append".reflectWith[SS](ss, vs)
+    def heapLookup(addr: Rep[Addr]): Rep[Value] = reflectRead[Value]("ss-lookup-heap", ss, addr)(ss)
+    def heapSize: Rep[Int] = reflectRead[Int]("ss-heap-size", ss)(ss)
+    def heapAppend(vs: Rep[List[Value]]): Rep[Unit] = reflectWrite[Unit]("ss-heap-append", ss, vs)(ss)
 
-    def stackSize: Rep[Int] = "ss-stack-size".reflectWith[Int](ss)
+    def stackSize: Rep[Int] = reflectRead[Int]("ss-stack-size", ss)(ss)
     def freshStackAddr: Rep[Addr] = stackSize
 
-    def push: Rep[SS] = "ss-push".reflectWith[SS](ss)
-    def pop(keep: Rep[Int]): Rep[SS] = "ss-pop".reflectWith[SS](ss, keep)
-    def addPC(e: Rep[SMTBool]): Rep[SS] = "ss-addpc".reflectWith[SS](ss, e)
-    def addPCSet(es: Rep[Set[SMTBool]]): Rep[SS] = "ss-addpcset".reflectWith[SS](ss, es)
+    def push: Rep[Unit] = reflectWrite[Unit]("ss-push", ss)(ss)
+    def pop(keep: Rep[Int]): Rep[Unit] = reflectWrite[Unit]("ss-pop", ss, keep)(ss, Adapter.CTRL) // XXX: since pop is used in a map, will be DCE-ed if no CTRL
+    def addPC(e: Rep[SMTBool]): Rep[Unit] = reflectWrite[Unit]("ss-addpc", ss, e)(ss)
+    def addPCSet(es: Rep[Set[SMTBool]]): Rep[Unit] = reflectWrite[Unit]("ss-addpcset", ss, es)(ss)
     def pc: Rep[PC] = "get-pc".reflectWith[PC](ss)
-    def updateArg(l: Rep[Int]): Rep[SS] = "ss-arg".reflectWith[SS](ss, l)
+    def updateArg(l: Rep[Int]): Rep[Unit] = reflectWrite[Unit]("ss-arg", ss, l)(ss)
 
-    def addIncomingBlock(x: String): Rep[SS] = "ss-add-incoming-block".reflectWith[SS](ss, x.hashCode)
-    def incomingBlock: Rep[BlockLabel] = "ss-incoming-block".reflectWith[BlockLabel](ss)
+    def addIncomingBlock(x: String): Rep[Unit] = reflectWrite[Unit]("ss-add-incoming-block", ss, x.hashCode)(ss)
+    def incomingBlock: Rep[BlockLabel] = reflectRead[BlockLabel]("ss-incoming-block", ss)(ss)
+
+    def copy: Rep[SS] = reflectRead[SS]("ss-copy", ss)(ss)
   }
 
   implicit class SSOpsOpt(ss: Rep[SS]) extends SSOps(ss) {
@@ -174,43 +146,13 @@ trait SymExeDefs extends SAIOps with StagedNondet {
         // TODO: ss-assign-seq?
         case _ => default
       }
-
     override def lookup(x: String): Rep[Value] = lookupOpt(x.hashCode, Unwrap(ss), super.lookup(x), 5)
-    override def assign(x: String, v: Rep[Value]): Rep[SS] = Unwrap(ss) match {
-      /*
-      case Adapter.g.Def("ss-assign", ss0::Backend.Const(y: Int)::(w: Backend.Exp)::Nil) =>
-        val hs: Rep[List[Int]] = List(y, x.hashCode)
-        val vs: Rep[List[Value]] = List(Wrap[Value](w), v)
-        // s.lookup(x) if x != s0.assign(x, v)
-        Wrap[SS](Adapter.g.reflect("ss-assign-seq", ss0, Unwrap(hs), Unwrap(vs)))
-       */
-      case _ => super.assign(x, v)
-    }
   }
 
-  def putState(s: Rep[SS]): Comp[E, Rep[Unit]] = for { _ <- put[Rep[SS], E](s) } yield ()
-  def getState: Comp[E, Rep[SS]] = get[Rep[SS], E]
-
-  def updateState(f: Rep[SS] => Rep[SS]): Comp[E, Rep[Unit]] =
-    for {
-      ss <- getState
-      _ <- putState(f(ss))
-    } yield ()
-
-  def heapAppend(vs: Rep[List[Value]]): Comp[E, Rep[Unit]]  = updateState(_.heapAppend(vs))
-  def stackUpdate(xs: List[String], vs: Rep[List[Value]]): Comp[E, Rep[Unit]] = updateState(_.assign(xs, vs))
-  def stackUpdate(x: String, v: Rep[Value]): Comp[E, Rep[Unit]] = updateState(_.assign(x, v))
-  def pushFrame: Comp[E, Rep[Unit]] = updateState(_.push)
-  def popFrame(keep: Rep[Int]): Comp[E, Rep[Unit]] = updateState(_.pop(keep))
-  def updateMem(k: Rep[Value], v: Rep[Value]): Comp[E, Rep[Unit]] = updateState(_.update(k, v))
-  def updatePCSet(x: Rep[Set[SMTBool]]): Comp[E, Rep[Unit]] = updateState(_.addPCSet(x))
-  def updatePC(x: Rep[SMTBool]): Comp[E, Rep[Unit]] = updateState(_.addPC(x))
-  def updateIncomingBlock(x: String): Comp[E, Rep[Unit]] = updateState(_.addIncomingBlock(x))
-  def initializeArg(x: Rep[Int]): Comp[E, Rep[Unit]] = updateState(_.updateArg(x))
-
-  def getRealBlockFunName(bf: Rep[SS => List[(SS, Value)]]): String = {
-    FunName.blockMap(Unwrap(bf).asInstanceOf[Backend.Sym].n)
-  }
+  implicit class RefSSOps(ss: Rep[Ref[SS]]) extends SSOpsOpt(ss.asRepOf[SS])
+  implicit def lift(v: Rep[Value])(implicit s: Rep[SS]): Rep[List[(SS, Value)]] = List[(SS, Value)]((s, v))
+  implicit def SS2RefSS(s: Rep[SS]): Rep[Ref[SS]] = s.asRepOf[Ref[SS]]
+  implicit def RefSS2SS(s: Rep[Ref[SS]]): Rep[SS] = s.asRepOf[SS]
 
   object IntV {
     def apply(i: Rep[Int]): Rep[Value] = IntV(i, DEFAULT_INT_BW)
@@ -238,11 +180,15 @@ trait SymExeDefs extends SAIOps with StagedNondet {
       Rep[Value] = "make_LocV".reflectMutableWith[Value](l, kind, size)
   }
   object FunV {
-    def apply(f: Rep[(SS, List[Value]) => List[(SS, Value)]]): Rep[Value] = f.asRepOf[Value]
+    def apply(f: Rep[(Ref[SS], List[Value]) => List[(SS, Value)]]): Rep[Value] = f.asRepOf[Value]
+  }
+  object CPSFunV {
+    def apply(f: Rep[(Ref[SS], List[Value], Cont) => Unit]): Rep[Value] = f.asRepOf[Value]
   }
   object SymV {
     def apply(s: Rep[String]): Rep[Value] = apply(s, DEFAULT_INT_BW)
-    def apply(s: Rep[String], bw: Int): Rep[Value] = "make_SymV".reflectWriteWith[Value](s, bw)(Adapter.CTRL)
+    def apply(s: Rep[String], bw: Int): Rep[Value] =
+      "make_SymV".reflectWriteWith[Value](s, bw)(Adapter.CTRL) //XXX: reflectMutable?
     def makeSymVList(i: Int): Rep[List[Value]] = {
       List[Value](Range(0, i).map(x => apply("x" + x.toString)):_*)
     }
@@ -272,11 +218,28 @@ trait SymExeDefs extends SAIOps with StagedNondet {
     def structAt(i: Rep[Int]) = "structV_at".reflectWith[Value](v, i)
     def apply(s: Rep[SS], args: Rep[List[Value]]): Rep[List[(SS, Value)]] = {
       Unwrap(v) match {
+        case Adapter.g.Def("llsc-external-wrapper", Backend.Const("noop")::Nil) =>
+          List((s, IntV(0)))
         case Adapter.g.Def("llsc-external-wrapper", Backend.Const(f: String)::Nil) =>
           f.reflectWith[List[(SS, Value)]](s, args)
         case _ =>
           val f = v.asRepOf[(SS, List[Value]) => List[(SS, Value)]]
           f(s, args)
+      }
+    }
+    // The CPS version
+    def apply(s: Rep[SS], args: Rep[List[Value]], k: Rep[Cont]): Rep[Unit] = {
+      Unwrap(v) match {
+        case Adapter.g.Def("llsc-external-wrapper", Backend.Const("noop")::Nil) =>
+          k(s, IntV(0))
+        case Adapter.g.Def("llsc-external-wrapper", Backend.Const(f: String)::Nil) =>
+          // XXX: if the external function does not diverge, we don' need to
+          // pass the continuation into it, we can just return a pair of state/value.
+          System.out.println("use external function: " + f)
+          f.reflectWith[Unit](s, args, k)
+        case _ =>
+          val f = v.asRepOf[(SS, List[Value], Cont) => Unit]
+          f(s, args, k)
       }
     }
     def deref: Rep[Any] = "ValPtr-deref".reflectWith[Any](v)
@@ -300,10 +263,9 @@ trait SymExeDefs extends SAIOps with StagedNondet {
   }
 
   object External extends Serializable {
-    val warned_external = MultableSet[String]()
-    val modeled_external: MultableSet[String] = MultableSet(
-      "sym_print", "malloc", "realloc", "llsc_assert", "make_symbolic", 
-      "open", "close",
+    val warned = MultableSet[String]()
+    val modeled = MultableSet[String](
+      "sym_print", "malloc", "realloc", "llsc_assert", "make_symbolic",
       "__assert_fail"
     )
     def print: Rep[Value] = "llsc-external-wrapper".reflectWith[Value]("sym_print")
@@ -311,29 +273,22 @@ trait SymExeDefs extends SAIOps with StagedNondet {
   }
 
   object Intrinsics {
-    val warned_set = MultableSet[String]()
-    def match_intrinsics(id: String): Rep[Value] = id match {
-      case id if id.startsWith("@llvm.va_start") => llvm_va_start
-      case id if id.startsWith("@llvm.memcpy") => llvm_memcopy
-      case id if id.startsWith("@llvm.memset") => llvm_memset
-      case id if id.startsWith("@llvm.memmove") => llvm_memset
-      case _ => {
-        if (!warned_set.contains(id)) {
+    val warnedSet = MultableSet[String]()
+    def get(id: String): Rep[Value] =
+      if (id.startsWith("@llvm.va_start")) llvm_va_start
+      else if (id.startsWith("@llvm.memcpy")) llvm_memcopy
+      else if (id.startsWith("@llvm.memset")) llvm_memset
+      else if (id.startsWith("@llvm.memmove")) llvm_memset
+      else {
+        if (!warnedSet.contains(id)) {
           System.out.println(s"Warning: intrinsic $id is ignored")
-          warned_set.add(id)
+          warnedSet.add(id)
         }
         External.noop
       }
-    }
     def llvm_memcopy: Rep[Value] = "llsc-external-wrapper".reflectWith[Value]("llvm_memcpy")
     def llvm_va_start: Rep[Value] = "llsc-external-wrapper".reflectWith[Value]("llvm_va_start")
     def llvm_memset: Rep[Value] = "llsc-external-wrapper".reflectWith[Value]("llvm_memset")
     def llvm_memmove: Rep[Value] = "llsc-external-wrapper".reflectWith[Value]("llvm_memmove")
   }
-}
-
-object FunName {
-  // Maps LMS node ids to real function names
-  val funMap: MultableMap[Int, String] = MultableMap()
-  val blockMap: MultableMap[Int, String] = MultableMap()
 }

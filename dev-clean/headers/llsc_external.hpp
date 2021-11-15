@@ -43,7 +43,7 @@ inline immer::flex_vector<std::pair<SS, PtrVal>> malloc(SS state, immer::flex_ve
 inline immer::flex_vector<std::pair<SS, PtrVal>> realloc(SS state, immer::flex_vector<PtrVal> args) {
   Addr src = proj_LocV(args.at(0));
   IntData bytes = proj_IntV(args.at(1));
-  
+
   auto emptyMem = immer::flex_vector<PtrVal>(bytes, make_IntV(0));
   std::cout << "realloc size: " << emptyMem.size() << std::endl;
   PtrVal memLoc = make_LocV(state.heap_size(), LocV::kHeap, bytes);
@@ -94,8 +94,9 @@ inline void handle_pc(immer::set<SExpr> pc) {
 }
 
 inline immer::flex_vector<std::pair<SS, PtrVal>> llsc_assert(SS state, immer::flex_vector<PtrVal> args) {
-  immer::set<SExpr> pc = state.getPC();
-  handle_pc(pc);
+  // XXX(GW): temporarily commented, should invoke Checker and generate test case properly?
+  //immer::set<SExpr> pc = state.getPC();
+  //handle_pc(pc);
   return immer::flex_vector<std::pair<SS, PtrVal>>{{state, make_IntV(0)}};
 }
 

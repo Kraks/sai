@@ -25,9 +25,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/resource.h>
-#include <cstdio>
-#include <cstdlib>
-#include <getopt.h>
 
 #include <sai.hpp>
 //#include <thread_pool.hpp>
@@ -48,15 +45,13 @@ using BlockLabel = int;
 using Id = int;
 using Addr = unsigned int;
 using IntData = long long int;
-using Fd = int;
-using status_t = unsigned short;
 
 enum iOP {
   op_add, op_sub, op_mul, op_sdiv, op_udiv,
   op_eq, op_uge, op_ugt, op_ule, op_ult,
   op_sge, op_sgt, op_sle, op_slt, op_neq,
   op_shl, op_lshr, op_ashr, op_and, op_or, op_xor,
-  op_urem, op_srem, op_neg, op_sext, op_trunc
+  op_urem, op_srem, op_neg, op_sext
 };
 
 inline std::string int_op2string(iOP op) {
@@ -100,8 +95,6 @@ inline VC global_vc = vc_createValidityChecker();
 
 using PtrVal = std::shared_ptr<Value>;
 
-struct IntV;
-
 struct Value : public std::enable_shared_from_this<Value> {
   friend std::ostream& operator<<(std::ostream&os, const Value& v) {
     return v.toString(os);
@@ -110,7 +103,7 @@ struct Value : public std::enable_shared_from_this<Value> {
   //TODO(GW): toSMTExpr vs toSMTBool?
   virtual SExpr to_SMTExpr() = 0;
   virtual SExpr to_SMTBool() = 0;
-  virtual std::shared_ptr<IntV> to_IntV() const = 0;
+  virtual PtrVal to_IntV() const = 0;
   virtual bool is_conc() const = 0;
   virtual int get_bw() const = 0;
   virtual int compare(const Value *v) const = 0;
@@ -172,7 +165,7 @@ struct IntV : Value {
   virtual SExpr to_SMTBool() override {
     ABORT("to_SMTBool: unexpected value IntV.");
   }
-  virtual std::shared_ptr<IntV> to_IntV() const override { return std::make_shared<IntV>(i, bw); }
+  virtual PtrVal to_IntV() const override { return std::make_shared<IntV>(i, bw); }
   virtual bool is_conc() const override { return true; }
   virtual int get_bw() const override { return bw; }
 
@@ -194,12 +187,6 @@ inline IntData proj_IntV(PtrVal v) {
   return std::dynamic_pointer_cast<IntV>(v)->i;
 }
 
-inline char proj_IntV_char(PtrVal v) {
-  std::shared_ptr<IntV> intV = v->to_IntV();
-  ASSERT(intV->get_bw() == 8, "proj_IntV_char: Bitwidth mismatch");
-  return static_cast<char>(proj_IntV(intV));
-}
-
 struct FloatV : Value {
   float f;
   FloatV(float f) : f(f) {}
@@ -214,7 +201,7 @@ struct FloatV : Value {
     ABORT("to_SMTBool: unexpected value FloatV.");
   }
   virtual bool is_conc() const override { return true; }
-  virtual std::shared_ptr<IntV> to_IntV() const override { return nullptr; }
+  virtual PtrVal to_IntV() const override { return nullptr; }
   virtual int get_bw() const override { ABORT("get_bw: unexpected value FloatV."); }
 
   virtual int compare(const Value *v) const override {
@@ -236,7 +223,7 @@ struct LocV : Value {
   Kind k;
   int size;
 
-  LocV(Addr l, Kind k, int size) : l(l), k(k), size(size) {}
+  LocV(unsigned int l, Kind k, int size) : l(l), k(k), size(size) {}
   LocV(const LocV& v) { l = v.l; }
   virtual std::ostream& toString(std::ostream& os) const override {
     return os << "LocV(" << l << ")";
@@ -250,8 +237,8 @@ struct LocV : Value {
   virtual bool is_conc() const override {
     ABORT("is_conc: unexpected value LocV.");
   }
-  virtual std::shared_ptr<IntV> to_IntV() const override { return std::make_shared<IntV>(l, addr_bw); }
-  virtual int get_bw() const override { return addr_bw; }
+  virtual PtrVal to_IntV() const override { return std::make_shared<IntV>(l, addr_bw); }
+  virtual int get_bw() const override { ABORT("get_bw: unexpected value LocV."); }
 
   virtual int compare(const Value *v) const override {
     auto that = static_cast<decltype(this)>(v);
@@ -277,16 +264,9 @@ inline LocV::Kind proj_LocV_kind(PtrVal v) {
 inline int proj_LocV_size(PtrVal v) {
   return std::dynamic_pointer_cast<LocV>(v)->size;
 }
-inline bool is_LocV_null(PtrVal v) {
-  return std::dynamic_pointer_cast<LocV>(v)->l == -1;
-}
 
 inline PtrVal make_LocV_inc(PtrVal loc, int i) {
   return make_LocV(proj_LocV(loc) + i, proj_LocV_kind(loc), proj_LocV_size(loc));
-}
-
-inline PtrVal make_LocV_null() {
-  return make_LocV(-1, LocV::kHeap, -1);
 }
 
 struct SymV : Value {
@@ -307,7 +287,7 @@ struct SymV : Value {
   virtual SExpr to_SMTExpr() override { return shared_from_this(); }
   virtual SExpr to_SMTBool() override { return shared_from_this(); }
   virtual bool is_conc() const override { return false; }
-  virtual std::shared_ptr<IntV> to_IntV() const override { return nullptr; }
+  virtual PtrVal to_IntV() const override { return nullptr; }
   virtual int get_bw() const override { return bw; }
 
   virtual int compare(const Value *v) const override {
@@ -339,6 +319,7 @@ inline SExpr to_SMTBoolNeg(PtrVal v) {
 struct StructV : Value {
   immer::flex_vector<PtrVal> fs;
   StructV(immer::flex_vector<PtrVal> fs) : fs(fs) {}
+  StructV(std::vector<PtrVal> fs) : fs(fs.begin(), fs.end()) {}
   virtual std::ostream& toString(std::ostream& os) const override {
     return os << "StructV(..)";
   }
@@ -351,7 +332,7 @@ struct StructV : Value {
   virtual bool is_conc() const override {
     ABORT("is_conc: unexpected value StructV.");
   }
-  virtual std::shared_ptr<IntV> to_IntV() const override { return nullptr; }
+  virtual PtrVal to_IntV() const override { return nullptr; }
   virtual int get_bw() const override { ABORT("get_bw: unexpected value StructV."); }
 
   virtual int compare(const Value *v) const override {
@@ -461,8 +442,8 @@ inline PtrVal trunc(PtrVal v1, int from, int to) {
   } else {
     auto s1 = std::dynamic_pointer_cast<SymV>(v1);
     if (s1) {
-      return std::make_shared<SymV>(op_trunc,
-        immer::flex_vector({ v1 }), to);
+      // FIXME: Trunc
+      ABORT("Truncate a LAZY_SYMV, needs work!");
     }
     ABORT("Truncate an invalid value, exit");
   }
@@ -474,288 +455,142 @@ inline PtrVal trunc(PtrVal v1, int from, int to) {
 template <class V>
 class PreMem {
   private:
-    immer::flex_vector<V> mem;
+    std::vector<V> mem;
   public:
-    PreMem(immer::flex_vector<V> mem) : mem(mem) {}
+    PreMem(std::vector<V> mem) : mem(std::move(mem)) {}
     size_t size() { return mem.size(); }
     V at(size_t idx) { return mem.at(idx); }
-    PreMem<V> update(size_t idx, V val) { return PreMem<V>(mem.set(idx, val)); }
-    PreMem<V> append(V val) { return PreMem<V>(mem.push_back(val)); }
-    PreMem<V> append(V val, size_t padding) {
+    PreMem&& update(size_t idx, V val) {
+      mem.at(idx) = val;
+      return std::move(*this);
+    }
+    PreMem&& append(V val) {
+      mem.push_back(val);
+      return std::move(*this);
+    }
+    PreMem&& append(V val, size_t padding) {
       size_t idx = mem.size();
-      return PreMem<V>(alloc(padding + 1).update(idx, val));
+      return alloc(padding + 1).update(idx, val);
     }
-    PreMem<V> append(immer::flex_vector<V> vs) { return PreMem<V>(mem + vs); }
-    PreMem<V> alloc(size_t size) {
-      auto m = mem.transient();
-      for (int i = 0; i < size; i++) { m.push_back(nullptr); }
-      return PreMem<V>(m.persistent());
+    PreMem&& append(const std::vector<V>& vs) {
+      mem.insert(mem.end(), vs.begin(), vs.end());
+      return std::move(*this);
     }
-    PreMem<V> take(size_t keep) { return PreMem<V>(mem.take(keep)); }
-    PreMem<V> drop(size_t d) { return PreMem<V>(mem.drop(d)); }
-    immer::flex_vector<V> getMem() { return mem; }
+    PreMem&& alloc(size_t size) {
+      mem.resize(mem.size() + size, nullptr);
+      return std::move(*this);
+    }
+    PreMem&& take(size_t keep) {
+      mem.resize(keep);
+      return std::move(*this);
+    }
+    PreMem slice(size_t idx, size_t len) {
+      auto off = mem.begin() + idx;
+      return PreMem(std::vector(off, off + len));
+    }
+    // PreMem<V> drop(size_t d) { return PreMem<V>(mem.drop(d)); }
+    const std::vector<V>& getMem() { return mem; }
 };
 
 using Mem = PreMem<PtrVal>;
 
 class Frame {
   public:
-    using Env = immer::map<Id, PtrVal>;
+    using Env = std::map<Id, PtrVal>;
   private:
     Env env;
   public:
-    Frame(Env env) : env(env) {}
-    Frame() : env(immer::map<Id, PtrVal>{}) {}
+    Frame(Env env) : env(std::move(env)) {}
+    Frame() : env(std::map<Id, PtrVal>{}) {}
     size_t size() { return env.size(); }
     PtrVal lookup_id(Id id) const { return env.at(id); }
-    Frame assign(Id id, PtrVal v) const { return Frame(env.insert({id, v})); }
-    Frame assign_seq(immer::flex_vector<Id> ids, immer::flex_vector<PtrVal> vals) const {
-      Env env1 = env;
+    Frame&& assign(Id id, PtrVal v) {
+      env.insert_or_assign(id, v);
+      return std::move(*this);
+    }
+    Frame&& assign_seq(const std::vector<Id>& ids, const std::vector<PtrVal>& vals) {
       for (size_t i = 0; i < ids.size(); i++) {
-        env1 = env1.insert({ids.at(i), vals.at(i)});
+        env.insert_or_assign(ids.at(i), vals.at(i));
       }
-      return Frame(env1);
+      return std::move(*this);
     }
 };
 
 class Stack {
   private:
     Mem mem;
-    immer::flex_vector<Frame> env;
+    std::vector<Frame> env;
   public:
-    Stack(Mem mem, immer::flex_vector<Frame> env) : mem(mem), env(env) {}
+    Stack(Mem mem, std::vector<Frame> env) : mem(std::move(mem)), env(std::move(env)) {}
     size_t mem_size() { return mem.size(); }
     size_t frame_depth() { return env.size(); }
     PtrVal getVarargLoc() { return env.at(env.size()-2).lookup_id(0); }
-    Stack pop(size_t keep) { return Stack(mem.take(keep), env.take(env.size()-1)); }
-    Stack push() { return Stack(mem, env.push_back(Frame())); }
-    Stack push(Frame f) { return Stack(mem, env.push_back(f)); }
-
-    Stack assign(Id id, PtrVal val) {
-      return Stack(mem, env.update(env.size()-1, [&](auto f) { return f.assign(id, val); }));
+    Stack&& pop(size_t keep) {
+      mem.take(keep);
+      env.pop_back();
+      return std::move(*this);
     }
-    Stack assign_seq(immer::flex_vector<Id> ids, immer::flex_vector<PtrVal> vals) {
+    Stack&& push() {
+      return push(Frame());
+    }
+    Stack&& push(Frame f) {
+      env.push_back(std::move(f));
+      return std::move(*this);
+    }
+
+    Stack&& assign(Id id, PtrVal val) {
+      env.back().assign(id, val);
+      return std::move(*this);
+    }
+    Stack&& assign_seq(const std::vector<Id>& ids, std::vector<PtrVal> vals) {
       // varargs
       size_t id_size = ids.size();
-      if (id_size == 0) return Stack(mem, env);
-      if (ids.at(id_size - 1) == 0) {
-        auto updated_mem = mem;
-        for (size_t i = id_size - 1; i < vals.size(); i++) {
-          // FIXME: magic value 8, as vararg is retrived from +8 address
-          updated_mem = updated_mem.append(vals.at(i), 7);
+      if (id_size > 0) {
+        if (ids.back() == 0) {
+          auto msize = mem.size();
+          for (size_t i = id_size - 1; i < vals.size(); i++) {
+            // FIXME: magic value 8, as vararg is retrived from +8 address
+            mem.append(vals.at(i), 7);
+          }
+          if (mem.size() == msize) mem.alloc(8);
+          vals.resize(id_size - 1);
+          vals.push_back(make_LocV(msize, LocV::kStack));
         }
-        if (updated_mem.size() == mem.size()) updated_mem = updated_mem.alloc(8);
-        auto updated_vals = vals.take(id_size - 1).push_back(make_LocV(mem.size(), LocV::kStack));
-        auto stack = Stack(updated_mem, env.update(env.size()-1, [&](auto f) { return f.assign_seq(ids, updated_vals); }));
-        return Stack(updated_mem, env.update(env.size()-1, [&](auto f) { return f.assign_seq(ids, updated_vals); }));
-      } else {
-        return Stack(mem, env.update(env.size()-1, [&](auto f) { return f.assign_seq(ids, vals); }));
+        env.back().assign_seq(ids, vals);
       }
+      return std::move(*this);
     }
     PtrVal lookup_id(Id id) { return env.back().lookup_id(id); }
 
     PtrVal at(size_t idx) { return mem.at(idx); }
     PtrVal at(size_t idx, int size) {
-      return std::make_shared<StructV>(mem.take(idx + size).drop(idx).getMem());
+      return std::make_shared<StructV>(mem.slice(idx, size).getMem());
     }
-    Stack update(size_t idx, PtrVal val) { return Stack(mem.update(idx, val), env); }
-    Stack alloc(size_t size) { return Stack(mem.alloc(size), env); }
+    Stack&& update(size_t idx, PtrVal val) {
+      mem.update(idx, val);
+      return std::move(*this);
+    }
+    Stack&& alloc(size_t size) {
+      mem.alloc(size);
+      return std::move(*this);
+    }
 };
 
 class PC {
   private:
-    immer::set<SExpr> pc;
+    std::set<SExpr> pc;
   public:
-    PC(immer::set<SExpr> pc) : pc(pc) {}
-    PC add(SExpr e) { return PC(pc.insert(e)); }
-    PC addSet(immer::set<SExpr> new_pc) { return PC(Set::join(pc, new_pc)); }
-    immer::set<SExpr> getPC() { return pc; }
+    PC(std::set<SExpr> pc) : pc(std::move(pc)) {}
+    PC&& add(SExpr e) {
+      pc.insert(e);
+      return std::move(*this);
+    }
+    PC&& addSet(const std::set<SExpr>& new_pc) {
+      pc.insert(new_pc.begin(), new_pc.end());
+      return std::move(*this);
+    }
+    const std::set<SExpr>& getPC() { return pc; }
     void print() { print_set(pc); }
-};
-
-/* TODO: Is the name field necessary? <2021-10-12, David Deng> */
-class File {
-  private:
-    std::string name;
-    immer::flex_vector<PtrVal> content;
-  public:
-    friend std::ostream& operator<<(std::ostream& os, const File& f) {
-      os << "File(name=" << f.name << ", content=[" << std::endl;
-      for (auto ptrval: f.content) {
-        os << "\t" << *ptrval << "," << std::endl;
-      }
-      os << "])";
-      return os;
-    }
-    File(std::string name): name(name) {}
-    File(std::string name, immer::flex_vector<PtrVal> content): name(name), content(content) {}
-    File(const File& f): name(f.name), content(f.content) {}
-
-    // if writing beyond the last byte, will simply append to the end without filling
-    void write_at_no_fill(immer::flex_vector<PtrVal> new_content, size_t pos) {
-      content = content.take(pos) + new_content + content.drop(pos + new_content.size());
-    }
-    void write_at(immer::flex_vector<PtrVal> new_content, size_t pos, PtrVal fill_val) {
-      int fill_size = pos - content.size();
-      if (fill_size > 0) {
-        // fill the new values to reflect the actual pos
-        content = content + immer::flex_vector(fill_size, fill_val);
-      }
-      write_at_no_fill(new_content, pos);
-    }
-    void append(immer::flex_vector<PtrVal> new_content) {
-      write_at_no_fill(new_content, content.size());
-    }
-    void clear() {
-      content = immer::flex_vector<PtrVal>();
-    }
-    size_t get_size() const {
-      return content.size();
-    }
-    std::string get_name() const {
-      return name;
-    }
-    immer::flex_vector<PtrVal> read_at(size_t pos, size_t length) const {
-      return content.drop(pos).take(length);
-    }
-    immer::flex_vector<PtrVal> get_content() const {
-      return read_at(0, content.size());
-    }
-};
-
-// return a symbolic file with size bytes
-inline File make_SymFile(std::string name, size_t size) {
-  immer::flex_vector<PtrVal> content;
-  for (int i = 0; i < size; i++) {
-    content = content.push_back(make_SymV(std::string("FILE_") + name + std::string("_BYTE_") + std::to_string(i)));
-  }
-  return File(name, content);
-};
-
-/* TODO: what is the rule about the lowest file descriptor guarantee?
- * How do we model that rule? Is there a usecase for that?
- * Use a particular data structure? <2021-10-12, David Deng> */
-
-// An opened file
-struct Stream {
-  private:
-    File file;
-    int mode; // a combination of O_RDONLY, O_WRONLY, O_RDWR, etc.
-    off_t cursor;
-  public:
-    Stream(const Stream &s):
-      file(s.file),
-      mode(s.mode),
-      cursor(s.cursor) {}
-    Stream(File file):
-      file(file),
-      mode(O_RDONLY),
-      cursor(0) {}
-    Stream(File file, int mode):
-      file(file),
-      mode(mode),
-      cursor(0) {}
-    Stream(File file, int mode, size_t cursor):
-      file(file),
-      mode(mode),
-      cursor(cursor) {}
-
-    off_t seek_start(off_t offset) {
-      if (offset < 0) return -1;
-      cursor = offset;
-      return cursor;
-    }
-    off_t seek_end(off_t offset) {
-      off_t new_cursor = file.get_size() + offset;
-      if (new_cursor < 0) return -1;
-      cursor = new_cursor;
-      return cursor;
-    }
-    off_t seek_cur(off_t offset) {
-      off_t new_cursor = cursor + offset;
-      if (new_cursor < 0) return -1;
-      cursor = new_cursor;
-      return cursor;
-    }
-    size_t get_cursor() const { return cursor; }
-
-    /* TODO: implement write, read
-     * ssize_t write(const void *buf, size_t nbytes)
-     * - write from the current cursor, update cursor
-     * - support only concrete values
-     * - can have another function write_sym to handle writing of symbolic values
-     * pair<flex_vector<PtrVal>, ssize_t> read(size_t nbytes);
-     * - read from the current cursor position, update cursor
-     * <2021-11-15, David Deng> */
-};
-
-class FS {
-  private:
-    immer::map<Fd, Stream> opened_files;
-    immer::map<std::string, File> files;
-    Fd next_fd;
-
-  public:
-    FS(): next_fd(3) {
-        // default initialize opened_files and files
-        /* TODO: set up stdin and stdout using fd 1 and 2 <2021-11-03, David Deng> */
-    }
-
-    FS(const FS &fs):
-      files(fs.files),
-      opened_files(fs.opened_files),
-      next_fd(3) {}
-
-    FS(immer::map<Fd, Stream> opened_files,
-        immer::map<std::string, File> files,
-        status_t status,
-        Fd next_fd,
-        Fd last_opened_fd):
-      opened_files(opened_files),
-      files(files),
-      next_fd(next_fd) {}
-
-    /* Stream get_stream(Fd fd) { */
-    /*   if (opened_files.find(fd) == nullptr) /1* Handle error here *1/ */
-    /*     ASSERT(false, "cannot get stream that does not exist"); */
-    /*   return opened_files.at(fd); */
-    /* } */
-
-    void add_file(File file) {
-      ASSERT(!has_file(file.get_name()), "FS::add_file: File already exists");
-      files = files.set(file.get_name(), file);
-    }
-
-    void remove_file(std::string name) {
-      ASSERT(has_file(name), "FS::remove_file: File does not exist");
-      files = files.erase(name);
-    };
-
-    inline bool has_file(std::string name) const {
-      return files.find(name) != nullptr;
-    }
-
-    inline bool has_stream(Fd fd) const {
-      return opened_files.find(fd) != nullptr;
-    }
-
-    Fd open_file(std::string name, int mode = O_RDONLY) {
-      /* TODO: handle different mode <2021-10-12, David Deng> */
-      if (!has_file(name)) return -1;
-      opened_files = opened_files.set(next_fd, Stream(files.at(name)));
-      return next_fd++;
-    }
-
-    int close_file(Fd fd) {
-      /* TODO: set next_fd the lowest file descriptor? <2021-10-28, David Deng> */
-      if (!has_stream(fd)) return -1;
-      opened_files = opened_files.erase(fd);
-      return 0;
-    }
-
-    /* TODO: implement read_file, write_file
-     * what should the interface be? a simple wrapper around Stream's read and write?
-     * <2021-11-15, David Deng> */
 };
 
 class SS {
@@ -764,10 +599,26 @@ class SS {
     Stack stack;
     PC pc;
     BlockLabel bb;
-    FS fs;
+#ifdef LAZYALLOC
+    std::vector< std::pair<std::string, size_t> > pending_allocs;
+
+    void do_allocs() {
+      for (auto &ac: pending_allocs) {
+        if (ac.first == "stack")
+          stack.alloc(ac.second);
+        else
+          heap.alloc(ac.second);
+      }
+      pending_allocs.clear();
+    }
+#endif
+
   public:
-    SS(Mem heap, Stack stack, PC pc, BlockLabel bb) : heap(heap), stack(stack), pc(pc), bb(bb) {}
-    SS(Mem heap, Stack stack, PC pc, BlockLabel bb, FS fs) : heap(heap), stack(stack), pc(pc), bb(bb), fs(fs) {}
+    SS(Mem heap, Stack stack, PC pc, BlockLabel bb) :
+      heap(std::move(heap)), stack(std::move(stack)), pc(std::move(pc)), bb(bb) {}
+    SS(immer::flex_vector<PtrVal> heap, Stack stack, PC pc, BlockLabel bb) :
+      heap(std::move(std::vector(heap.begin(), heap.end()))), stack(std::move(stack)), pc(std::move(pc)), bb(bb) {}
+    SS copy() { return *this; }
     PtrVal env_lookup(Id id) { return stack.lookup_id(id); }
     size_t heap_size() { return heap.size(); }
     size_t stack_size() { return stack.mem_size(); }
@@ -783,55 +634,101 @@ class SS {
       auto loc = std::dynamic_pointer_cast<LocV>(addr);
       ASSERT(loc != nullptr, "Lookup an non-address value");
       if (loc->k == LocV::kStack) return stack.at(loc->l, size);
-      return std::make_shared<StructV>(heap.take(loc->l + size).drop(loc->l).getMem());
+      return std::make_shared<StructV>(heap.slice(loc->l, size).getMem());
     }
     PtrVal heap_lookup(size_t addr) { return heap.at(addr); }
     BlockLabel incoming_block() { return bb; }
-    SS alloc_stack(size_t size) { return SS(heap, stack.alloc(size), pc, bb); }
-    SS alloc_heap(size_t size) { return SS(heap.alloc(size), stack, pc, bb); }
-    SS update(PtrVal addr, PtrVal val) {
+    SS&& alloc_stack(size_t size) {
+#ifdef LAZYALLOC
+      pending_allocs.push_back({"stack", size});
+#else
+      stack.alloc(size);
+#endif
+      return std::move(*this);
+    }
+    SS&& alloc_heap(size_t size) {
+#ifdef LAZYALLOC
+      pending_allocs.push_back({"heap", size});
+#else
+      heap.alloc(size);
+#endif
+      return std::move(*this);
+    }
+    SS&& update(PtrVal addr, PtrVal val) {
       auto loc = std::dynamic_pointer_cast<LocV>(addr);
       ASSERT(loc != nullptr, "Lookup an non-address value");
-      if (loc->k == LocV::kStack) return SS(heap, stack.update(loc->l, val), pc, bb);
-      return SS(heap.update(loc->l, val), stack, pc, bb);
+      if (loc->k == LocV::kStack)
+        stack.update(loc->l, val);
+      else
+        heap.update(loc->l, val);
+      return std::move(*this);
     }
-    SS push() { return SS(heap, stack.push(), pc, bb); }
-    SS pop(size_t keep) { return SS(heap, stack.pop(keep), pc, bb); }
-    SS assign(Id id, PtrVal val) { return SS(heap, stack.assign(id, val), pc, bb); }
-    SS assign_seq(immer::flex_vector<Id> ids, immer::flex_vector<PtrVal> vals) {
-      return SS(heap, stack.assign_seq(ids, vals), pc, bb);
+    SS&& push() {
+      stack.push();
+      return std::move(*this);
     }
-    SS heap_append(immer::flex_vector<PtrVal> vals) {
-      return SS(heap.append(vals), stack, pc, bb);
+    SS&& pop(size_t keep) {
+      stack.pop(keep);
+      return std::move(*this);
     }
-    SS addPC(SExpr e) { return SS(heap, stack, pc.add(e), bb); }
-    SS addPCSet(immer::set<SExpr> s) { return SS(heap, stack, pc.addSet(s), bb); }
-    SS addIncomingBlock(BlockLabel blabel) { return SS(heap, stack, pc, blabel); }
-    SS init_arg(int len) {
+    SS&& assign(Id id, PtrVal val) {
+#ifdef LAZYALLOC
+      do_allocs();
+#endif
+      stack.assign(id, val);
+      return std::move(*this);
+    }
+    SS&& assign_seq(const std::vector<Id>& ids, std::vector<PtrVal> vals) {
+      stack.assign_seq(ids, std::move(vals));
+      return std::move(*this);
+    }
+    SS&& assign_seq(immer::flex_vector<Id> ids, immer::flex_vector<PtrVal> vals) {
+      return assign_seq(
+        std::vector<Id>(ids.begin(), ids.end()),
+        std::vector<PtrVal>(vals.begin(), vals.end()));
+    }
+    SS&& heap_append(const std::vector<PtrVal>& vals) {
+      heap.append(vals);
+      return std::move(*this);
+    }
+    SS&& heap_append(immer::flex_vector<PtrVal> vals) {
+      return heap_append(std::vector<PtrVal>(vals.begin(), vals.end()));
+    }
+    SS&& addPC(SExpr e) {
+      pc.add(e);
+      return std::move(*this);
+    }
+    SS&& addPCSet(const std::set<SExpr>& s) {
+      pc.addSet(s);
+      return std::move(*this);
+    }
+    SS&& addIncomingBlock(BlockLabel blabel) {
+      bb = blabel;
+      return std::move(*this);
+    }
+    SS&& init_arg(int len) {
       ASSERT(stack.mem_size() == 0, "Stack Not New");
       // FIXME: ptr size magic
-      auto res_stack = stack.alloc(17 + len + 1);
-      res_stack = res_stack.update(0, make_LocV(16, LocV::kStack));
-      res_stack = res_stack.update(8, make_LocV(17, LocV::kStack));
-      res_stack = res_stack.update(16, make_IntV(0));
+      stack.alloc(17 + len + 1);
+      stack.update(0, make_LocV(16, LocV::kStack));
+      stack.update(8, make_LocV(17, LocV::kStack));
+      stack.update(16, make_IntV(0));
       int arg_index = 17;
       for (int i = 0; i < len; i++) {
-        res_stack = res_stack.update(arg_index, make_SymV("ARG" + std::to_string(i)));
+        stack.update(arg_index, make_SymV("ARG" + std::to_string(i)));
         arg_index++;
       }
-      res_stack = res_stack.update(arg_index, make_IntV(0));
-      return SS(heap, res_stack, pc, bb);
+      stack.update(arg_index, make_IntV(0));
+      return std::move(*this);
     }
-    immer::set<SExpr> getPC() { return pc.getPC(); }
+    const std::set<SExpr>& getPC() { return pc.getPC(); }
     // TODO temp solution
-    PtrVal getVarargLoc() {return stack.getVarargLoc(); }
-    void set_fs(FS& new_fs) { fs = new_fs; }
-    FS& get_fs() { return fs; }
+    PtrVal getVarargLoc() { return stack.getVarargLoc(); }
 };
 
-inline const Mem mt_mem = Mem(immer::flex_vector<PtrVal>{});
-inline const Stack mt_stack = Stack(mt_mem, immer::flex_vector<Frame>{});
-inline const PC mt_pc = PC(immer::set<SExpr>{});
+inline const Mem mt_mem = Mem(std::vector<PtrVal>{});
+inline const Stack mt_stack = Stack(mt_mem, std::vector<Frame>{});
+inline const PC mt_pc = PC(std::set<SExpr>{});
 inline const BlockLabel mt_bb = 0;
 inline const SS mt_ss = SS(mt_mem, mt_stack, mt_pc, mt_bb);
 
@@ -927,44 +824,44 @@ inline Expr construct_STP_expr(VC vc, PtrVal e, VarSet &vars) {
   Expr ret = nullptr;
   switch (sym_e->rator) {
     case op_add:
-      ret = vc_bvPlusExpr(vc, bw, expr_rands.at(0), expr_rands.at(1));
+      ret = vc_bvPlusExpr(vc, bw, expr_rands.at(0),expr_rands.at(1));
       break;
     case op_sub:
-      ret = vc_bvMinusExpr(vc, bw, expr_rands.at(0), expr_rands.at(1));
+      ret = vc_bvMinusExpr(vc, bw, expr_rands.at(0),expr_rands.at(1));
       break;
     case op_mul:
-      ret = vc_bvMultExpr(vc, bw, expr_rands.at(0), expr_rands.at(1));
+      ret = vc_bvMultExpr(vc, bw, expr_rands.at(0),expr_rands.at(1));
       break;
     case op_sdiv:
     case op_udiv:
-      ret = vc_bvDivExpr(vc, bw, expr_rands.at(0), expr_rands.at(1));
+      ret = vc_bvDivExpr(vc, bw, expr_rands.at(0),expr_rands.at(1));
       break;
     case op_uge:
-      ret = vc_bvGeExpr(vc, expr_rands.at(0), expr_rands.at(1));
+      ret = vc_bvGeExpr(vc, expr_rands.at(0),expr_rands.at(1));
       break;
     case op_sge:
-      ret = vc_sbvGeExpr(vc, expr_rands.at(0), expr_rands.at(1));
+      ret = vc_sbvGeExpr(vc, expr_rands.at(0),expr_rands.at(1));
       break;
     case op_ugt:
-      ret = vc_bvGtExpr(vc, expr_rands.at(0), expr_rands.at(1));
+      ret = vc_bvGtExpr(vc, expr_rands.at(0),expr_rands.at(1));
       break;
     case op_sgt:
-      ret = vc_sbvGtExpr(vc, expr_rands.at(0), expr_rands.at(1));
+      ret = vc_sbvGtExpr(vc, expr_rands.at(0),expr_rands.at(1));
       break;
     case op_ule:
-      ret = vc_bvLeExpr(vc, expr_rands.at(0), expr_rands.at(1));
+      ret = vc_bvLeExpr(vc, expr_rands.at(0),expr_rands.at(1));
       break;
     case op_sle:
-      ret = vc_sbvLeExpr(vc, expr_rands.at(0), expr_rands.at(1));
+      ret = vc_sbvLeExpr(vc, expr_rands.at(0),expr_rands.at(1));
       break;
     case op_ult:
-      ret = vc_bvLtExpr(vc, expr_rands.at(0), expr_rands.at(1));
+      ret = vc_bvLtExpr(vc, expr_rands.at(0),expr_rands.at(1));
       break;
     case op_slt:
-      ret = vc_sbvLtExpr(vc, expr_rands.at(0), expr_rands.at(1));
+      ret = vc_sbvLtExpr(vc, expr_rands.at(0),expr_rands.at(1));
       break;
     case op_eq:
-      ret = vc_eqExpr(vc, expr_rands.at(0), expr_rands.at(1));
+      ret = vc_eqExpr(vc, expr_rands.at(0),expr_rands.at(1));
       break;
     case op_neq:
       ret = vc_notExpr(vc, vc_eqExpr(vc, expr_rands.at(0), expr_rands.at(1)));
@@ -976,33 +873,13 @@ inline Expr construct_STP_expr(VC vc, PtrVal e, VarSet &vars) {
       ret = vc_bvSignExtend(vc, expr_rands.at(0), bw);
       break;
     case op_shl:
-      ret = vc_bvLeftShiftExprExpr(vc, bw, expr_rands.at(0), expr_rands.at(1));
-      break;
     case op_lshr:
-      ret = vc_bvRightShiftExprExpr(vc, bw, expr_rands.at(0), expr_rands.at(1));
-      break;
     case op_ashr:
-      ret = vc_bvSignedRightShiftExprExpr(vc, bw, expr_rands.at(0), expr_rands.at(1));
-      break;
     case op_and:
-      ret = vc_bvAndExpr(vc, expr_rands.at(0), expr_rands.at(1));
-      break;
     case op_or:
-      ret = vc_bvOrExpr(vc, expr_rands.at(0), expr_rands.at(1));
-      break;
     case op_xor:
-      ret = vc_bvXorExpr(vc, expr_rands.at(0), expr_rands.at(1));
-      break;
     case op_urem:
-      ret = vc_bvRemExpr(vc, bw, expr_rands.at(0), expr_rands.at(1));
-      break;
     case op_srem:
-      ret = vc_sbvRemExpr(vc, bw, expr_rands.at(0), expr_rands.at(1));
-      break;
-    case op_trunc:
-      // bvExtract(vc, e, h, l) -> e[l:h+1]
-      ret = vc_bvExtract(vc, expr_rands.at(0), bw-1, 0);
-      break;
     default: break;
   }
   if (ret) {
@@ -1013,7 +890,7 @@ inline Expr construct_STP_expr(VC vc, PtrVal e, VarSet &vars) {
   ABORT("unkown operator when constructing STP expr");
 }
 
-inline VarSet construct_STP_constraints(VC vc, immer::set<PtrVal> pc) {
+inline VarSet construct_STP_constraints(VC vc, const std::set<PtrVal>& pc) {
   VarSet ret;
   for (auto e : pc) {
     Expr stp_expr = construct_STP_expr(vc, e, ret);
@@ -1058,7 +935,7 @@ struct Checker {
     }
   }
 
-  int make_STP_query(immer::set<PtrVal> pc) {
+  int make_STP_query(const std::set<PtrVal>& pc) {
     variables = construct_STP_constraints(vc, pc);
     Expr fls = vc_falseExpr(vc);
     int result = vc_query(vc, fls);
@@ -1091,7 +968,7 @@ struct Checker {
     return &(fakecache.second);
   }
 #else
-  int make_query(immer::set<PtrVal> pc) {
+  int make_query(const std::set<PtrVal>& pc) {
     CacheKey key(pc.begin(), pc.end());
     std::pair<decltype(cache_map)::iterator, bool> entry;
     CacheResult *ret;
@@ -1115,7 +992,7 @@ struct Checker {
 
 // returns true if it is sat, otherwise false
 // XXX: should explore paths with timeout/no-answer cond?
-inline bool check_pc(immer::set<PtrVal> pc) {
+inline bool check_pc(const std::set<PtrVal>& pc) {
   if (!use_solver) return true;
   auto start = steady_clock::now();
   br_query_num++;
@@ -1261,77 +1138,41 @@ struct CoverageMonitor {
 
 inline CoverageMonitor cov;
 
-// TODO: move this to llsc_external.hpp?
-inline bool exlib_failure_branch = false;
-
 // XXX: can also specify symbolic argument here?
 inline void handle_cli_args(int argc, char** argv) {
-  int c;
-  while (1) {
-    static struct option long_options[] =
-    {
-      /* These options set a flag. */
-      {"disable-solver",       no_argument, 0, 'd'},
-      {"exlib-failure-branch", no_argument, 0, 'f'},
-      {0,                      0,           0, 0}
-    };
-    int option_index = 0;
-
-    c = getopt_long(argc, argv, "", long_options, &option_index);
-
-    /* Detect the end of the options. */
-    if (c == -1)
-      break;
-
-    switch (c)
-    {
-      case 0:
-        break;
-      case 'd':
-        use_solver = false;
-        break;
-      case 'f':
-        exlib_failure_branch = true;
-        break;
-      case '?':
-        // parsing error, should be printed by getopt
-      default:
-        printf("usage: %s <#threads> [--disable-solver] [--exlib-failure-branch]\n", argv[0]);
-        exit(-1);
-    }
-
+  if (argc < 2 || argc > 3) {
+    printf("usage: %s <#threads> [--disable-solver]\n", argv[0]);
+    exit(-1);
   }
-  // parsing non-options
-  if (optind < argc) {
-    if (optind != argc - 1) {
-      // more than one non-options
-      printf("usage: %s <#threads> [--disable-solver] [--exlib-failure-branch]\n", argv[0]);
-      exit(-1);
-    }
-    int t = std::stoi(argv[optind]);
-    if (t <= 0) {
-      std::cout << "Invalid #threads, use 1 instead.\\n";
-      MAX_ASYNC = 0;
-    } else {
-      MAX_ASYNC = t - 1;
-    }
-    if (MAX_ASYNC == 0) {
-      // It is safe the reuse the global_vc object within one thread, but not otherwise.
-      use_global_solver = true;
-    }
+  int t = std::stoi(argv[1]);
+  if (t <= 0) {
+    std::cout << "Invalid #threads, use 1 instead.\\n";
+    MAX_ASYNC = 0;
+  } else {
+    MAX_ASYNC = t - 1;
+  }
+  if (MAX_ASYNC == 0) {
+    // It is safe the reuse the global_vc object within one thread, but not otherwise.
+    use_global_solver = true;
+  }
+  if (argc == 3 && std::string(argv[2]) == "--disable-solver") {
+    use_solver = false;
   }
 }
 
 inline immer::flex_vector<std::pair<SS, PtrVal>>
-sym_exec_br(SS ss, SExpr t_cond, SExpr f_cond,
-            immer::flex_vector<std::pair<SS, PtrVal>> (*tf)(SS),
-            immer::flex_vector<std::pair<SS, PtrVal>> (*ff)(SS)) {
+sym_exec_br(SS& ss, SExpr t_cond, SExpr f_cond,
+            immer::flex_vector<std::pair<SS, PtrVal>> (*tf)(SS&),
+            immer::flex_vector<std::pair<SS, PtrVal>> (*ff)(SS&)) {
   auto pc = ss.getPC();
-  auto tbr_sat = check_pc(pc.insert(t_cond));
-  auto fbr_sat = check_pc(pc.insert(f_cond));
+  auto ins = pc.insert(t_cond);
+  auto tbr_sat = check_pc(pc);
+  if (ins.second) pc.erase(ins.first);
+  pc.insert(f_cond);
+  auto fbr_sat = check_pc(pc);
   if (tbr_sat && fbr_sat) {
     cov.inc_path(1);
-    SS tbr_ss = ss.addPC(t_cond);
+    SS tbr_ss = ss.copy().addPC(t_cond);
     SS fbr_ss = ss.addPC(f_cond);
     if (can_par()) {
       std::future<immer::flex_vector<std::pair<SS, PtrVal>>> tf_res =
@@ -1352,15 +1193,95 @@ sym_exec_br(SS ss, SExpr t_cond, SExpr f_cond,
   }
 }
 
+inline std::vector<std::pair<SS, PtrVal>>
+sym_exec_br(SS& ss, SExpr t_cond, SExpr f_cond,
+            std::vector<std::pair<SS, PtrVal>> (*tf)(SS&),
+            std::vector<std::pair<SS, PtrVal>> (*ff)(SS&)) {
+  auto pc = ss.getPC();
+  auto ins = pc.insert(t_cond);
+  auto tbr_sat = check_pc(pc);
+  if (ins.second) pc.erase(ins.first);
+  pc.insert(f_cond);
+  auto fbr_sat = check_pc(pc);
+  if (tbr_sat && fbr_sat) {
+    cov.inc_path(1);
+    SS tbr_ss = ss.copy().addPC(t_cond);
+    SS fbr_ss = ss.addPC(f_cond);
+    if (can_par()) {
+      std::future<std::vector<std::pair<SS, PtrVal>>> tf_res =
+        create_async<std::vector<std::pair<SS, PtrVal>>>([&]{
+          return tf(tbr_ss);
+        });
+      auto ff_vec = ff(fbr_ss);
+      auto tf_vec = tf_res.get();
+      tf_vec.insert(tf_vec.end(), ff_vec.begin(), ff_vec.end());
+      return tf_vec;
+    } else {
+      auto tf_vec = tf(tbr_ss);
+      auto ff_vec = ff(fbr_ss);
+      tf_vec.insert(tf_vec.end(), ff_vec.begin(), ff_vec.end());
+      return tf_vec;
+    }
+  } else if (tbr_sat) {
+    SS tbr_ss = ss.addPC(t_cond);
+    return tf(tbr_ss);
+  } else if (fbr_sat) {
+    SS fbr_ss = ss.addPC(f_cond);
+    return ff(fbr_ss);
+  } else {
+    return std::vector<std::pair<SS, PtrVal>>{};
+  }
+}
+
+inline std::monostate
+sym_exec_br_k(SS& ss, SExpr t_cond, SExpr f_cond,
+              std::monostate (*tf)(SS&, std::function<std::monostate(SS&, PtrVal)>),
+              std::monostate (*ff)(SS&, std::function<std::monostate(SS&, PtrVal)>),
+              std::function<std::monostate(SS&, PtrVal)> k) {
+  auto pc = ss.getPC();
+  auto ins = pc.insert(t_cond);
+  auto tbr_sat = check_pc(pc);
+  if (ins.second) pc.erase(ins.first);
+  pc.insert(f_cond);
+  auto fbr_sat = check_pc(pc);
+  if (tbr_sat && fbr_sat) {
+    cov.inc_path(1);
+    SS tbr_ss = ss.copy().addPC(t_cond);
+    SS fbr_ss = ss.addPC(f_cond);
+    if (can_par()) {
+      std::future<std::monostate> tf_res =
+        create_async<std::monostate>([&]{
+          return tf(tbr_ss, k);
+        });
+      auto ff_res = ff(fbr_ss, k);
+      tf_res.get();
+      return std::monostate{};
+    } else {
+      tf(tbr_ss, k);
+      ff(fbr_ss, k);
+      return std::monostate{};
+    }
+  } else if (tbr_sat) {
+    SS tbr_ss = ss.addPC(t_cond);
+    return tf(tbr_ss, k);
+  } else if (fbr_sat) {
+    SS fbr_ss = ss.addPC(f_cond);
+    return ff(fbr_ss, k);
+  } else {
+    return std::monostate{};
+  }
+}
+
+/*
 inline immer::flex_vector<std::pair<SS, PtrVal>>
 exec_br(SS ss, PtrVal cndVal,
-        immer::flex_vector<std::pair<SS, PtrVal>> (*tf)(SS),
-        immer::flex_vector<std::pair<SS, PtrVal>> (*ff)(SS)) {
+        immer::flex_vector<std::pair<SS, PtrVal>> (*tf)(SS&),
+        immer::flex_vector<std::pair<SS, PtrVal>> (*ff)(SS&)) {
   if (cndVal->is_conc()) {
     if (proj_IntV(cndVal) == 1) return tf(ss);
     return ff(ss);
   }
   return sym_exec_br(ss, cndVal->to_SMTBool(), to_SMTBoolNeg(cndVal), tf, ff);
 }
-
+*/
 #endif
