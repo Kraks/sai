@@ -70,21 +70,24 @@ inline std::string get_string(PtrVal ptr, SS state) {
 inline immer::flex_vector<std::pair<SS, PtrVal>> open(SS state, immer::flex_vector<PtrVal> args) {
   PtrVal ptr = args.at(0);
   std::string name = get_string(ptr, state);
+  FS& fs = state.get_fs();
   /* TODO: add flags for open_file <2021-11-03, David Deng> */
-  FS fs = state.get_fs().open_file(name, 0);
-  if (fs.status_open_fail()) {
-    return immer::flex_vector<std::pair<SS, PtrVal>>{{state, make_IntV(-1)}};
-  }
-  auto fd = fs.get_open_fd();
-  return immer::flex_vector<std::pair<SS, PtrVal>>{{state.set_fs(fs), make_IntV(fd)}};
+  Fd fd = fs.open_file(name, 0);
+  state.set_fs(fs);
+  return immer::flex_vector<std::pair<SS, PtrVal>>{{state, make_IntV(fd)}};
 }
 
 inline immer::flex_vector<std::pair<SS, PtrVal>> close(SS state, immer::flex_vector<PtrVal> args) {
   Fd fd = proj_IntV(args.at(0));
-  FS fs = state.get_fs().close_file(fd);
-  /* TODO: handle error and return -1 <2021-11-03, David Deng> */
-  return immer::flex_vector<std::pair<SS, PtrVal>>{{state.set_fs(fs), make_IntV(0)}};
+  FS& fs = state.get_fs();
+  int status = fs.close_file(fd);
+  state.set_fs(fs);
+  return immer::flex_vector<std::pair<SS, PtrVal>>{{state, make_IntV(status)}};
 }
+
+/* inline immer::flex_vector<std::pair<SS, PtrVal>> lseek(SS state, immer::flex_vector<PtrVal> args) { */
+
+/* } */
 
 inline void handle_pc(immer::set<SExpr> pc) {
 

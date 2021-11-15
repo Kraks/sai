@@ -48,7 +48,7 @@ using BlockLabel = int;
 using Id = int;
 using Addr = unsigned int;
 using IntData = long long int;
-using Fd = unsigned int;
+using Fd = int;
 using status_t = unsigned short;
 
 enum iOP {
@@ -592,23 +592,22 @@ class File {
     File(const File& f): name(f.name), content(f.content) {}
 
     // if writing beyond the last byte, will simply append to the end without filling
-    File write_at_no_fill(immer::flex_vector<PtrVal> new_content, size_t pos) {
-      return File(name, content.take(pos) + new_content + content.drop(pos + new_content.size()));
+    void write_at_no_fill(immer::flex_vector<PtrVal> new_content, size_t pos) {
+      content = content.take(pos) + new_content + content.drop(pos + new_content.size());
     }
-    File write_at(immer::flex_vector<PtrVal> new_content, size_t pos, PtrVal fill_val) {
+    void write_at(immer::flex_vector<PtrVal> new_content, size_t pos, PtrVal fill_val) {
       int fill_size = pos - content.size();
       if (fill_size > 0) {
         // fill the new values to reflect the actual pos
-        return File(name, content + immer::flex_vector(fill_size, fill_val)).write_at_no_fill(new_content, pos);
-      } else {
-        return write_at_no_fill(new_content, pos);
+        content = content + immer::flex_vector(fill_size, fill_val);
       }
+      write_at_no_fill(new_content, pos);
     }
-    File append(immer::flex_vector<PtrVal> new_content) {
-      return write_at_no_fill(new_content, content.size());
+    void append(immer::flex_vector<PtrVal> new_content) {
+      write_at_no_fill(new_content, content.size());
     }
-    File clear() {
-      return File(name);
+    void clear() {
+      content = immer::flex_vector<PtrVal>();
     }
     size_t get_size() const {
       return content.size();
@@ -642,18 +641,12 @@ struct Stream {
   private:
     File file;
     int mode; // a combination of O_RDONLY, O_WRONLY, O_RDWR, etc.
-    size_t cursor;
-    status_t status {status_good_bit};
+    off_t cursor;
   public:
-    // error handling
-    static const status_t status_good_bit = 0x0;
-    static const status_t status_seek_fail_bit = 0x1 << 1;
-    inline status_t get_status() const { return status; }
-    inline Stream set_status(status_t s) { return Stream(file, mode, cursor, status | s); }
-    inline Stream clear_status(status_t s = status_good_bit) { return Stream(file, mode, cursor, s); }
-    inline bool status_good() const { return ~(status ^ status_good_bit); } // status must match status_good_bit
-    inline bool status_seek_fail() const { return status & status_seek_fail_bit; }
-
+    Stream(const Stream &s):
+      file(s.file),
+      mode(s.mode),
+      cursor(s.cursor) {}
     Stream(File file):
       file(file),
       mode(O_RDONLY),
@@ -666,67 +659,52 @@ struct Stream {
       file(file),
       mode(mode),
       cursor(cursor) {}
-    Stream(File file, int mode, size_t cursor, status_t status):
-      file(file),
-      mode(mode),
-      cursor(cursor),
-      status(status) {}
-    Stream seek_start(long offset) {
-      if (offset < 0) return set_status(status_seek_fail_bit);
-      return Stream(file, mode, offset);
+
+    off_t seek_start(off_t offset) {
+      if (offset < 0) return -1;
+      cursor = offset;
+      return cursor;
     }
-    Stream seek_end(long offset) {
-      long new_cursor = file.get_size() + offset;
-      if (new_cursor < 0) return set_status(status_seek_fail_bit);
-      return Stream(file, mode, new_cursor);
+    off_t seek_end(off_t offset) {
+      off_t new_cursor = file.get_size() + offset;
+      if (new_cursor < 0) return -1;
+      cursor = new_cursor;
+      return cursor;
     }
-    Stream seek_cur(long offset) {
-      long new_cursor = cursor + offset;
-      if (new_cursor < 0) return set_status(status_seek_fail_bit);
-      return Stream(file, mode, new_cursor);
+    off_t seek_cur(off_t offset) {
+      off_t new_cursor = cursor + offset;
+      if (new_cursor < 0) return -1;
+      cursor = new_cursor;
+      return cursor;
     }
     size_t get_cursor() const { return cursor; }
+
+    /* TODO: implement write, read
+     * ssize_t write(const void *buf, size_t nbytes)
+     * - write from the current cursor, update cursor
+     * - support only concrete values
+     * - can have another function write_sym to handle writing of symbolic values
+     * pair<flex_vector<PtrVal>, ssize_t> read(size_t nbytes);
+     * - read from the current cursor position, update cursor
+     * <2021-11-15, David Deng> */
 };
 
 class FS {
   private:
-    /* TODO: How does immer handle memory leak if map.find returns a raw pointer? <2021-10-12, David Deng> */
-    /* NOTE: Use at instead of find for immer::map <2021-10-12, David Deng> */
-
     immer::map<Fd, Stream> opened_files;
     immer::map<std::string, File> files;
     Fd next_fd;
-    Fd last_opened_fd; // set by open_files()
 
-    status_t status {status_good_bit};
   public:
-    static const status_t status_good_bit = 0x0;
-    static const status_t status_open_fail_bit = 0x1 << 1;
-    inline status_t get_status() const { return status; }
-    inline FS set_status(status_t s) { return FS(opened_files, files, status | s, next_fd, last_opened_fd); }
-    inline FS clear_status(status_t s = status_good_bit) { return FS(opened_files, files, s, next_fd, last_opened_fd); }
-    inline bool status_good() const { return ~(status ^ status_good_bit); } // status must match status_good_bit
-    inline bool status_open_fail() const { return status & status_open_fail_bit; }
-
-    inline Fd get_open_fd() {
-      return last_opened_fd;
-    }
-
-    FS() {
+    FS(): next_fd(3) {
         // default initialize opened_files and files
         /* TODO: set up stdin and stdout using fd 1 and 2 <2021-11-03, David Deng> */
-        next_fd = 3;
-        last_opened_fd = -1;
-        status = status_good_bit;
-        files = files.set("A", make_SymFile("A", 6));
     }
 
     FS(const FS &fs):
-      opened_files(fs.opened_files),
       files(fs.files),
-      status(fs.status),
-      next_fd(fs.next_fd),
-      last_opened_fd(fs.last_opened_fd) {}
+      opened_files(fs.opened_files),
+      next_fd(3) {}
 
     FS(immer::map<Fd, Stream> opened_files,
         immer::map<std::string, File> files,
@@ -735,27 +713,49 @@ class FS {
         Fd last_opened_fd):
       opened_files(opened_files),
       files(files),
-      status(status),
-      next_fd(next_fd),
-      last_opened_fd(last_opened_fd) {}
+      next_fd(next_fd) {}
 
-    Stream get_stream(Fd fd) {
-      if (!(opened_files.find(fd))) /* Handle error here */
-        ASSERT(false, "cannot get stream that does not exist");
-      return opened_files.at(fd);
+    /* Stream get_stream(Fd fd) { */
+    /*   if (opened_files.find(fd) == nullptr) /1* Handle error here *1/ */
+    /*     ASSERT(false, "cannot get stream that does not exist"); */
+    /*   return opened_files.at(fd); */
+    /* } */
+
+    void add_file(File file) {
+      ASSERT(!has_file(file.get_name()), "FS::add_file: File already exists");
+      files = files.set(file.get_name(), file);
     }
 
-    FS open_file(std::string name, int mode) {
+    void remove_file(std::string name) {
+      ASSERT(has_file(name), "FS::remove_file: File does not exist");
+      files = files.erase(name);
+    };
+
+    inline bool has_file(std::string name) const {
+      return files.find(name) != nullptr;
+    }
+
+    inline bool has_stream(Fd fd) const {
+      return opened_files.find(fd) != nullptr;
+    }
+
+    Fd open_file(std::string name, int mode = O_RDONLY) {
       /* TODO: handle different mode <2021-10-12, David Deng> */
-      if (!(files.find(name))) /* Handle error here */
-        return set_status(status_open_fail_bit);
-      return FS(opened_files.set(next_fd, Stream(files.at(name))), files, status, next_fd+1, next_fd); // read only mode for now
+      if (!has_file(name)) return -1;
+      opened_files = opened_files.set(next_fd, Stream(files.at(name)));
+      return next_fd++;
     }
 
-    FS close_file(Fd fd) {
+    int close_file(Fd fd) {
       /* TODO: set next_fd the lowest file descriptor? <2021-10-28, David Deng> */
-      return FS(opened_files.erase(fd), files, status, next_fd, last_opened_fd);
+      if (!has_stream(fd)) return -1;
+      opened_files = opened_files.erase(fd);
+      return 0;
     }
+
+    /* TODO: implement read_file, write_file
+     * what should the interface be? a simple wrapper around Stream's read and write?
+     * <2021-11-15, David Deng> */
 };
 
 class SS {
@@ -825,8 +825,8 @@ class SS {
     immer::set<SExpr> getPC() { return pc.getPC(); }
     // TODO temp solution
     PtrVal getVarargLoc() {return stack.getVarargLoc(); }
-    SS set_fs(FS new_fs) { return SS(heap, stack, pc, bb, new_fs); }
-    FS get_fs() { return fs; }
+    void set_fs(FS& new_fs) { fs = new_fs; }
+    FS& get_fs() { return fs; }
 };
 
 inline const Mem mt_mem = Mem(immer::flex_vector<PtrVal>{});
