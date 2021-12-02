@@ -11,12 +11,11 @@ inline immer::flex_vector<SExpr> set_to_list(immer::set<SExpr> s) {
 
 inline immer::flex_vector<std::pair<SS, PtrVal>> sym_print(SS state, immer::flex_vector<PtrVal> args) {
   PtrVal x = args.at(0);
-  if (std::dynamic_pointer_cast<FloatV>(x)) {
-    std::cout << "FloatV" << std::dynamic_pointer_cast<FloatV>(x)->f << ")\n";
-  } else if (std::dynamic_pointer_cast<IntV>(x)) {
-    std::cout << "IntV(" << std::dynamic_pointer_cast<IntV>(x)->i << ")\n";
-  } else if (std::dynamic_pointer_cast<LocV>(x)){
-    ABORT("Unimplemented LOCV");
+  if (std::dynamic_pointer_cast<FloatV>(x) ||
+      std::dynamic_pointer_cast<IntV>(x) ||
+      std::dynamic_pointer_cast<LocV>(x) ||
+      std::dynamic_pointer_cast<SymV>(x)) {
+    std::cout << *x << std::endl;
   } else if ( x == nullptr ){
     ABORT("Unimplemented nullptr");
   }
@@ -65,6 +64,16 @@ inline std::string get_string(PtrVal ptr, SS state) {
     c = proj_IntV_char(state.at(ptr)); // c = *ptr
   }
   return name;
+}
+
+inline immer::flex_vector<std::pair<SS, PtrVal>> print_string(SS state, immer::flex_vector<PtrVal> args) {
+  PtrVal x = args.at(0);
+  if (std::dynamic_pointer_cast<LocV>(x)){
+    std::cout << get_string(x, state) << std::endl;
+  } else {
+    ABORT("Cannot print non-LocV value as string");
+  }
+  return immer::flex_vector<std::pair<SS, PtrVal>>{{state, make_IntV(0)}};
 }
 
 inline immer::flex_vector<std::pair<SS, PtrVal>> open(SS state, immer::flex_vector<PtrVal> args) {
