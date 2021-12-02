@@ -2,6 +2,6 @@ all:
 	./generate.sh
 
 clean:
-	rm *.java
-	rm *.interp
-	rm *.tokens
+	rm -rf *.java
+	rm -rf *.interp
+	rm -rf *.tokens
