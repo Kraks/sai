@@ -792,10 +792,9 @@ class MyVisitor extends LLVMParserBaseVisitor[LAST] {
     val floatStr = ctx.FLOAT_LIT.getText
     if (floatStr.contains('.')) FloatConst(floatStr.toFloat)
     else if (floatStr.startsWith("0x")) {
-      // Does not work, need to parse "0x3FF4CCCCC0000000" as 1.3
-      // val i = java.lang.Long.parseLong(floatStr.substring(2), 16)
-      // FloatConst(java.lang.Float.intBitsToFloat(i.intValue()))
-      ???
+      val hexString = floatStr.substring(2)
+      val longBits = java.lang.Long.parseUnsignedLong(hexString, 16)
+      FloatConst(java.lang.Double.longBitsToDouble(longBits).asInstanceOf[Float])
     } 
     else ???
   }
