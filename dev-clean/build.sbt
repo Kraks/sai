@@ -30,6 +30,14 @@ scalacOptions ++= Seq(
 )
 
 autoCompilerPlugins := true
+fork := true
+javaOptions ++= Seq(
+  "-Xms4G",
+  "-Xmx32G",
+  "-Xss1024M",
+  "-XX:MaxMetaspaceSize=8G",
+  "-XX:ReservedCodeCacheSize=2048M"
+)
 
 val paradiseVersion = "2.1.0"
 addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full)

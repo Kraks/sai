@@ -1648,7 +1648,7 @@ class MyVisitor extends LLVMParserBaseVisitor[LAST] {
 
   override def visitArg(ctx: LLVMParser.ArgContext): LAST = {
     if (ctx.metadataType != null) {
-      ???
+      MetadataArg()
     } else {
       val ty =
         if (ctx.llvmType != null && ctx.optAddrSpace != null && ctx.STAR != null) {

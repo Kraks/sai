@@ -122,6 +122,12 @@ void test_stream() {
     pos = s3.seek_end(-5);
     ASSERT(pos == -1, "should set error");
   }
+  {
+    // test read
+    Stream s1(s);
+    auto con_len = s1.read(1);
+    ASSERT((con_len.second == 1), "returned length should be 1");
+  }
 }
 
 void test_fs() {
@@ -159,6 +165,15 @@ void test_fs() {
 
     fd = fs.close_file(-999);
     ASSERT((fd == -1), "close_file should return -1 on non-existing file descriptor");
+  }
+  {
+    // test read_file
+    /* TODO: add test after implement the function <2021-12-08, David Deng> */
+    /* FS fs; */
+    /* fs.add_file(file_a); */
+    /* fd = fs.open_file(file_a.get_name()); */
+
+    /* auto ret = fs.read_file(...); */
   }
 }
 

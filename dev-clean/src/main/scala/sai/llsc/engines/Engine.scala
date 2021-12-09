@@ -203,8 +203,21 @@ trait LLSCEngine extends SAIOps with StagedNondet with SymExeDefs {
       case Struct(types) => StaticList.fill(flattenTy(ty).map(lty => getTySize(lty)).sum)(IntV(0))
       case _ => StaticList.fill(getTySize(ty))(IntV(0))
     }
-    case ArrayConst(cs) =>
-      flattenAS(v).flatMap(c => evalHeapConst(c, flattenTy(ty).head))
+    // case ArrayConst(cs) =>
+    //   flattenAS(v).flatMap(c => evalHeapConst(c, flattenTy(ty).head))
+    case ArrayConst(cs) => {
+      ty match {
+        case ArrayType(_, ety) =>
+          getRealType(ety) match {
+            case Struct(types) =>
+              cs.map(c => evalHeapConst(c.const, getRealType(ety))).flatten
+            case _ =>
+              flattenAS(v).flatMap(c => evalHeapConst(c, flattenTy(ty).head))
+          }
+        case _ =>
+          flattenAS(v).flatMap(c => evalHeapConst(c, flattenTy(ty).head))
+      }
+    }
     case CharArrayConst(s) =>
       s.map(c => IntV(c.toInt, 8)).toList ++ StaticList.fill(getTySize(ty) - s.length)(NullV())
     case StructConst(cs) =>
@@ -305,9 +318,10 @@ trait LLSCEngine extends SAIOps with StagedNondet with SymExeDefs {
       case SiToFPInst(from, value, to) =>
         for { v <- eval(value, from) } yield v.si_tofp
       case PtrToIntInst(from, value, to) =>
+        // TODO: How to indicate whether it's a stack pointer or heap pointer? <2021-12-09, David Deng> //
         for { v <- eval(value, from) } yield v.to_IntV
       case IntToPtrInst(from, value, to) =>
-        for { v <- eval(value, from) } yield LocV(v.int, LocV.kStack)
+        for { v <- eval(value, from) } yield LocV(v.int, LocV.kHeap)
       case BitCastInst(from, value, to) => eval(value, to)
 
       // Aggregate Operations
@@ -626,7 +640,7 @@ trait LLSCEngine extends SAIOps with StagedNondet with SymExeDefs {
 
     val preHeap: Rep[List[Value]] = List(precompileHeapLists(main::Nil):_*)
     val heap0 = preHeap.asRepOf[Mem]
-    val comp = if (!isCommandLine) {
+    val comp = if (!true) {
       for {
         fv <- eval(GlobalId(fname), VoidType)(fname)
         _ <- pushFrame

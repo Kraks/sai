@@ -56,6 +56,7 @@ inline immer::flex_vector<std::pair<SS, PtrVal>> realloc(SS state, immer::flex_v
 }
 
 inline std::string get_string(PtrVal ptr, SS state) {
+  ASSERT(std::dynamic_pointer_cast<LocV>(ptr), "Cannot call get_string on a non-LocV value");
   std::string name;
   char c = proj_IntV_char(state.at(ptr)); // c = *ptr
   while (c != '\0') {
@@ -68,12 +69,12 @@ inline std::string get_string(PtrVal ptr, SS state) {
 
 inline immer::flex_vector<std::pair<SS, PtrVal>> print_string(SS state, immer::flex_vector<PtrVal> args) {
   PtrVal x = args.at(0);
-  if (std::dynamic_pointer_cast<LocV>(x)){
-    std::cout << get_string(x, state) << std::endl;
-  } else {
-    ABORT("Cannot print non-LocV value as string");
-  }
+  std::cout << get_string(x, state) << std::endl;
   return immer::flex_vector<std::pair<SS, PtrVal>>{{state, make_IntV(0)}};
+}
+
+inline immer::flex_vector<std::pair<SS, PtrVal>> getenv(SS state, immer::flex_vector<PtrVal> args) {
+  return immer::flex_vector<std::pair<SS, PtrVal>>{{state, make_LocV(-1, LocV::kHeap, -1)}};
 }
 
 inline immer::flex_vector<std::pair<SS, PtrVal>> open(SS state, immer::flex_vector<PtrVal> args) {
@@ -84,6 +85,12 @@ inline immer::flex_vector<std::pair<SS, PtrVal>> open(SS state, immer::flex_vect
   Fd fd = fs.open_file(name, 0);
   state.set_fs(fs);
   return immer::flex_vector<std::pair<SS, PtrVal>>{{state, make_IntV(fd)}};
+}
+
+inline immer::flex_vector<std::pair<SS, PtrVal>> __libc_open(SS state, immer::flex_vector<PtrVal> args) {
+  std::cout << "*args.at(0): " << *args.at(0) << std::endl;
+  std::cout << "*args.at(1): " << *args.at(1) << std::endl;
+  return open(state, args);
 }
 
 inline immer::flex_vector<std::pair<SS, PtrVal>> close(SS state, immer::flex_vector<PtrVal> args) {

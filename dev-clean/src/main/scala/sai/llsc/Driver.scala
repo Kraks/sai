@@ -67,7 +67,7 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     |SOURCES = $$(shell find $$(SRC_DIR)/ -name "*.cpp")
     |TARGET = $appName
     |OBJECTS = $$(SOURCES:$$(SRC_DIR)/%.cpp=$$(BUILD_DIR)/%.o)
-    |CC = g++ -std=c++17 -O3
+    |CC = g++ -std=c++17 -O0
     |CXXFLAGS = $includes
     |LDFLAGS = $libraryPaths
     |LDLIBS = $libraries -lpthread
@@ -78,10 +78,10 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     |
     |$$(OBJECTS): $$$$(patsubst $$(BUILD_DIR)/%.o,$$(SRC_DIR)/%.cpp,$$$$@)
     |\tmkdir -p $$(@D)
-    |\t$$(CC) -c -o $$@ $$< $$(CXXFLAGS)
+    |\t$$(CC) -g -c -o $$@ $$< $$(CXXFLAGS)
     |
     |$$(TARGET): $$(OBJECTS)
-    |\t$$(CC) -o $$@ $$^ $$(LDFLAGS) $$(LDLIBS)
+    |\t$$(CC) -g -o $$@ $$^ $$(LDFLAGS) $$(LDLIBS)
     |
     |clean:
     |\t@rm $appName 2>/dev/null || true

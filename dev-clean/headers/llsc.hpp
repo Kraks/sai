@@ -128,7 +128,7 @@ struct Value : public std::enable_shared_from_this<Value> {
 template<>
 struct std::hash<PtrVal> {
   size_t operator()(PtrVal const& v) const noexcept {
-    return v ? v->hash() : std::hash<nullptr_t>{}(nullptr);
+    return v->hash();
   }
 };
 
@@ -248,7 +248,7 @@ struct LocV : Value {
   }
   LocV(const LocV& v) : LocV(v.l, v.k, v.size) {}
   virtual std::ostream& toString(std::ostream& os) const override {
-    return os << "LocV(" << l << ", " << k << ")";
+    return os << "LocV(" << l << ", " << (k == kStack ? "kStack" : "kHeap") << ")";
   }
   virtual SExpr to_SMTExpr() override {
     ABORT("to_SMTExpr: unexpected value LocV.");
@@ -707,6 +707,10 @@ struct Stream {
      * pair<flex_vector<PtrVal>, ssize_t> read(size_t nbytes);
      * - read from the current cursor position, update cursor
      * <2021-11-15, David Deng> */
+    std::pair<immer::flex_vector<PtrVal>, ssize_t> read(size_t nbytes) {
+      auto content = file.read_at(cursor, nbytes);
+      return std::make_pair(content, content.size());
+    }
 };
 
 class FS {
@@ -776,6 +780,7 @@ class FS {
     /* TODO: implement read_file, write_file
      * what should the interface be? a simple wrapper around Stream's read and write?
      * <2021-11-15, David Deng> */
+
 };
 
 class SS {
@@ -836,7 +841,7 @@ class SS {
       res_stack = res_stack.update(16, make_IntV(0));
       int arg_index = 17;
       for (int i = 0; i < len; i++) {
-        res_stack = res_stack.update(arg_index, make_SymV("ARG" + std::to_string(i)));
+        res_stack = res_stack.update(arg_index, make_SymV("ARG" + std::to_string(i), 8));
         arg_index++;
       }
       res_stack = res_stack.update(arg_index, make_IntV(0));
