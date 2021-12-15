@@ -1,9 +1,8 @@
 int main() {
-  int a = 42;
-  if (&a) {
-    int* b = malloc(4);
-    if (b) return 1;
-    return 2;
+  int* b = malloc(4);
+  if (b) {
+    print_string("malloc returned valid pointer");
+  } else {
+    print_string("malloc returned nullptr");
   }
-  else return 3;
 }
