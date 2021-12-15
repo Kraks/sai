@@ -12,6 +12,7 @@ VOLUME ["/var/tmp"]
 # Initial setup
 RUN mkdir /llsc
 COPY init_setup.sh /llsc/init_setup.sh
+RUN bash /llsc/init_packages.sh
 RUN bash /llsc/init_setup.sh
 
 ENV PATH="/llsc/scala-2.12.10/bin:${PATH}"

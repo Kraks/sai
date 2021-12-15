@@ -1,5 +1,4 @@
-/bin/bash init_packages.sh
-
+# Scala
 cd /llsc
 curl https://downloads.lightbend.com/scala/2.12.10/scala-2.12.10.tgz --output scala-2.12.10.tgz
 tar xvf scala-2.12.10.tgz
