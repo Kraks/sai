@@ -1,10 +1,9 @@
 #!/bin/bash
 # requires sbt to be installed
 
-curl -fLo coursier https://git.io/coursier-cli &&
-	chmod +x coursier &&
-	./coursier install bloop --only-prebuilt=true &&
-	rm -f coursier;
+curl -fLo cs https://git.io/coursier-cli-"$(uname | tr LD ld)"
+chmod +x cs
+./cs install bloop --only-prebuilt=true
 
 # import build from sbt to bloop
 echo 'addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "1.4.11")' | tee -a /llsc/sai/dev-clean/project/plugins.sbt /llsc/sai/lms-clean/project/plugins.sbt
