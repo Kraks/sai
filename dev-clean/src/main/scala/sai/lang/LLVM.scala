@@ -179,6 +179,7 @@ package IR {
 
   abstract class FloatKind extends LAST
   case object FK_Half extends FloatKind
+  case object FK_BFloat extends FloatKind
   case object FK_Float extends FloatKind
   case object FK_Double extends FloatKind
   case object FK_X86_FP80 extends FloatKind
