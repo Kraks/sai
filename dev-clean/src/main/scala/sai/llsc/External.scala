@@ -82,8 +82,17 @@ class ExternalLLSCDriver(folder: String = ".") extends SAISnippet[Int, Unit] wit
   }
 
   def snippet(u: Rep[Int]) = {
-    hardTopFun(llsc_assert(_, _))
-    hardTopFun(llsc_assert_k(_, _, _))
+    val namedFuns: HashMap[String, Any] = HashMap(
+      "llsc_assert" -> (hardTopFun(llsc_assert(_,_))),
+      "llsc_assert_k" -> (hardTopFun(llsc_assert_k(_,_,_))),
+    )
+    namedFuns.foreach { 
+      case (name, Wrap(func)) => {
+        val n = func.asInstanceOf[Backend.Sym].n
+        funNameMap(n) = name
+      }
+      case (_,_) => ???
+    }
     ()
   }
 }
