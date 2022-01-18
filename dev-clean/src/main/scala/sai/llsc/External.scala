@@ -71,6 +71,7 @@ class ExternalLLSCDriver(folder: String = ".") extends SAISnippet[Int, Unit] wit
       val ng = init(g)
       run(name, ng)
       emitln("/* LLSC - External utility functions and library modeling functions */")
+      emitFunctionDecls(stream)
       emitFunctions(stream)
     }
   }
