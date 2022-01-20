@@ -49,11 +49,40 @@ trait GenExternal extends SymExeDefs {
     }
   }
 
+  def gen_open[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
+    val ptr = args(0)
+    val name: Rep[String] = getString(ptr, ss)
+    val flags = args(1)
+    // val mode = args(2) // how to handle optional argument?
+    val fs: Rep[FS] = ss.getFs
+    val ret: Rep[Fd] = fs.openFile(name, 0)
+    ss.setFs(fs)
+    k(ss, IntV(ret, 32))
+  }
+
+  def gen_openat[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
+    // int __fd_openat(int basefd, const char *pathname, int flags, mode_t mode);
+    // if fd == AT_FDCWD, call open
+    k(ss, IntV(0, 32))
+  }
+
   def llsc_assert(ss: Rep[SS], args: Rep[List[Value]]): Rep[List[(SS, Value)]] =
     gen_llsc_assert[List[(SS, Value)]](ss, args, { case (s, v) => List[(SS, Value)]((s, v)) })
 
   def llsc_assert_k(ss: Rep[SS], args: Rep[List[Value]], k: Rep[Cont]): Rep[Unit] =
     gen_llsc_assert[Unit](ss, args, { case (s, v) => k(s, v) })
+
+  def open(ss: Rep[SS], args: Rep[List[Value]]): Rep[List[(SS, Value)]] =
+    gen_open[List[(SS, Value)]](ss, args, { case (s, v) => List[(SS, Value)]((s, v)) })
+
+  def open_k(ss: Rep[SS], args: Rep[List[Value]], k: Rep[Cont]): Rep[Unit] =
+    gen_open[Unit](ss, args, { case (s, v) => k(s, v) })
+
+  def openat(ss: Rep[SS], args: Rep[List[Value]]): Rep[List[(SS, Value)]] =
+    gen_openat[List[(SS, Value)]](ss, args, { case (s, v) => List[(SS, Value)]((s, v)) })
+
+  def openat_k(ss: Rep[SS], args: Rep[List[Value]], k: Rep[Cont]): Rep[Unit] =
+    gen_openat[Unit](ss, args, { case (s, v) => k(s, v) })
 }
 
 class ExternalLLSCDriver(folder: String = ".") extends SAISnippet[Int, Unit] with SAIOps with GenExternal { q =>
@@ -114,6 +143,10 @@ class ExternalLLSCDriver(folder: String = ".") extends SAISnippet[Int, Unit] wit
   def snippet(u: Rep[Int]) = {
     hardTopFun(llsc_assert(_,_), "llsc_assert")
     hardTopFun(llsc_assert_k(_,_,_), "llsc_assert_k")
+    hardTopFun(open(_,_), "open")
+    hardTopFun(open_k(_,_,_), "open_k")
+    hardTopFun(openat(_,_), "openat")
+    hardTopFun(openat_k(_,_,_), "openat_k")
     ()
   }
 }
