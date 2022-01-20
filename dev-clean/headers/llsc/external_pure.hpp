@@ -93,9 +93,11 @@ inline immer::flex_vector<std::pair<SS, PtrVal>> close(SS state, immer::flex_vec
 }
 
 inline immer::flex_vector<std::pair<SS, PtrVal>> sym_exit(SS state, immer::flex_vector<PtrVal> args) {
+  auto v = args.at(0)->to_IntV();
+  auto status = v ? v->i : 0;
   check_pc_to_file(state);
   epilogue();
-  exit(0);
+  exit(status);
 }
 
 inline immer::flex_vector<std::pair<SS, PtrVal>> llsc_assert(SS state, immer::flex_vector<PtrVal> args) {
