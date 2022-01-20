@@ -34,6 +34,7 @@
 
 using namespace std::chrono;
 
+#define DEBUG 1
 #define PURE_STATE
 
 #include <llsc/auxiliary.hpp>

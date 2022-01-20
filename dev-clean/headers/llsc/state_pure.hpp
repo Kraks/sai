@@ -4,6 +4,7 @@
 /* Memory, stack, and symbolic state representation */
 
 // Note (5/17): now using a byte-oriented layout
+#include "filesys.hpp"
 
 template <class V>
 class PreMem {
@@ -122,7 +123,7 @@ class SS {
     BlockLabel bb;
     FS fs;
   public:
-    SS(Mem heap, Stack stack, PC pc, BlockLabel bb) : heap(heap), stack(stack), pc(pc), bb(bb) {}
+    SS(Mem heap, Stack stack, PC pc, BlockLabel bb) : heap(heap), stack(stack), pc(pc), bb(bb), fs(initial_fs) {}
     SS(Mem heap, Stack stack, PC pc, BlockLabel bb, FS fs) : heap(heap), stack(stack), pc(pc), bb(bb), fs(fs) {}
     PtrVal env_lookup(Id id) { return stack.lookup_id(id); }
     size_t heap_size() { return heap.size(); }
