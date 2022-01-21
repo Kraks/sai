@@ -74,19 +74,25 @@ inline std::string get_string(PtrVal ptr, SS state) {
   return name;
 }
 
-inline immer::flex_vector<std::pair<SS, PtrVal>> open(SS state, immer::flex_vector<PtrVal> args) {
-  PtrVal ptr = args.at(0);
-  std::string name = get_string(ptr, state);
-  FS& fs = state.get_fs();
-  /* TODO: add flags for open_file <2021-11-03, David Deng> */
-  Fd fd = fs.open_file(name, 0);
-  state.set_fs(fs);
-  return immer::flex_vector<std::pair<SS, PtrVal>>{{state, make_IntV(fd)}};
+/* inline immer::flex_vector<std::pair<SS, PtrVal>> open(SS state, immer::flex_vector<PtrVal> args) { */
+/*   PtrVal ptr = args.at(0); */
+/*   std::string name = get_string(ptr, state); */
+/*   FS& fs = state.get_fs(); */
+/*   /1* TODO: add flags for open_file <2021-11-03, David Deng> *1/ */
+/*   Fd fd = fs.open_file(name, 0); */
+/*   state.set_fs(fs); */
+/*   return immer::flex_vector<std::pair<SS, PtrVal>>{{state, make_IntV(fd)}}; */
+/* } */
+
+using namespace immer;
+inline flex_vector<std::pair<SS, PtrVal>> open(SS x16, flex_vector<PtrVal> x17) {
+  PtrVal x18 = x17.at(0);
+  return flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x16, make_IntV(x16.get_fs().open_file(get_string(x18, x16), 0), 32))};
 }
 
 inline immer::flex_vector<std::pair<SS, PtrVal>> close(SS state, immer::flex_vector<PtrVal> args) {
   Fd fd = proj_IntV(args.at(0));
-  FS& fs = state.get_fs();
+  FS fs = state.get_fs();
   int status = fs.close_file(fd);
   state.set_fs(fs);
   return immer::flex_vector<std::pair<SS, PtrVal>>{{state, make_IntV(status)}};

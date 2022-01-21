@@ -182,8 +182,8 @@ class SS {
     PC get_PC() { return pc; }
     // TODO temp solution
     PtrVal getVarargLoc() { return stack.getVarargLoc(); }
-    void set_fs(FS& new_fs) { fs = new_fs; }
-    FS& get_fs() { return fs; }
+    void set_fs(FS new_fs) { fs = new_fs; }
+    FS get_fs() { return fs; }
 };
 
 inline const Mem mt_mem = Mem(immer::flex_vector<PtrVal>{});
