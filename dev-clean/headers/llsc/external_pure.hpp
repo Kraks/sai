@@ -74,22 +74,6 @@ inline std::string get_string(PtrVal ptr, SS state) {
   return name;
 }
 
-/* inline immer::flex_vector<std::pair<SS, PtrVal>> open(SS state, immer::flex_vector<PtrVal> args) { */
-/*   PtrVal ptr = args.at(0); */
-/*   std::string name = get_string(ptr, state); */
-/*   FS& fs = state.get_fs(); */
-/*   /1* TODO: add flags for open_file <2021-11-03, David Deng> *1/ */
-/*   Fd fd = fs.open_file(name, 0); */
-/*   state.set_fs(fs); */
-/*   return immer::flex_vector<std::pair<SS, PtrVal>>{{state, make_IntV(fd)}}; */
-/* } */
-
-using namespace immer;
-inline flex_vector<std::pair<SS, PtrVal>> open(SS x16, flex_vector<PtrVal> x17) {
-  PtrVal x18 = x17.at(0);
-  return flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x16, make_IntV(x16.get_fs().open_file(get_string(x18, x16), 0), 32))};
-}
-
 inline immer::flex_vector<std::pair<SS, PtrVal>> close(SS state, immer::flex_vector<PtrVal> args) {
   Fd fd = proj_IntV(args.at(0));
   FS fs = state.get_fs();
@@ -106,35 +90,43 @@ inline immer::flex_vector<std::pair<SS, PtrVal>> sym_exit(SS state, immer::flex_
   exit(status);
 }
 
-inline immer::flex_vector<std::pair<SS, PtrVal>> llsc_assert(SS state, immer::flex_vector<PtrVal> args) {
-  auto v = args.at(0);
-  auto i = v->to_IntV();
-  if (i) {
-    if (i->i == 0) sym_exit(state, args); // concrete false - generate the test and exit
-    return immer::flex_vector<std::pair<SS, PtrVal>>{{state, make_IntV(1, 32)}};
-  }
-  // otherwise add a symbolic condition that constraints it to be true
-  // undefined/error if v is a value of other types
-  auto cond = to_SMTNeg(v);
-  auto new_s = state.add_PC(cond);
-  if (check_pc(new_s.get_PC())) sym_exit(state, args); // check if v == 1 is not valid
-  return immer::flex_vector<std::pair<SS, PtrVal>>{{new_s, make_IntV(1, 32)}};
+inline std::monostate sym_exit(SS state, immer::flex_vector<PtrVal> args, Cont k) {
+  auto v = args.at(0)->to_IntV();
+  auto status = v ? v->i : 0;
+  check_pc_to_file(state);
+  epilogue();
+  exit(status);
 }
 
-inline std::monostate llsc_assert(SS state, immer::flex_vector<PtrVal> args, Cont k) {
-  auto v = args.at(0);
-  auto i = v->to_IntV();
-  if (i) {
-    if (i->i == 0) sym_exit(state, args); // concrete false - generate the test and exit
-    return k(state, make_IntV(1, 32));
-  }
-  // otherwise add a symbolic condition that constraints it to be true
-  // undefined/error if v is a value of other types
-  auto cond = to_SMTNeg(v);
-  auto new_s = state.add_PC(cond);
-  if (check_pc(new_s.get_PC())) sym_exit(state, args); // check if v == 1 is not valid
-  return k(new_s, make_IntV(1, 32));
-}
+/* inline immer::flex_vector<std::pair<SS, PtrVal>> llsc_assert(SS state, immer::flex_vector<PtrVal> args) { */
+/*   auto v = args.at(0); */
+/*   auto i = v->to_IntV(); */
+/*   if (i) { */
+/*     if (i->i == 0) sym_exit(state, args); // concrete false - generate the test and exit */
+/*     return immer::flex_vector<std::pair<SS, PtrVal>>{{state, make_IntV(1, 32)}}; */
+/*   } */
+/*   // otherwise add a symbolic condition that constraints it to be true */
+/*   // undefined/error if v is a value of other types */
+/*   auto cond = to_SMTNeg(v); */
+/*   auto new_s = state.add_PC(cond); */
+/*   if (check_pc(new_s.get_PC())) sym_exit(state, args); // check if v == 1 is not valid */
+/*   return immer::flex_vector<std::pair<SS, PtrVal>>{{new_s, make_IntV(1, 32)}}; */
+/* } */
+
+/* inline std::monostate llsc_assert(SS state, immer::flex_vector<PtrVal> args, Cont k) { */
+/*   auto v = args.at(0); */
+/*   auto i = v->to_IntV(); */
+/*   if (i) { */
+/*     if (i->i == 0) sym_exit(state, args); // concrete false - generate the test and exit */
+/*     return k(state, make_IntV(1, 32)); */
+/*   } */
+/*   // otherwise add a symbolic condition that constraints it to be true */
+/*   // undefined/error if v is a value of other types */
+/*   auto cond = to_SMTNeg(v); */
+/*   auto new_s = state.add_PC(cond); */
+/*   if (check_pc(new_s.get_PC())) sym_exit(state, args); // check if v == 1 is not valid */
+/*   return k(new_s, make_IntV(1, 32)); */
+/* } */
 
 inline immer::flex_vector<std::pair<SS, PtrVal>> make_symbolic(SS state, immer::flex_vector<PtrVal> args) {
   PtrVal make_loc = args.at(0);
