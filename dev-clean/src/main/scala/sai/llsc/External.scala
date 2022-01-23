@@ -148,7 +148,7 @@ class ExternalLLSCDriver(folder: String = "./headers/llsc") extends SAISnippet[I
   def snippet(u: Rep[Int]) = {
     // TODO: generate function of same name with multiple signatures? <2022-01-23, David Deng> //
     // TODO: llsc_assert_k depends on sym_exit, which doesn't have a _k version right now <2022-01-23, David Deng> //
-    hardTopFun(llsc_assert(_,_), "llsc_assert")
+    // hardTopFun(llsc_assert(_,_), "llsc_assert")
     // hardTopFun(llsc_assert_k(_,_,_), "llsc_assert_k")
     hardTopFun(open(_,_), "open")
     // hardTopFun(open_k(_,_,_), "open_k")

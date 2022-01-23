@@ -4,26 +4,13 @@
 #define LLSC_EXTERNAL_HEADERS_GEN
 
 /************* Function Declarations **************/
-immer::flex_vector<std::pair<SS, PtrVal>> llsc_assert(SS, immer::flex_vector<PtrVal>);
 immer::flex_vector<std::pair<SS, PtrVal>> open(SS, immer::flex_vector<PtrVal>);
 
 /************* Functions **************/
-inline immer::flex_vector<std::pair<SS, PtrVal>> open(SS x8, immer::flex_vector<PtrVal> x9) {
-PtrVal x10 = x9.at(0);
-FS x11 = x8.get_fs();
-x8.set_fs(x11);
-return immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x8, make_IntV(x11.open_file(get_string(x10, x8), 0), 32))};
-}
-inline immer::flex_vector<std::pair<SS, PtrVal>> llsc_assert(SS x1, immer::flex_vector<PtrVal> x2) {
+inline immer::flex_vector<std::pair<SS, PtrVal>> open(SS x1, immer::flex_vector<PtrVal> x2) {
 PtrVal x3 = x2.at(0);
-immer::flex_vector<std::pair<SS, PtrVal>> x4 = x3->is_conc() ? ({
-immer::flex_vector<std::pair<SS, PtrVal>> x5 = proj_IntV(x3) == 0 ? sym_exit(x1, x2) : immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x1, make_IntV(1, 32))};
-x5;
-}) : ({
-SS x6 = x1.add_PC(to_SMTNeg(x3));
-immer::flex_vector<std::pair<SS, PtrVal>> x7 = check_pc(x6.get_PC()) ? sym_exit(x6, x2) : immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x6, make_IntV(1, 32))};
-x7;
-});
-return x4;
+FS x4 = x1.get_fs();
+x1.set_fs(x4);
+return immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x1, make_IntV(x4.open_file(get_string(x3, x1), 0), 32))};
 }
 #endif // LLSC_EXTERNAL_HEADERS_GEN
