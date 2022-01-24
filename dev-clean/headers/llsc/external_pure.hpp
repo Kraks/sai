@@ -83,13 +83,29 @@ inline immer::flex_vector<std::pair<SS, PtrVal>> close(SS state, immer::flex_vec
 }
 
 inline immer::flex_vector<std::pair<SS, PtrVal>> sym_exit(SS state, immer::flex_vector<PtrVal> args) {
-  auto v = args.at(0)->to_IntV();
-  auto status = v ? v->i : 0;
+  int status;
+  if (args.size() > 0) {
+#ifdef DEBUG
+    std::cout << "sym_exit: *args.at(0) = " << *args.at(0) << std::endl;
+#endif
+    auto v = args.at(0)->to_IntV();
+    if (v) {
+      status = v->i;
+    } else {
+      status = 0; // return 0 in case a non-int value is passed as args.at(0)
+    }
+  } else {
+#ifdef DEBUG
+    std::cout << "sym_exit: no args passed" << std::endl;
+#endif
+    status = 0;
+  }
   check_pc_to_file(state);
   epilogue();
   exit(status);
 }
 
+/* TODO: Generate both versions of sym_exit <2022-01-24, David Deng> */
 inline std::monostate sym_exit(SS state, immer::flex_vector<PtrVal> args, Cont k) {
   auto v = args.at(0)->to_IntV();
   auto status = v ? v->i : 0;
