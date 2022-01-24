@@ -1,11 +1,6 @@
 #ifndef LLSC_CLI_HEADERS
 #define LLSC_CLI_HEADERS
 
-#include "filesys.hpp" // for initial_fs, default_sym_file_size
-#include "../llsc.hpp" // for DEBUG
-#include <iostream>
-#include <stdlib.h> // for optarg
-
 inline bool use_solver = true;
 inline bool use_global_solver = false;
 inline bool use_objcache = true;
@@ -27,7 +22,7 @@ inline void handle_cli_args(int argc, char** argv) {
       {"no-cex-cache",         no_argument,       0, 'C'},
       {"cons-indep",           no_argument,       0, 'i'},
       {"add-sym-file",         required_argument, 0, '+'},
-      {"set-sym-file-size",    required_argument, 0, 's'},
+      {"sym-file-size",        required_argument, 0, 's'},
       {0,                      0,                 0, 0  }
     };
     int option_index = 0;
@@ -58,13 +53,13 @@ inline void handle_cli_args(int argc, char** argv) {
         break;
       case '+':
         initial_fs.add_file(make_SymFile(std::string(optarg), default_sym_file_size));
-#if DEBUG
+#ifdef DEBUG
         printf("adding symfile: %s with size %d\n", optarg, default_sym_file_size);
 #endif
         break;
       case 's':
         default_sym_file_size = atoi(optarg);
-#if DEBUG
+#ifdef DEBUG
         printf("set symfile size to %d\n", default_sym_file_size);
 #endif
         break;
@@ -102,7 +97,7 @@ inline void handle_cli_args(int argc, char** argv) {
   }
   use_objcache = use_objcache && use_global_solver;
   use_cexcache = use_cexcache && use_global_solver;
-#if DEBUG
+#ifdef DEBUG
   std::cout << initial_fs << std::endl;
 #endif
 }

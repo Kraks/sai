@@ -4,7 +4,6 @@
 /* Memory, stack, and symbolic state representation */
 
 // Note (5/17): now using a byte-oriented layout
-#include "filesys.hpp"
 
 template <class V>
 class PreMem {

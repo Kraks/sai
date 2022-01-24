@@ -1,6 +1,5 @@
 #ifndef LLSC_FS_HEADERS
 #define LLSC_FS_HEADERS
-#include "value_ops.hpp"
 
 /* TODO: Is the name field necessary? <2021-10-12, David Deng> */
 class File {

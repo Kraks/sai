@@ -34,15 +34,14 @@
 
 using namespace std::chrono;
 
-#define DEBUG 1
 #define PURE_STATE
 
 #include <llsc/auxiliary.hpp>
 #include <llsc/parallel.hpp>
-#include <llsc/cli.hpp>
 #include <llsc/monitor.hpp>
 #include <llsc/value_ops.hpp>
 #include <llsc/filesys.hpp>
+#include <llsc/cli.hpp>
 #include <llsc/state_pure.hpp>
 
 #include <llsc/smt_checker.hpp>
