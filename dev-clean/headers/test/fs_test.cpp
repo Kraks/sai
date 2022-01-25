@@ -2,18 +2,18 @@
 #include <assert.h>
 #include "../llsc.hpp"
 
-void test_file() {
-  PtrVal intV_0 = make_IntV(0);
-  PtrVal intV_1 = make_IntV(1);
-  PtrVal intV_2 = make_IntV(2);
-  PtrVal intV_3 = make_IntV(3);
-  PtrVal intV_4 = make_IntV(4);
-  PtrVal intV_5 = make_IntV(5);
-  PtrVal intV_6 = make_IntV(6);
-  PtrVal intV_7 = make_IntV(7);
-  PtrVal intV_8 = make_IntV(8);
-  PtrVal intV_9 = make_IntV(9);
+PtrVal intV_0 = make_IntV(0);
+PtrVal intV_1 = make_IntV(1);
+PtrVal intV_2 = make_IntV(2);
+PtrVal intV_3 = make_IntV(3);
+PtrVal intV_4 = make_IntV(4);
+PtrVal intV_5 = make_IntV(5);
+PtrVal intV_6 = make_IntV(6);
+PtrVal intV_7 = make_IntV(7);
+PtrVal intV_8 = make_IntV(8);
+PtrVal intV_9 = make_IntV(9);
 
+void test_file() {
   {
     // test read_at
     File f = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2});
@@ -81,10 +81,6 @@ void test_file() {
 }
 
 void test_stream() {
-  PtrVal intV_0 = make_IntV(0);
-  PtrVal intV_1 = make_IntV(1);
-  PtrVal intV_2 = make_IntV(2);
-
   File f = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2});
   Stream s = Stream(f);
   off_t pos;
@@ -121,6 +117,26 @@ void test_stream() {
     Stream s3(s);
     pos = s3.seek_end(-5);
     ASSERT(pos == -1, "should set error");
+  }
+  {
+    // test read
+    File f = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2, intV_3, intV_4});
+    Stream s1(f);
+
+    auto ret = s1.read(3);
+    ASSERT(ret.first == f.read_at(0, 3), "should read the first three bytes");
+    ASSERT(ret.second == 3, "returned size should match the length of the content");
+
+    ret = s1.read(999);
+    ASSERT(ret.first == f.read_at(3, 2), "should return the rest of the file");
+    ASSERT(ret.second == 2, "returned size should match the length of the content");
+
+    ret = s1.read(999);
+    ASSERT(ret.first == immer::flex_vector<PtrVal>{}, "should return nothing");
+    ASSERT(ret.second == 0, "returned size should match the length of the content");
+  }
+  {
+    // test write
   }
 }
 

@@ -107,6 +107,18 @@ struct Stream {
     }
     size_t get_cursor() const { return cursor; }
 
+    std::pair<immer::flex_vector<PtrVal>, ssize_t> read(size_t nbytes) {
+      // read from current position, up to nbytes
+      auto content = file.read_at(cursor, nbytes);
+      cursor += content.size();
+      return std::make_pair(content, content.size());
+    }
+
+    ssize_t write(const void *buf, size_t nbytes) {
+      // write nbytes of buf into the stream.
+      return 0;
+    }
+
     /* TODO: implement write, read
      * ssize_t write(const void *buf, size_t nbytes)
      * - write from the current cursor, update cursor
