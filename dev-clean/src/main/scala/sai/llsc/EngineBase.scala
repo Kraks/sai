@@ -33,14 +33,20 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
   /* Basic functionalities */
 
   def compile(funName: String, b: BB): Unit = {
-    Predef.assert(!BBFuns.contains((funName, b)))
-    val (f, n) = repBlockFun(funName, b)
+    if (BBFuns.contains((funName, b))) {
+      System.out.println(s"Warning: ignoring the compilation of $funName - ${b.label}")
+      return
+    }
+    val (fn, n) = repBlockFun(funName, b)
     val realFunName = if (funName != "@main") funName.tail else "llsc_main"
     blockNameMap(n) = s"${realFunName}_Block$n"
-    BBFuns((funName, b)) = f
+    BBFuns((funName, b)) = fn
   }
   def compile(f: FunctionDef): Unit = {
-    Predef.assert(!FunFuns.contains(f.id))
+    if (FunFuns.contains(f.id)) {
+      System.out.println(s"Warning: ignoring the recompilation of ${f.id}")
+      return
+    }
     val (fn, n) = repFunFun(f)
     funNameMap(n) = if (f.id != "@main") f.id.tail else "llsc_main"
     FunFuns(f.id) = fn
@@ -54,6 +60,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
   def typeDefMap: StaticMap[String, LLVMType] = m.typeDefMap
 
   var heapEnv: StaticMap[String, Rep[Addr]] = StaticMap()
+  var funcEnv: StaticList[(Addr, String)] = StaticList()
 
   val funNameMap: HashMap[Int, String] = new HashMap()
   val blockNameMap: HashMap[Int, String] = new HashMap()
@@ -103,6 +110,8 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
       }
       (rawSize + BYTE_SIZE - 1) / BYTE_SIZE
     }
+    case PackedStruct(types) =>
+      types.map(getTySize(_, align)).sum
     case _ => ???
   }
 
@@ -144,72 +153,70 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
 
   // FIXME: Alignment: CharArrayConst, ArrayConst
   // Float Type
-  def evalHeapConst(v: Constant, ty: LLVMType): List[Rep[Value]] = v match {
-    case BoolConst(b) =>
-      StaticList(IntV(if (b) 1 else 0, 1))
-    case IntConst(n) =>
-      StaticList(IntV(n, ty.asInstanceOf[IntType].size)) ++ StaticList.fill(getTySize(ty) - 1)(NullV())
-    case FloatConst(f) =>
-      StaticList(FloatV(f))
-    case ZeroInitializerConst => ty match {
-      case ArrayType(size, ety) => StaticList.fill(flattenTy(ty).map(lty => getTySize(lty)).sum)(IntV(0))
-      case Struct(types) => StaticList.fill(flattenTy(ty).map(lty => getTySize(lty)).sum)(IntV(0))
-      case _ => StaticList.fill(getTySize(ty))(IntV(0))
-    }
-    case ArrayConst(cs) =>
-      flattenAS(v).flatMap(c => evalHeapConst(c, flattenTy(ty).head))
-    case CharArrayConst(s) =>
-      s.map(c => IntV(c.toInt, 8)).toList ++ StaticList.fill(getTySize(ty) - s.length)(NullV())
-    case StructConst(cs) =>
-      cs.flatMap { case c => evalHeapConst(c.const, c.ty)}
-    case NullConst => StaticList.fill(getTySize(ty))(NullV())
-    case GetElemPtrExpr(inBounds, baseType, ptrType, const, typedConsts) => {
-      val indexLLVMValue = typedConsts.map(tv => tv.const.asInstanceOf[IntConst].n)
-      val id = const match { // is this one exclusive?
-        case GlobalId(id) => id
-        case BitCastExpr(from, const, to) => const.asInstanceOf[GlobalId].id
+  def evalHeapConst(v: Constant, ty: LLVMType): List[Rep[Value]] = {
+    def evalAddr(v: Constant, ty: LLVMType): Rep[Addr] = v match {
+      case GetElemPtrExpr(inBounds, baseType, ptrType, const, typedConsts) => {
+        val indexLLVMValue = typedConsts.map(tv => tv.const.asInstanceOf[IntConst].n)
+        val addr = evalAddr(const, ptrType)
+        addr + calculateOffsetStatic(ptrType, indexLLVMValue)
       }
-      LocV(heapEnv(id) + calculateOffsetStatic(ptrType, indexLLVMValue), LocV.kHeap) :: StaticList.fill(getTySize(ty) - 1)(NullV())
+      case GlobalId(id) => heapEnv(id)
+      case BitCastExpr(from, const, to) => evalAddr(const, to)
     }
-    case GlobalId(id) =>
-      LocV(heapEnv(id), LocV.kHeap) :: StaticList.fill(getTySize(ty) - 1)(NullV())
-    case BitCastExpr(from, const, to) =>
-      evalHeapConst(const, to)
+    def evalValue(v: Constant, ty: LLVMType): Rep[Value] = v match {
+      case BoolConst(b) => IntV(if (b) 1 else 0, 1)
+      case IntConst(n) => IntV(n, ty.asInstanceOf[IntType].size)
+      case FloatConst(f) => FloatV(f)
+      case NullConst => NullV()
+      case PtrToIntExpr(from, const, to) => 
+        IntV(evalAddr(const, from), to.asInstanceOf[IntType].size)
+      case _ => LocV(evalAddr(v, ty), LocV.kHeap)
+    }
+    v match {
+      case StructConst(cs) =>
+        cs.flatMap { case c => evalHeapConst(c.const, c.ty) }
+      case ArrayConst(cs) =>
+        cs.flatMap { case c => evalHeapConst(c.const, c.ty) }
+      case CharArrayConst(s) =>
+        s.map(c => IntV(c.toInt, 8)).toList ++ StaticList.fill(getTySize(ty) - s.length)(NullV())
+      case ZeroInitializerConst => ty match {
+        case ArrayType(size, ety) => StaticList.fill(size)(evalHeapConst(ZeroInitializerConst, ety)).flatten
+        case Struct(types) => types.flatMap(evalHeapConst(ZeroInitializerConst, _))
+        // TODO: fallback case is not typed
+        case _ => IntV(0, getTySize(ty)) :: StaticList.fill(getTySize(ty) - 1)(NullV())
+      }
+      case _ => evalValue(v, ty) :: StaticList.fill(getTySize(ty) - 1)(NullV())
+    }
   }
-
-
-  def precomputeHeapAddr(globalDefMap: StaticMap[String, GlobalDef], prevSize: Int): Unit = {
-    var addr: Int = prevSize
-    globalDefMap.foreach { case (k, v) =>
-      heapEnv = heapEnv + (k -> unit(addr))
-      addr = addr + getTySize(v.typ)
-    }
-  }
-
-  def precompileHeap(globalDefMap: StaticMap[String, GlobalDef], prevSize: Int): StaticList[Rep[Value]] = {
-    precomputeHeapAddr(globalDefMap, prevSize)
-    globalDefMap.foldLeft(StaticList[Rep[Value]]()) { case (h, (k, v)) =>
-      h ++ evalHeapConst(v.const, getRealType(v.typ))
-    }
-  }
-
-  def precompileHeapDecl(globalDeclMap: StaticMap[String, GlobalDecl],
-    prevSize: Int, mname: String): StaticList[Rep[Value]] =
-    globalDeclMap.foldRight(StaticList[Rep[Value]]()) { case ((k, v), h) =>
-      // TODO external_weak linkage
-      val realID = mname + "_" + v.id
-      val addr = h.size + prevSize
-      heapEnv = heapEnv + (realID -> unit(addr))
-      h ++ StaticList.fill(getTySize(v.typ))(IntV(0))
-    }
 
   def precompileHeapLists(modules: StaticList[Module]): StaticList[Rep[Value]] = {
     var heapSize = 0;
     var heapTmp: StaticList[Rep[Value]] = StaticList()
     for (module <- modules) {
-      heapTmp = heapTmp ++ precompileHeap(module.globalDefMap, heapTmp.size)
-      if (!module.globalDeclMap.isEmpty) {
-        heapTmp = heapTmp ++ precompileHeapDecl(module.globalDeclMap, heapTmp.size, module.mname)
+      // module.funcDeclMap.foreach { case (k, v) =>
+      //   heapEnv += k -> unit(heapSize)
+      //   heapSize += 8;
+      // }
+      module.funcDefMap.foreach { case (k, v) =>
+        if (k != "@main")  {
+          heapEnv += k -> unit(heapSize)
+          funcEnv = (heapSize, k) :: funcEnv
+          heapSize += 8;
+        }
+      }
+      heapTmp ++= StaticList.fill(heapSize)(NullV())
+      module.globalDeclMap.foreach { case (k, v) =>
+        val realname = module.mname + "_" + v.id
+        heapEnv += realname -> unit(heapSize);
+        heapSize += getTySize(v.typ)
+        heapTmp ++= evalHeapConst(ZeroInitializerConst, v.typ)
+      }
+      module.globalDefMap.foreach { case (k, v) =>
+        heapEnv += k -> unit(heapSize);
+        heapSize += getTySize(v.typ)
+      }
+      module.globalDefMap.foreach { case (k, v) =>
+        heapTmp ++= evalHeapConst(v.const, getRealType(v.typ))
       }
     }
     heapTmp

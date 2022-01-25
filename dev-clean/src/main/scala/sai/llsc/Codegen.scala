@@ -41,6 +41,7 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     else if (m.toString.endsWith("$Mem")) "Mem"
     else if (m.toString.endsWith("$SS")) "SS"
     else if (m.toString.endsWith("$FS")) "FS"
+    else if (m.toString.endsWith("$Kind")) "LocV::Kind"
     else if (m.toString.endsWith("SMTExpr")) "PtrVal"
     else if (m.toString.endsWith("SMTBool")) "PtrVal"
     else if (m.runtimeClass.getName.endsWith("Future"))
@@ -62,8 +63,8 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     case Node(s, "init-ss", List(m), _) => es"SS($m, mt_stack, mt_pc, mt_bb)"
 
     case Node(s, "ss-lookup-env", List(ss, x), _) => es"$ss.env_lookup($x)"
-    case Node(s, "ss-lookup-addr", List(ss, a), _) => es"$ss.at($a)"
-    case Node(s, "ss-lookup-addr-struct", List(ss, a, sz), _) => es"$ss.at($a, $sz)"
+    case Node(s, "ss-lookup-addr", List(ss, a, sz), _) => es"$ss.at($a, $sz)"
+    case Node(s, "ss-lookup-addr-struct", List(ss, a, sz), _) => es"$ss.at_struct($a, $sz)"
     case Node(s, "ss-lookup-heap", List(ss, a), _) => es"$ss.heap_lookup($a)"
     case Node(s, "ss-assign", List(ss, k, v), _) => es"$ss.assign($k, $v)"
     case Node(s, "ss-assign-seq", List(ss, ks, vs), _) => es"$ss.assign_seq($ks, $vs)"

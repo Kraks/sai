@@ -129,13 +129,13 @@ class SS {
     size_t stack_size() { return stack.mem_size(); }
     size_t fresh_stack_addr() { return stack_size(); }
     size_t frame_depth() { return frame_depth(); }
-    PtrVal at(PtrVal addr) {
+    PtrVal at(PtrVal addr, int size = 1) {
       auto loc = std::dynamic_pointer_cast<LocV>(addr);
       ASSERT(loc != nullptr, "Lookup an non-address value");
       if (loc->k == LocV::kStack) return stack.at(loc->l);
       return heap.at(loc->l);
     }
-    PtrVal at(PtrVal addr, int size) {
+    PtrVal at_struct(PtrVal addr, int size) {
       auto loc = std::dynamic_pointer_cast<LocV>(addr);
       ASSERT(loc != nullptr, "Lookup an non-address value");
       if (loc->k == LocV::kStack) return stack.at(loc->l, size);
@@ -193,5 +193,11 @@ inline const SS mt_ss = SS(mt_mem, mt_stack, mt_pc, mt_bb);
 
 inline const immer::flex_vector<std::pair<SS, PtrVal>> mt_path_result =
   immer::flex_vector<std::pair<SS, PtrVal>>{};
+
+inline std::monostate cps_apply(PtrVal v, SS ss, immer::flex_vector<PtrVal> args, std::function<std::monostate(SS, PtrVal)> k) {
+  auto f = std::dynamic_pointer_cast<CPSFunV>(v);
+  if (f) return f->f(ss, args, k);
+  ABORT("cps_apply: not applicable");
+}
 
 #endif
