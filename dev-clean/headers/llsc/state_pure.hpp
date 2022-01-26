@@ -213,7 +213,6 @@ inline PtrVal make_CPSFunV(func_cps_t f) {
 }
 
 inline std::monostate cps_apply(PtrVal v, SS ss, immer::flex_vector<PtrVal> args, std::function<std::monostate(SS, PtrVal)> k) {
-  using func_cps_t = std::monostate (*)(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
   auto f = std::dynamic_pointer_cast<CPSFunV<func_cps_t>>(v);
   if (f) return f->f(ss, args, k);
   ABORT("cps_apply: not applicable");
