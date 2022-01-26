@@ -35,6 +35,9 @@ trait BasicDefs { self: SAIOps =>
   type PC = Set[SMTBool]
   type Id[T] = T
   type Fd = Int
+  val bConst = Backend.Const
+  lazy val gNode = Adapter.g.Def
+  type bExp = Backend.Exp
 
   def initState: Rep[SS] = "init-ss".reflectWriteWith[SS]()(Adapter.CTRL)
   def initState(m: Rep[Mem]): Rep[SS] = "init-ss".reflectWriteWith[SS](m)(Adapter.CTRL)
@@ -103,14 +106,17 @@ trait Opaques { self: SAIOps with BasicDefs =>
     def llvm_memset: Rep[Value] = "llsc-external-wrapper".reflectWith[Value]("llvm_memset")
     def llvm_memmove: Rep[Value] = "llsc-external-wrapper".reflectWith[Value]("llvm_memmove")
   }
+
+  object ExternalFun {
+    def unapply(v: Rep[Value]): Option[String] = Unwrap(v) match {
+      case gNode("llsc-external-wrapper", bConst(f: String)::Nil) => Some(f)
+      case _ => None
+    }
+  }
 }
 
-trait ValueDefs { self: SAIOps with BasicDefs =>
+trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
   import Constants._
-  val bConst = Backend.Const
-  lazy val gNode = Adapter.g.Def
-
-  type bExp = Backend.Exp
   type PCont[W[_]] = ((W[SS], Value) => Unit)
 
   object IntV {
@@ -133,22 +139,42 @@ trait ValueDefs { self: SAIOps with BasicDefs =>
     def apply(f: Rep[Float]): Rep[Value] = "make_FloatV".reflectWriteWith[Value](f)(Adapter.CTRL)
   }
   object LocV {
-    def kStack: Rep[Int] = "kStack".reflectMutableWith[Int]()
-    def kHeap: Rep[Int] = "kHeap".reflectMutableWith[Int]()
-    def apply(l: Rep[Addr], kind: Rep[Int], size: Rep[Int] = unit(-1)): Rep[Value] =
+    trait Kind
+    def kStack: Rep[Kind] = "kStack".reflectMutableWith[Kind]()
+    def kHeap: Rep[Kind] = "kHeap".reflectMutableWith[Kind]()
+    def apply(l: Rep[Addr], kind: Rep[Kind], size: Rep[Int] = unit(-1)): Rep[Value] =
       "make_LocV".reflectMutableWith[Value](l, kind, size)
-    def unapply(v: Rep[Value]): Option[(Rep[Addr], Int, Int)] = Unwrap(v) match {
-      case gNode("make_LocV", (a: bExp)::bConst(k: Int)::bConst(size: Int)::_) =>
-        Some((Wrap[Addr](a), k, size))
+    def unapply(v: Rep[Value]): Option[(Rep[Addr], Rep[Kind], Rep[Int])] = Unwrap(v) match {
+      case gNode("make_LocV", (a: bExp)::(k: bExp)::(size: bExp)::_) =>
+        Some((Wrap[Addr](a), Wrap[Kind](k), Wrap[Int](size)))
       case _ => None
     }
   }
+
   object FunV {
-    def apply[W[_]](f: Rep[(W[SS], List[Value]) => List[(SS, Value)]])(implicit m: Manifest[W[SS]]): Rep[Value] = f.asRepOf[Value]
+    def apply[W[_]](f: Rep[(W[SS], List[Value]) => List[(SS, Value)]])(implicit m: Manifest[W[SS]]): Rep[Value] = {
+      "make_FunV".reflectMutableWith[Value](f)
+    }
+    def unapply[W[_]](v: Rep[Value])(implicit m: Manifest[W[SS]]): Option[Rep[(W[SS], List[Value]) => List[(SS, Value)]]] =
+      Unwrap(v) match {
+        case gNode("make_FunV", (f: bExp)::Nil) =>
+          Some(Wrap[(W[SS], List[Value]) => List[(SS, Value)]](f))
+        case _ => None
+      }
   }
+
   object CPSFunV {
-    def apply[W[_]](f: Rep[(W[SS], List[Value], PCont[W]) => Unit])(implicit m: Manifest[W[SS]]): Rep[Value] = f.asRepOf[Value]
+    def apply[W[_]](f: Rep[(W[SS], List[Value], PCont[W]) => Unit])(implicit m: Manifest[W[SS]]): Rep[Value] = {
+      "make_CPSFunV".reflectMutableWith[Value](f)
+    }
+    def unapply[W[_]](v: Rep[Value])(implicit m: Manifest[W[SS]]): Option[Rep[(W[SS], List[Value], PCont[W]) => Unit]] =
+      Unwrap(v) match {
+        case gNode("make_CPSFunV", (f: bExp)::Nil) =>
+          Some(Wrap[(W[SS], List[Value], PCont[W]) => Unit](f))
+        case _ => None
+      }
   }
+
   object SymV {
     def apply(s: Rep[String]): Rep[Value] = apply(s, DEFAULT_INT_BW)
     def apply(s: Rep[String], bw: Int): Rep[Value] =
@@ -173,9 +199,9 @@ trait ValueDefs { self: SAIOps with BasicDefs =>
       case LocV(a, k, size) => a
       case _ => "proj_LocV".reflectWith[Addr](v)
     }
-    def kind: Rep[Int] = v match {
+    def kind: Rep[LocV.Kind] = v match {
       case LocV(a, k, size) => k
-      case _ => "proj_LocV_kind".reflectWith[Int](v)
+      case _ => "proj_LocV_kind".reflectWith[LocV.Kind](v)
     }
     def int: Rep[Int] = v match {
       case IntV(n, bw) => unit(n)
@@ -183,34 +209,34 @@ trait ValueDefs { self: SAIOps with BasicDefs =>
     }
     def float: Rep[Float] = "proj_FloatV".reflectWith[Float](v)
     def structAt(i: Rep[Int]) = "structV_at".reflectWith[Value](v, i)
-    def apply(s: Rep[SS], args: Rep[List[Value]]): Rep[List[(SS, Value)]] = {
-      Unwrap(v) match {
-        case gNode("llsc-external-wrapper", bConst("noop")::Nil) =>
-          List((s, IntV(0)))
-        case gNode("llsc-external-wrapper", bConst(f: String)::Nil) =>
-          System.out.println("use external function: " + f)
-          f.reflectWith[List[(SS, Value)]](s, args)
-        case _ =>
-          val f = v.asRepOf[(SS, List[Value]) => List[(SS, Value)]]
-          f(s, args)
+    def apply[W[_]](s: Rep[W[SS]], args: Rep[List[Value]])(implicit m: Manifest[W[SS]]): Rep[List[(SS, Value)]] = {
+      v match {
+        case ExternalFun(f) =>
+          if (f == "noop") List((s.asRepOf[SS], IntV(0)))
+          else {
+            System.out.println("use external function: " + f)
+            f.reflectWith[List[(SS, Value)]](s, args)
+          }
+        case FunV(f) => f(s, args)
+        case _ => "direct_apply".reflectWith[List[(SS, Value)]](v, s, args)
       }
     }
     // The CPS version
     // W[_] is parameterized over pass-by-value (Id) or pass-by-ref (Ref) of SS
-    def apply[W[_]](s: Rep[W[SS]], args: Rep[List[Value]], k: Rep[PCont[W]])(implicit m: Manifest[W[SS]]): Rep[Unit] = {
-      Unwrap(v) match {
-        case gNode("llsc-external-wrapper", bConst("noop")::Nil) =>
-          k(s, IntV(0))
-        case gNode("llsc-external-wrapper", bConst(f: String)::Nil) =>
-          // XXX: if the external function does not diverge, we don't need to
-          // pass the continuation into it, we can just return a pair of state/value.
-          System.out.println("use external function: " + f)
-          f.reflectWith[Unit](s, args, k)
-        case _ =>
-          val f = v.asRepOf[(W[SS], List[Value], PCont[W]) => Unit]
-          f(s, args, k)
+    def apply[W[_]](s: Rep[W[SS]], args: Rep[List[Value]], k: Rep[PCont[W]])(implicit m: Manifest[W[SS]]): Rep[Unit] =
+      v match {
+        case ExternalFun(f) =>
+          if (f == "noop") k(s, IntV(0))
+          else {
+            // XXX: if the external function does not diverge, we don't need to
+            // pass the continuation into it, we can just return a pair of state/value.
+            System.out.println("use external function: " + f)
+            f.reflectWith[Unit](s, args, k)
+          }
+        case CPSFunV(f) => f(s, args, k)                       // direct call
+        case _ => "cps_apply".reflectWith[Unit](v, s, args, k) // indirect call
       }
-    }
+    
     def deref: Rep[Any] = "ValPtr-deref".reflectWith[Any](v)
 
     def bv_sext(bw: Rep[Int]): Rep[Value] =  "bv_sext".reflectWith[Value](v, bw)

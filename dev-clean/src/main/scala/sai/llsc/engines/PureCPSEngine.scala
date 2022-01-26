@@ -29,7 +29,7 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
   type BFTy = Rep[(SS, Cont) => Unit]
   type FFTy = Rep[(SS, List[Value], Cont) => Unit]
 
-  def getRealBlockFunName(bf: BFTy): String = blockNameMap(getBackendSym(bf))
+  def getRealBlockFunName(bf: BFTy): String = blockNameMap(getBackendSym(Unwrap(bf)))
 
   def symExecBr(ss: Rep[SS], tCond: Rep[SMTBool], fCond: Rep[SMTBool],
     tBlockLab: String, fBlockLab: String, funName: String, k: Rep[Cont]): Rep[Unit] = {
@@ -326,6 +326,8 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
     val n = Unwrap(fn).asInstanceOf[Backend.Sym].n
     (fn, n)
   }
+
+  override def wrapFunV(f: FFTy): Rep[Value] = CPSFunV[Id](f)
 
   def exec(fname: String, args: Rep[List[Value]], isCommandLine: Boolean = false, symarg: Int = 0, k: Rep[Cont]): Rep[Unit] = {
     val preHeap: Rep[List[Value]] = List(precompileHeapLists(m::Nil):_*)

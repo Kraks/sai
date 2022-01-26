@@ -23,7 +23,7 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
   type BFTy = Rep[Ref[SS] => List[(SS, Value)]]
   type FFTy = Rep[(Ref[SS], List[Value]) => List[(SS, Value)]]
 
-  def getRealBlockFunName(bf: BFTy): String = blockNameMap(getBackendSym(bf))
+  def getRealBlockFunName(bf: BFTy): String = blockNameMap(getBackendSym(Unwrap(bf)))
 
   def symExecBr(ss: Rep[SS], tCond: Rep[SMTBool], fCond: Rep[SMTBool],
     tBlockLab: String, fBlockLab: String, funName: String): Rep[List[(SS, Value)]] = {
@@ -188,7 +188,7 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
         }
         ss.push
         val stackSize = ss.stackSize
-        val res = fv(ss, List(vs: _*))
+        val res = fv[Ref](ss, List(vs: _*))
         res.flatMap { case sv =>
           val s: Rep[Ref[SS]] = sv._1
           s.pop(stackSize) // XXX: double check here
@@ -300,7 +300,7 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
         }
         ss.push
         val stackSize = ss.stackSize
-        val res: Rep[List[(SS, Value)]] = fv(ss, List(vs: _*))
+        val res: Rep[List[(SS, Value)]] = fv[Ref](ss, List(vs: _*))
         res.flatMap { case sv =>
           val s = sv._1
           s.pop(stackSize)
@@ -350,6 +350,8 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
     (fn, n)
   }
 
+  override def wrapFunV(f: FFTy): Rep[Value] = FunV[Ref](f)
+
   def exec(fname: String, args: Rep[List[Value]], isCommandLine: Boolean = false, symarg: Int = 0): Rep[List[(SS, Value)]] = {
     val preHeap: Rep[List[Value]] = List(precompileHeapLists(m::Nil):_*)
     compile(funMap.map(_._2).toList)
@@ -360,13 +362,13 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
     if (!isCommandLine) {
       val fv = eval(GlobalId(fname), VoidType, ss)(fname)
       ss.push
-      fv(ss, args)
+      fv[Ref](ss, args)
     } else {
       val commandLineArgs = List[Value](IntV(2), LocV(0, LocV.kStack))
       val fv = eval(GlobalId(fname), VoidType, ss)(fname)
       ss.push
       ss.updateArg(symarg)
-      fv(ss, commandLineArgs)
+      fv[Ref](ss, commandLineArgs)
     }
   }
 }

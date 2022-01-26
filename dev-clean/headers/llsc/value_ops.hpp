@@ -3,6 +3,8 @@
 
 struct Value;
 struct IntV;
+struct SS;
+
 using PtrVal = std::shared_ptr<Value>;
 
 /* Value representations */
@@ -51,6 +53,72 @@ struct std::equal_to<immer::flex_vector<PtrVal>> {
     return true;
   }
 };
+
+// FunV types:
+//   use template to delay type instantiation
+//   cause SS is currently incomplete, unable to use in containers
+
+template <typename func_t>
+struct FunV : Value {
+  func_t f;
+  FunV(func_t f) : f(f) {
+    hash_combine(hash(), std::string("funv"));
+    hash_combine(hash(), f);
+  }
+  virtual std::ostream& toString(std::ostream& os) const override {
+    return os << "FunV(" << f << ")";
+  }
+  virtual PtrVal to_SMT() override {
+    ABORT("to_SMT: unexpected value FunV.");
+  }
+  virtual std::shared_ptr<IntV> to_IntV() override {
+    ABORT("to_IntV: TODO for FunV?");
+  }
+  virtual bool is_conc() const override { return true; }
+  virtual int get_bw() const override {
+    ABORT("get_bw: TODO for FunV?");
+  }
+  virtual bool compare(const Value *v) const override {
+    auto that = static_cast<decltype(this)>(v);
+    return this->f == that->f;
+  }
+};
+
+template<typename func_t>
+inline PtrVal make_FunV(func_t f) {
+  return std::make_shared<FunV<func_t>>(f);
+}
+
+template<typename func_t>
+struct CPSFunV : Value {
+  func_t f;
+  CPSFunV(func_t f) : f(f) {
+    hash_combine(hash(), std::string("cpsfunv"));
+    hash_combine(hash(), f);
+  }
+  virtual std::ostream& toString(std::ostream& os) const override {
+    return os << "CPSFunV(" << f << ")";
+  }
+  virtual PtrVal to_SMT() override {
+    ABORT("to_SMT: unexpected value CPSFunV.");
+  }
+  virtual std::shared_ptr<IntV> to_IntV() override {
+    ABORT("to_IntV: TODO for CPSFunV?");
+  }
+  virtual bool is_conc() const override { return true; }
+  virtual int get_bw() const override {
+    ABORT("get_bw: TODO for CPSFunV?");
+  }
+  virtual bool compare(const Value *v) const override {
+    auto that = static_cast<decltype(this)>(v);
+    return this->f == that->f;
+  }
+};
+
+template<typename func_t>
+inline PtrVal make_CPSFunV(func_t f) {
+  return std::make_shared<CPSFunV<func_t>>(f);
+}
 
 struct IntV : Value {
   int bw;
@@ -152,7 +220,9 @@ struct LocV : Value {
   virtual bool is_conc() const override {
     ABORT("is_conc: unexpected value LocV.");
   }
-  virtual std::shared_ptr<IntV> to_IntV() override { return std::make_shared<IntV>(l, addr_bw); }
+  virtual std::shared_ptr<IntV> to_IntV() override {
+    return std::make_shared<IntV>(l + (k == kStack ? (1 << 30) : 0), addr_bw);
+  }
   virtual int get_bw() const override { return addr_bw; }
 
   virtual bool compare(const Value *v) const override {

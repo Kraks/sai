@@ -71,22 +71,10 @@ struct Stream {
     int mode; // a combination of O_RDONLY, O_WRONLY, O_RDWR, etc.
     off_t cursor;
   public:
-    Stream(const Stream &s):
-      file(s.file),
-      mode(s.mode),
-      cursor(s.cursor) {}
-    Stream(File file):
-      file(file),
-      mode(O_RDONLY),
-      cursor(0) {}
-    Stream(File file, int mode):
-      file(file),
-      mode(mode),
-      cursor(0) {}
-    Stream(File file, int mode, size_t cursor):
-      file(file),
-      mode(mode),
-      cursor(cursor) {}
+    Stream(const Stream &s): file(s.file), mode(s.mode), cursor(s.cursor) {}
+    Stream(File file): file(file), mode(O_RDONLY), cursor(0) {}
+    Stream(File file, int mode): file(file), mode(mode), cursor(0) {}
+    Stream(File file, int mode, size_t cursor): file(file), mode(mode), cursor(cursor) {}
 
     off_t seek_start(off_t offset) {
       if (offset < 0) return -1;
@@ -149,24 +137,15 @@ class FS {
       os << ")";
       return os;
     }
-    FS(): next_fd(3) {
+    FS() : next_fd(3) {
         // default initialize opened_files and files
         /* TODO: set up stdin and stdout using fd 1 and 2 <2021-11-03, David Deng> */
     }
 
-    FS(const FS &fs):
-      files(fs.files),
-      opened_files(fs.opened_files),
-      next_fd(3) {}
+    FS(const FS &fs) : files(fs.files), opened_files(fs.opened_files), next_fd(3) {}
 
-    FS(immer::map<Fd, Stream> opened_files,
-        immer::map<std::string, File> files,
-        status_t status,
-        Fd next_fd,
-        Fd last_opened_fd):
-      opened_files(opened_files),
-      files(files),
-      next_fd(next_fd) {}
+    FS(immer::map<Fd, Stream> opened_files, immer::map<std::string, File> files, status_t status, Fd next_fd, Fd last_opened_fd) :
+      opened_files(opened_files), files(files), next_fd(next_fd) {}
 
     inline File get_file(std::string name) {
       return files.at(name);

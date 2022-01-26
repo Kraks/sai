@@ -29,7 +29,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
   type BFTy = Rep[SS => List[(SS, Value)]]
   type FFTy = Rep[(SS, List[Value]) => List[(SS, Value)]]
 
-  def getRealBlockFunName(bf: BFTy): String = blockNameMap(getBackendSym(bf))
+  def getRealBlockFunName(bf: BFTy): String = blockNameMap(getBackendSym(Unwrap(bf)))
 
   def symExecBr(ss: Rep[SS], tCond: Rep[SMTBool], fCond: Rep[SMTBool],
     tBlockLab: String, fBlockLab: String, funName: String): Rep[List[(SS, Value)]] = {
@@ -183,7 +183,8 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
       case PtrToIntInst(from, value, to) =>
         for { v <- eval(value, from) } yield v.to_IntV
       case IntToPtrInst(from, value, to) =>
-        for { v <- eval(value, from) } yield LocV(v.int, LocV.kStack)
+        for { v <- eval(value, from) } 
+        yield LocV(v.int, if (v.int >= (1 << 30)) LocV.kStack else LocV.kHeap)
       case BitCastInst(from, value, to) => eval(value, to)
 
       // Aggregate Operations
@@ -224,7 +225,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           vs <- mapM2Tup(argValues)(argTypes)(eval)
           _ <- pushFrame
           s <- getState
-          v <- reflect(fv(s, List(vs:_*)))
+          v <- reflect(fv[Id](s, List(vs:_*)))
           _ <- popFrame(s.stackSize)
         } yield v
 
@@ -388,7 +389,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           vs <- mapM2Tup(argValues)(argTypes)(eval)
           _ <- pushFrame
           s <- getState
-          v <- reflect(fv(s, List(vs:_*)))
+          v <- reflect(fv[Id](s, List(vs:_*)))
           _ <- popFrame(s.stackSize)
         } yield ()
     }
@@ -445,6 +446,8 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
     (fn, n)
   }
 
+  override def wrapFunV(f: FFTy): Rep[Value] = FunV[Id](f)
+
   def exec(fname: String, args: Rep[List[Value]], isCommandLine: Boolean = false, symarg: Int = 0): Rep[List[(SS, Value)]] = {
     val preHeap: Rep[List[Value]] = List(precompileHeapLists(m::Nil):_*)
     val heap0 = preHeap.asRepOf[Mem]
@@ -453,7 +456,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
         fv <- eval(GlobalId(fname), VoidType)(fname)
         _ <- pushFrame
         s <- getState
-        v <- reflect(fv(s, args))
+        v <- reflect(fv[Id](s, args))
         // Optimization: for entrance function, no need to pop
         //_ <- popFrame(s.stackSize)
       } yield v
@@ -464,7 +467,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
         _ <- pushFrame
         _ <- initializeArg(symarg)
         s <- getState
-        v <- reflect(fv(s, commandLineArgs))
+        v <- reflect(fv[Id](s, commandLineArgs))
         //_ <- popFrame(s.stackSize)
       } yield v
     }
