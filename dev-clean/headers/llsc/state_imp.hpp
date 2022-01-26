@@ -11,7 +11,7 @@ class PreMem {
   public:
     PreMem(std::vector<V> mem) : mem(std::move(mem)) {}
     size_t size() { return mem.size(); }
-    V at(size_t idx) { return mem.at(idx); }
+    V at(size_t idx, size_t size) { return mem.at(idx); }
     PreMem&& update(size_t idx, V val) {
       mem.at(idx) = val;
       return std::move(*this);
@@ -114,8 +114,8 @@ class Stack {
     }
     PtrVal lookup_id(Id id) { return env.back().lookup_id(id); }
 
-    PtrVal at(size_t idx) { return mem.at(idx); }
-    PtrVal at(size_t idx, int size) {
+    PtrVal at(size_t idx, size_t size) { return mem.at(idx, size); }
+    PtrVal at_struct(size_t idx, int size) {
       return std::make_shared<StructV>(mem.slice(idx, size).getMem());
     }
     Stack&& update(size_t idx, PtrVal val) {
@@ -187,13 +187,13 @@ class SS {
     PtrVal at(PtrVal addr, int size = 1) {
       auto loc = std::dynamic_pointer_cast<LocV>(addr);
       ASSERT(loc != nullptr, "Lookup an non-address value");
-      if (loc->k == LocV::kStack) return stack.at(loc->l);
-      return heap.at(loc->l);
+      if (loc->k == LocV::kStack) return stack.at(loc->l, size);
+      return heap.at(loc->l, size);
     }
     PtrVal at_struct(PtrVal addr, int size) {
       auto loc = std::dynamic_pointer_cast<LocV>(addr);
       ASSERT(loc != nullptr, "Lookup an non-address value");
-      if (loc->k == LocV::kStack) return stack.at(loc->l, size);
+      if (loc->k == LocV::kStack) return stack.at_struct(loc->l, size);
       return std::make_shared<StructV>(heap.slice(loc->l, size).getMem());
     }
     PtrVal heap_lookup(size_t addr) { return heap.at(addr); }
