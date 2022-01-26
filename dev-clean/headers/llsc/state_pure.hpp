@@ -129,7 +129,7 @@ class SS {
     size_t stack_size() { return stack.mem_size(); }
     size_t fresh_stack_addr() { return stack_size(); }
     size_t frame_depth() { return frame_depth(); }
-    PtrVal at(PtrVal addr, int size = 1) {
+    PtrVal at(PtrVal addr, int size = -1) {
       auto loc = std::dynamic_pointer_cast<LocV>(addr);
       ASSERT(loc != nullptr, "Lookup an non-address value");
       if (loc->k == LocV::kStack) return stack.at(loc->l, size);
@@ -141,7 +141,7 @@ class SS {
       if (loc->k == LocV::kStack) return stack.at_struct(loc->l, size);
       return std::make_shared<StructV>(heap.take(loc->l + size).drop(loc->l).getMem());
     }
-    PtrVal heap_lookup(size_t addr) { return heap.at(addr); }
+    PtrVal heap_lookup(size_t addr) { return heap.at(addr, -1); }
     BlockLabel incoming_block() { return bb; }
     SS alloc_stack(size_t size) { return SS(heap, stack.alloc(size), pc, bb); }
     SS alloc_heap(size_t size) { return SS(heap.alloc(size), stack, pc, bb); }
