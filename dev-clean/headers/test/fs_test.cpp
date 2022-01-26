@@ -119,24 +119,49 @@ void test_stream() {
     ASSERT(pos == -1, "should set error");
   }
   {
-    // test read
+    // test read stream
     File f = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2, intV_3, intV_4});
     Stream s1(f);
 
-    auto ret = s1.read(3);
-    ASSERT(ret.first == f.read_at(0, 3), "should read the first three bytes");
-    ASSERT(ret.second == 3, "returned size should match the length of the content");
+    auto content = s1.read(3);
+    ASSERT(content == f.read_at(0, 3), "should read the first three bytes");
 
-    ret = s1.read(999);
-    ASSERT(ret.first == f.read_at(3, 2), "should return the rest of the file");
-    ASSERT(ret.second == 2, "returned size should match the length of the content");
+    content = s1.read(999);
+    ASSERT(content == f.read_at(3, 2), "should return the rest of the file");
 
-    ret = s1.read(999);
-    ASSERT(ret.first == immer::flex_vector<PtrVal>{}, "should return nothing");
-    ASSERT(ret.second == 0, "returned size should match the length of the content");
+    content = s1.read(999);
+    ASSERT(content == immer::flex_vector<PtrVal>{}, "should return nothing");
   }
   {
-    // test write
+    // test write stream
+    File f = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2, intV_3, intV_4});
+    Stream s1(f);
+    int nbytes;
+
+    nbytes = s1.write(immer::flex_vector<PtrVal>{intV_5, intV_6}, 5);
+    ASSERT(nbytes == 2, "should write two bytes");
+
+    Stream s2(f);
+    nbytes = s2.write(immer::flex_vector<PtrVal>{intV_5, intV_6}, 1);
+    ASSERT(nbytes == 1, "should write one byte");
+    
+    Stream s3(f);
+    s3.write(immer::flex_vector<PtrVal>{intV_5, intV_6}, 2);
+    ASSERT((s3.seek_cur(0) == 2), "cursor should have advanced by two");
+    s3.seek_start(0);
+    ASSERT((s3.read(5) == 
+          immer::flex_vector<PtrVal>{intV_5, intV_6, intV_2, intV_3, intV_4}), 
+        "content should be updated");
+
+    Stream s4(f);
+    s4.seek_end(2);
+    nbytes = s4.write(immer::flex_vector<PtrVal>{intV_5, intV_6}, 2);
+    ASSERT(nbytes == 2, "should have written two bytes");
+    ASSERT((s4.seek_end(0) == 9), "should have 9 bytes in total");
+    s4.seek_start(0);
+    ASSERT((s4.read(999) == 
+          immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2, intV_3, intV_4, IntV0, IntV0, intV_5, intV_6}), 
+        "content should be updated");
   }
 }
 
@@ -160,6 +185,7 @@ void test_fs() {
     FS fs;
     fs.add_file(file_a);
     Fd fd_a;
+    ssize_t ret;
 
     fd = fs.open_file(file_a.get_name());
     ASSERT((fd != -1), "open_file should return valid fd");
@@ -168,6 +194,23 @@ void test_fs() {
 
     fd = fs.open_file("non-existing-file");
     ASSERT((fd == -1), "open_file should return -1 on non-existing file name");
+
+    // test write_file
+    ret = fs.write_file(fd_a, immer::flex_vector<PtrVal>{intV_0, intV_1}, 5);
+    ASSERT((ret == 2), "should return the correct number of bytes written");
+
+    ret = fs.write_file(-999, immer::flex_vector<PtrVal>{intV_0, intV_1}, 5);
+    ASSERT((ret == -1), "write_file should return -1 on unopened file");
+
+    // test read_file
+    auto retp = fs.read_file(fd_a, 999);
+    ret = retp.second;
+    ASSERT((ret == 3), "should have read the last 3 bytes");
+
+    retp = fs.read_file(-999, 999);
+    ret = retp.second;
+    ASSERT((ret == -1), "read_file should return -1 on unopened file");
+    /* TODO: Check content when seek is implemented <2022-01-25, David Deng> */
 
     // test close_file
     fd = fs.close_file(fd_a);
