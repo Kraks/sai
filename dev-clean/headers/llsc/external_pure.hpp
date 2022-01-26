@@ -74,14 +74,6 @@ inline std::string get_string(PtrVal ptr, SS state) {
   return name;
 }
 
-inline immer::flex_vector<std::pair<SS, PtrVal>> close(SS state, immer::flex_vector<PtrVal> args) {
-  Fd fd = proj_IntV(args.at(0));
-  FS fs = state.get_fs();
-  int status = fs.close_file(fd);
-  state.set_fs(fs);
-  return immer::flex_vector<std::pair<SS, PtrVal>>{{state, make_IntV(status)}};
-}
-
 inline immer::flex_vector<std::pair<SS, PtrVal>> sym_exit(SS state, immer::flex_vector<PtrVal> args) {
   int status;
   if (args.size() > 0) {

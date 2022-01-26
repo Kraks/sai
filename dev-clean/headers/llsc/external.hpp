@@ -6,8 +6,24 @@
 /************* Function Declarations **************/
 immer::flex_vector<std::pair<SS, PtrVal>> open(SS, immer::flex_vector<PtrVal>);
 std::monostate open(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
+immer::flex_vector<std::pair<SS, PtrVal>> close(SS, immer::flex_vector<PtrVal>);
+std::monostate close(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
 
 /************* Functions **************/
+inline immer::flex_vector<std::pair<SS, PtrVal>> close(SS x12, immer::flex_vector<PtrVal> x13) {
+PtrVal x14 = x13.at(0);
+FS x15 = x12.get_fs();
+int x16 = x15.close_file(proj_IntV(x14->to_IntV()));
+x12.set_fs(x15);
+return immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x12, make_IntV(x16, 32))};
+}
+inline std::monostate close(SS x17, immer::flex_vector<PtrVal> x18, std::function<std::monostate(SS, PtrVal)> x19) {
+PtrVal x20 = x18.at(0);
+FS x21 = x17.get_fs();
+int x22 = x21.close_file(proj_IntV(x20->to_IntV()));
+x17.set_fs(x21);
+return x19(x17, make_IntV(x22, 32));
+}
 inline immer::flex_vector<std::pair<SS, PtrVal>> open(SS x1, immer::flex_vector<PtrVal> x2) {
 PtrVal x3 = x2.at(0);
 FS x4 = x1.get_fs();

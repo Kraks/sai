@@ -131,6 +131,8 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
   implicit class FSOps(fs: Rep[FS]) {
     def openFile(path: Rep[String], flag: Rep[Int]): Rep[Fd] =
       "fs-open-file".reflectCtrlWith[Fd](fs, path, flag)
+    def closeFile(fd: Rep[Fd]): Rep[Int] =
+      "fs-close-file".reflectCtrlWith[Int](fs, fd)
   }
 
   def putState(s: Rep[SS]): Comp[E, Rep[Unit]] = for { _ <- put[Rep[SS], E](s) } yield ()

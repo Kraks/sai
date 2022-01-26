@@ -60,12 +60,22 @@ trait GenExternal extends SymExeDefs {
     k(ss, IntV(ret, 32))
   }
 
+  def gen_close[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
+    val fd: Rep[Int] = args(0).to_IntV.int
+    val fs: Rep[FS] = ss.getFs
+    val ret: Rep[Int] = fs.closeFile(fd)
+    ss.setFs(fs)
+    k(ss, IntV(ret, 32))
+  }
+
   def gen_openat[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
     // TODO: implement this <2022-01-23, David Deng> //
     // int __fd_openat(int basefd, const char *pathname, int flags, mode_t mode);
     // if (fd == AT_FDCWD), call open
     k(ss, IntV(0, 32))
   }
+
+  // TODO: parameterize the functions below? <2022-01-26, David Deng> //
 
   def llsc_assert(ss: Rep[SS], args: Rep[List[Value]]): Rep[List[(SS, Value)]] =
     gen_llsc_assert[List[(SS, Value)]](ss, args, { case (s, v) => List[(SS, Value)]((s, v)) })
@@ -78,6 +88,12 @@ trait GenExternal extends SymExeDefs {
 
   def open_k(ss: Rep[SS], args: Rep[List[Value]], k: Rep[Cont]): Rep[Unit] =
     gen_open[Unit](ss, args, { case (s, v) => k(s, v) })
+
+  def close(ss: Rep[SS], args: Rep[List[Value]]): Rep[List[(SS, Value)]] =
+    gen_close[List[(SS, Value)]](ss, args, { case (s, v) => List[(SS, Value)]((s, v)) })
+
+  def close_k(ss: Rep[SS], args: Rep[List[Value]], k: Rep[Cont]): Rep[Unit] =
+    gen_close[Unit](ss, args, { case (s, v) => k(s, v) })
 
   def openat(ss: Rep[SS], args: Rep[List[Value]]): Rep[List[(SS, Value)]] =
     gen_openat[List[(SS, Value)]](ss, args, { case (s, v) => List[(SS, Value)]((s, v)) })
@@ -121,6 +137,8 @@ class ExternalLLSCDriver(folder: String = "./headers/llsc") extends SAISnippet[I
     // hardTopFun(llsc_assert_k(_,_,_), "llsc_assert_k")
     hardTopFun(open(_,_), "open", "inline")
     hardTopFun(open_k(_,_,_), "open", "inline")
+    hardTopFun(close(_: Rep[SS], _: Rep[List[Value]]), "close", "inline")
+    hardTopFun(close_k(_,_,_), "close", "inline")
     ()
   }
 }

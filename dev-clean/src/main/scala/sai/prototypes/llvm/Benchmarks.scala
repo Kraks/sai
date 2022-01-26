@@ -68,6 +68,7 @@ object Benchmarks {
 
   lazy val assertTest = parseFile("benchmarks/external_lib/assert.ll")
   lazy val openTest = parseFile("benchmarks/external_lib/open.ll")
+  lazy val closeTest = parseFile("benchmarks/external_lib/close.ll")
   // lazy val openAtTest = parseFile("benchmarks/external_lib/openat.ll")
 }
 

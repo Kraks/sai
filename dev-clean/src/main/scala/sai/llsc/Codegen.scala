@@ -99,7 +99,9 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     case Node(s, "print-time", _, _) => es"cov.print_time()"
     case Node(s, "print-path-cov", _, _) => es"cov.print_path_cov()"
     case Node(s, "get-string", List(ptr, ss), _) => es"get_string($ptr, $ss)"
+
     case Node(s, "fs-open-file", List(fs, p, f), _) => es"$fs.open_file($p, $f)"
+    case Node(s, "fs-close-file", List(fs, fd), _) => es"$fs.close_file($fd)"
 
     case _ => super.shallow(n)
   }
