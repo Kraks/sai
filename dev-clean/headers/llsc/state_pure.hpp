@@ -106,9 +106,9 @@ public:
     }
     // trunc tail if necessary
     if (ret->get_bw() > size0 * 8) {
-      int off = ret->get_bw() - size * 8;
+      int off = ret->get_bw() - size0 * 8;
       ret = int_op_2(op_lshr, ret, make_IntV(off, ret->get_bw()));
-      ret = trunc(ret, ret->get_bw(), size * 8);
+      ret = trunc(ret, ret->get_bw(), size0 * 8);
     }
     return ret;
   }
