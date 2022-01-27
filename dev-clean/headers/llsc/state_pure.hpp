@@ -151,6 +151,13 @@ class SS {
       if (loc->k == LocV::kStack) return SS(heap, stack.update(loc->l, val), pc, bb, fs);
       return SS(heap.update(loc->l, val), stack, pc, bb, fs);
     }
+    SS update_seq(PtrVal addr, immer::flex_vector<PtrVal> vals) {
+      SS updated_ss = *this;
+      for (int i = 0; i < vals.size(); i++) {
+        updated_ss = updated_ss.update(make_LocV_inc(addr, i), vals.at(i));
+      }
+      return updated_ss;
+    }
     SS push() { return SS(heap, stack.push(), pc, bb, fs); }
     SS pop(size_t keep) { return SS(heap, stack.pop(keep), pc, bb, fs); }
     SS assign(Id id, PtrVal val) { return SS(heap, stack.assign(id, val), pc, bb, fs); }

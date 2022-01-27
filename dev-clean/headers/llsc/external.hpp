@@ -41,7 +41,7 @@ inline immer::flex_vector<std::pair<SS, PtrVal>> read(SS x23, immer::flex_vector
   /* update_seq(std::get<0>(x29), x26); */
   auto content = std::get<0>(x29);
   std::cout << "content.at(0): " << *content.at(0) << std::endl;
-  auto new_ss = x23.update(x26, content.at(0));
+  auto new_ss = x23.update_seq(x26, content);
   new_ss.set_fs(x28);
   return immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(new_ss, make_IntV(std::get<1>(x29), 32))};
 }
