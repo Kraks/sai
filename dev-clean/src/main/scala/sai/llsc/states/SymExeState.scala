@@ -133,6 +133,10 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
       "fs-open-file".reflectCtrlWith[Fd](fs, path, flag)
     def closeFile(fd: Rep[Fd]): Rep[Int] =
       "fs-close-file".reflectCtrlWith[Int](fs, fd)
+    def readFile(fd: Rep[Fd], nbytes: Rep[Int]): Rep[(List[Value], Int)] =
+      "fs-read-file".reflectCtrlWith[(List[Value], Int)](fs, fd, nbytes)
+    def writeFile(fd: Rep[Fd], content: Rep[List[Value]], nbytes: Rep[Int]): Rep[Int] =
+      "fs-write-file".reflectCtrlWith[Int](fs, fd, content, nbytes)
   }
 
   def putState(s: Rep[SS]): Comp[E, Rep[Unit]] = for { _ <- put[Rep[SS], E](s) } yield ()

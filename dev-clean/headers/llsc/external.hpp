@@ -5,17 +5,62 @@
 
 /************* Function Declarations **************/
 immer::flex_vector<std::pair<SS, PtrVal>> open(SS, immer::flex_vector<PtrVal>);
-immer::flex_vector<std::pair<SS, PtrVal>> close(SS, immer::flex_vector<PtrVal>);
 std::monostate open(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
+immer::flex_vector<std::pair<SS, PtrVal>> close(SS, immer::flex_vector<PtrVal>);
 std::monostate close(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
+immer::flex_vector<std::pair<SS, PtrVal>> read(SS, immer::flex_vector<PtrVal>);
+std::monostate read(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
+immer::flex_vector<std::pair<SS, PtrVal>> write(SS, immer::flex_vector<PtrVal>);
+std::monostate write(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
 
 /************* Functions **************/
-inline immer::flex_vector<std::pair<SS, PtrVal>> close(SS x6, immer::flex_vector<PtrVal> x7) {
-PtrVal x8 = x7.at(0);
-FS x9 = x6.get_fs();
-int x10 = x9.close_file(proj_IntV(x8->to_IntV()));
-x6.set_fs(x9);
-return immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x6, make_IntV(x10, 32))};
+inline immer::flex_vector<std::pair<SS, PtrVal>> write(SS x38, immer::flex_vector<PtrVal> x39) {
+PtrVal x40 = x39.at(0);
+PtrVal x41 = x39.at(2);
+FS x42 = x38.get_fs();
+int x43 = x42.write_file(proj_IntV(x40), immer::flex_vector<PtrVal>{make_IntV(0, 32), make_IntV(1, 32), make_IntV(2, 32)}, proj_IntV(x41));
+x38.set_fs(x42);
+return immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x38, make_IntV(x43, 32))};
+}
+inline std::monostate write(SS x44, immer::flex_vector<PtrVal> x45, std::function<std::monostate(SS, PtrVal)> x46) {
+PtrVal x47 = x45.at(0);
+PtrVal x48 = x45.at(2);
+FS x49 = x44.get_fs();
+int x50 = x49.write_file(proj_IntV(x47), immer::flex_vector<PtrVal>{make_IntV(0, 32), make_IntV(1, 32), make_IntV(2, 32)}, proj_IntV(x48));
+x44.set_fs(x49);
+return x46(x44, make_IntV(x50, 32));
+}
+inline immer::flex_vector<std::pair<SS, PtrVal>> read(SS x23, immer::flex_vector<PtrVal> x24) {
+  PtrVal x25 = x24.at(0);
+  PtrVal x26 = x24.at(1);
+  PtrVal x27 = x24.at(2);
+  FS x28 = x23.get_fs();
+  std::cout << "fs: " << x28 << std::endl;
+  std::pair<immer::flex_vector<PtrVal>, int> x29 = x28.read_file(proj_IntV(x25), proj_IntV(x27));
+  std::cout << "fs after read: " << x28 << std::endl;
+  /* update_seq(std::get<0>(x29), x26); */
+  auto content = std::get<0>(x29);
+  std::cout << "content.at(0): " << *content.at(0) << std::endl;
+  auto new_ss = x23.update(x26, content.at(0));
+  new_ss.set_fs(x28);
+  return immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(new_ss, make_IntV(std::get<1>(x29), 32))};
+}
+inline std::monostate read(SS x30, immer::flex_vector<PtrVal> x31, std::function<std::monostate(SS, PtrVal)> x32) {
+PtrVal x33 = x31.at(0);
+PtrVal x34 = x31.at(1);
+PtrVal x35 = x31.at(2);
+FS x36 = x30.get_fs();
+std::pair<immer::flex_vector<PtrVal>, int> x37 = x36.read_file(proj_IntV(x33), proj_IntV(x35));
+/* update_seq(std::get<0>(x37), x34); */
+x30.set_fs(x36);
+return x32(x30, make_IntV(std::get<1>(x37), 32));
+}
+inline immer::flex_vector<std::pair<SS, PtrVal>> close(SS x12, immer::flex_vector<PtrVal> x13) {
+PtrVal x14 = x13.at(0);
+FS x15 = x12.get_fs();
+int x16 = x15.close_file(proj_IntV(x14->to_IntV()));
+x12.set_fs(x15);
+return immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x12, make_IntV(x16, 32))};
 }
 inline std::monostate close(SS x17, immer::flex_vector<PtrVal> x18, std::function<std::monostate(SS, PtrVal)> x19) {
 PtrVal x20 = x18.at(0);
@@ -31,11 +76,11 @@ int x5 = x4.open_file(get_string(x3, x1), 0);
 x1.set_fs(x4);
 return immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x1, make_IntV(x5, 32))};
 }
-inline std::monostate open(SS x11, immer::flex_vector<PtrVal> x12, std::function<std::monostate(SS, PtrVal)> x13) {
-PtrVal x14 = x12.at(0);
-FS x15 = x11.get_fs();
-int x16 = x15.open_file(get_string(x14, x11), 0);
-x11.set_fs(x15);
-return x13(x11, make_IntV(x16, 32));
+inline std::monostate open(SS x6, immer::flex_vector<PtrVal> x7, std::function<std::monostate(SS, PtrVal)> x8) {
+PtrVal x9 = x7.at(0);
+FS x10 = x6.get_fs();
+int x11 = x10.open_file(get_string(x9, x6), 0);
+x6.set_fs(x10);
+return x8(x6, make_IntV(x11, 32));
 }
 #endif // LLSC_EXTERNAL_HEADERS_GEN

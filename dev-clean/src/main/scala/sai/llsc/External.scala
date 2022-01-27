@@ -67,11 +67,27 @@ trait GenExternal extends SymExeDefs {
   }
 
   def read[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
-    val fd: Rep[Int] = args(0).to_IntV.int
+    val fd: Rep[Int] = args(0).int
+    val buf: Rep[Value] = args(1)
+    val count: Rep[Int] = args(2).int
     val fs: Rep[FS] = ss.getFs
-    val ret: Rep[Int] = fs.readFile(fd)
+    val (content, size): (Rep[List[Value]], Rep[Int]) = fs.readFile(fd, count).unlift
+    // TODO: assign content to the location pointed to by buf <2022-01-27, David Deng> //
+    "update_seq".reflectCtrlWith[Unit](content, buf)
     ss.setFs(fs)
-    k(ss, IntV(ret, 32))
+    k(ss, IntV(size, 32))
+  }
+
+  def write[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
+    val fd: Rep[Int] = args(0).int
+    val buf: Rep[Value] = args(1)
+    val count: Rep[Int] = args(2).int
+    val fs: Rep[FS] = ss.getFs
+    // TODO: read count bytes from the location pointed to by buf using ss.at(...) <2022-01-27, David Deng> //
+    val content: Rep[List[Value]] = List(IntV(0), IntV(1), IntV(2)) // replace the rhs
+    val size = fs.writeFile(fd, content, count)
+    ss.setFs(fs)
+    k(ss, IntV(size))
   }
 
   def openat[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
@@ -123,6 +139,10 @@ class ExternalLLSCDriver(folder: String = "./headers/llsc") extends SAISnippet[I
     hardTopFun(gen_k(open), "open", "inline")
     hardTopFun(gen_p(close), "close", "inline")
     hardTopFun(gen_k(close), "close", "inline")
+    hardTopFun(gen_p(read), "read", "inline")
+    hardTopFun(gen_k(read), "read", "inline")
+    hardTopFun(gen_p(write), "write", "inline")
+    hardTopFun(gen_k(write), "write", "inline")
     // hardTopFun(gen_p(openat), "openat", "inline")
     // hardTopFun(gen_k(openat), "openat", "inline")
     ()

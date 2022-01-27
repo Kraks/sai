@@ -78,14 +78,14 @@ trait Opaques { self: SAIOps with BasicDefs =>
     // TODO: specify the signature of those functions (both in C and Scala)
     val modeled = MutableSet[String](
       "sym_print", "malloc", "realloc", "llsc_assert", "make_symbolic",
-      "open", "close", "sym_exit",
+      "open", "close", "read", "write", "sym_exit",
       "__assert_fail"
     )
     def print: Rep[Value] = "llsc-external-wrapper".reflectWith[Value]("sym_print")
     def noop: Rep[Value] = "llsc-external-wrapper".reflectWith[Value]("noop")
   }
 
-  def getString(ptr: Rep[Value], s: Rep[SS]): Rep[String] = "get-string".reflectWith[String](ptr, s)
+  def getString(ptr: Rep[Value], s: Rep[SS]): Rep[String] = "get_string".reflectWith[String](ptr, s)
 
   object Intrinsics {
     val warned = MutableSet[String]()
