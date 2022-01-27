@@ -86,6 +86,8 @@ object TestCases {
     TestPrg(openTest, "openTestSucc", "@main", 0, 1, "--add-sym-file A", Some(0)),
     TestPrg(openTest, "openTestFail", "@main", 0, 1, "", Some(1)),
     TestPrg(closeTest, "closeTest", "@main", 0, 1, "", Some(0)),
+    TestPrg(read1Test, "readTestRetVal", "@main", 0, 1, "--sym-file-size 10 --add-sym-file A", Some(0)),
+    TestPrg(read2Test, "readTestPaths", "@main", 0, 3, "--add-sym-file A", Some(0)),
   )
 
   val all: List[TestPrg] = concrete ++ varArg ++ symbolicSimple ++ symbolicSmall ++ external ++ filesys
