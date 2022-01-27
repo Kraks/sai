@@ -72,10 +72,9 @@ trait GenExternal extends SymExeDefs {
     val count: Rep[Int] = args(2).int
     val fs: Rep[FS] = ss.getFs
     val (content, size): (Rep[List[Value]], Rep[Int]) = fs.readFile(fd, count).unlift
-    // TODO: assign content to the location pointed to by buf <2022-01-27, David Deng> //
-    "update_seq".reflectCtrlWith[Unit](content, buf)
-    ss.setFs(fs)
-    k(ss, IntV(size, 32))
+    val ss1 = ss.updateSeq(buf, content)
+    ss1.setFs(fs)
+    k(ss1, IntV(size, 32))
   }
 
   def write[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
