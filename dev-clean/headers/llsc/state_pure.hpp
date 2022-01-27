@@ -34,41 +34,83 @@ class PreMem {
 };
 
 class Mem: public PreMem<PtrVal, Mem> {
+  class IterVals {
+    immer::flex_vector<PtrVal> mem;
+    size_t begin0, end0, idx, size;
+    bool first;
+
+    std::optional<std::tuple<size_t, PtrVal, int>> get_first() {
+      first = false;
+      PtrVal ret;
+      for (idx = begin0; idx <= begin0 && !(ret = mem.at(idx)); idx--);
+      if (ret && idx + (size = ret->get_bw() / 8) > begin0) {
+        return std::tuple(idx, ret, size);
+      }
+      else {
+        idx = begin0; size = 0;
+        return next();
+      }
+    }
+
+  public:
+    IterVals(immer::flex_vector<PtrVal> m, size_t idx, int size)
+      : mem(m), begin0(idx), end0(idx + size), first(true) { }
+    
+    std::optional<std::tuple<size_t, PtrVal, int>> next() {
+      // assumptions:
+      //   1. values do not overlap
+      //   2. mem is sufficiently long
+      if (first) return get_first();
+      idx += size;
+      while (idx < end0) {
+        PtrVal ret = mem.at(idx);
+        if (ret) {
+          size = ret->get_bw()/8;
+          return std::tuple(idx, ret, size);
+        }
+        else {
+          for (size = 1; idx + size < end0 && !mem.at(idx + size); size++);
+          return std::tuple(idx, PtrVal(nullptr), size);
+        }
+      }
+      return std::nullopt;
+    }
+  };
+
 public:
   Mem(immer::flex_vector<PtrVal> mem) : PreMem(mem) { }
 
-  PtrVal at(size_t idx, int size) {
-    auto ret = PreMem::at(idx, size);
-    if (size == -1 || ret && ret->get_bw() == size * 8) return ret;
-    if (!ret) {
-      // look backward
-      size_t idx_prev;
-      for (idx_prev = idx - 1; !ret && idx_prev < idx; idx_prev--)
-        ret = mem.at(idx_prev);
-      assert(ret && idx_prev + ret->get_bw()/8 >= idx + size);
-      // shift off lsb
-      auto off = int(idx_prev + ret->get_bw()/8) - int(idx + size);
-      if (off > 0) ret = int_op_2(op_lshr, ret, make_IntV(off, ret->get_bw()));
-      // trunc msb
-      return trunc(ret, ret->get_bw(), size * 8);
+  PtrVal at(size_t idx0, int size0) {
+    if (size0 == -1) return PreMem::at(idx0, size0);
+    IterVals iter(mem, idx0, size0);
+    PtrVal val, ret;
+    size_t idx; int size;
+    // first value
+    std::tie(idx, ret, size) = *(iter.next());
+    if (idx == idx0) {
+      if (size == size0) return ret;
+      assert(ret);  // otherwise partially undefined
     }
     else {
-      while (ret->get_bw() < size * 8) {
-        // append ret2
-        auto ret2 = mem.at(idx + ret->get_bw()); assert(ret2);
-        // (ret << |ret2|) | ret2
-        ret = bv_sext(ret, ret->get_bw() + ret2->get_bw());
-        ret = int_op_2(op_shl, ret, make_IntV(ret2->get_bw(), ret->get_bw()));
-        ret = int_op_2(op_or, ret, bv_sext(ret2, ret->get_bw()));  // TODO: bv_zext
-      }
-      if (ret->get_bw() > size * 8) {
-        // trunc lsb: shift then trunc
-        int off = ret->get_bw() - size * 8;
-        ret = int_op_2(op_lshr, ret, make_IntV(off, ret->get_bw()));
-        return trunc(ret, ret->get_bw(), size * 8);
-      }
-      return ret;
+      // trunc head: idx < idx0
+      ret = trunc(ret, ret->get_bw(), (idx + size - idx0) * 8);
     }
+    // append more values
+    while (ret->get_bw() < size0 * 8) {
+      std::tie(idx, val, size) = *(iter.next());
+      assert(val);  // otherwise partially undefined
+      // (ret << |val|) | val
+      ret = bv_zext(ret, ret->get_bw() + val->get_bw());
+      ret = int_op_2(op_shl, ret, make_IntV(val->get_bw(), ret->get_bw()));
+      ret = int_op_2(op_or, ret, bv_zext(val, ret->get_bw()));
+    }
+    // trunc tail if necessary
+    if (ret->get_bw() > size0 * 8) {
+      int off = ret->get_bw() - size * 8;
+      ret = int_op_2(op_lshr, ret, make_IntV(off, ret->get_bw()));
+      ret = trunc(ret, ret->get_bw(), size * 8);
+    }
+    return ret;
   }
 
   Mem update(size_t idx, PtrVal val) {
