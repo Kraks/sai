@@ -113,8 +113,50 @@ public:
     return ret;
   }
 
-  Mem update(size_t idx, PtrVal val) {
-    return PreMem::update(idx, val);
+  Mem update(size_t idx0, PtrVal val0) {
+    if (!val0) {  // memcpy cases
+      assert(!mem.at(idx0));
+      return PreMem::update(idx0, val0);
+    }
+    auto mem = this->mem;
+    int size0 = val0->get_bw() / 8;
+    IterVals iter(mem, idx0, size0);
+    auto tmp = iter.next();
+    do {
+      size_t idx1; PtrVal val1, val; int size1;
+      std::tie(idx1, val1, size1) = *tmp;
+      // cut val from val0
+      size_t idx = std::max(idx0, idx1);
+      int size = std::min(idx0 + size0, idx1 + size1) - idx;
+      val = val0;
+      if (idx + size < idx0 + size0) {
+        int off = idx0 + size0 - idx - size;
+        val = int_op_2(op_lshr, val, make_IntV(off, val->get_bw()));
+      }
+      if (size < size0) {
+        val = trunc(val, val->get_bw(), size * 8);
+      }
+      if (size < size1) {
+        val = bv_zext(val, val1->get_bw());
+      }
+      // prepend
+      if (idx1 < idx) {
+        int off = idx1 + size1 - idx;
+        auto tmp = int_op_2(op_lshr, val1, make_IntV(off, val1->get_bw()));
+        tmp = int_op_2(op_shl, tmp, make_IntV(size, val1->get_bw()));
+        val = int_op_2(op_or, val, tmp);
+      }
+      // append
+      if (idx + size < idx1 + size1) {
+        int off = idx1 + size1 - idx - size;
+        val = int_op_2(op_shl, val, make_IntV(off, val->get_bw()));
+        auto tmp = bv_zext(trunc(val1, val1->get_bw(), off), val->get_bw());
+        val = int_op_2(op_or, val, tmp);
+      }
+      // store
+      mem = mem.set(idx, val);
+    } while (tmp = iter.next());
+    return Mem(mem);
   }
 };
 
