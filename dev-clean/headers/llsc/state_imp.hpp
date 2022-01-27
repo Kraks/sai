@@ -46,15 +46,128 @@ class PreMem {
 };
 
 class Mem: public PreMem<PtrVal, Mem> {
+  class IterVals {
+    const std::vector<PtrVal>& mem;
+    size_t begin0, end0, idx, size;
+    bool first;
+
+    std::optional<std::tuple<size_t, PtrVal, int>> get_first() {
+      first = false;
+      PtrVal ret;
+      for (idx = begin0; idx <= begin0 && !(ret = mem.at(idx)); idx--);
+      if (ret && idx + (size = ret->get_bw() / 8) > begin0) {
+        return std::tuple(idx, ret, size);
+      }
+      else {
+        idx = begin0; size = 0;
+        return next();
+      }
+    }
+
+  public:
+    IterVals(const std::vector<PtrVal>& m, size_t idx, int size)
+      : mem(m), begin0(idx), end0(idx + size), first(true) { }
+    
+    std::optional<std::tuple<size_t, PtrVal, int>> next() {
+      // assumptions:
+      //   1. values do not overlap
+      //   2. mem is sufficiently long
+      if (first) return get_first();
+      idx += size;
+      while (idx < end0) {
+        PtrVal ret = mem.at(idx);
+        if (ret) {
+          size = ret->get_bw()/8;
+          return std::tuple(idx, ret, size);
+        }
+        else {
+          for (size = 1; idx + size < end0 && !mem.at(idx + size); size++);
+          return std::tuple(idx, PtrVal(nullptr), size);
+        }
+      }
+      return std::nullopt;
+    }
+  };
+
 public:
   Mem(std::vector<PtrVal> mem) : PreMem(std::move(mem)) {}
 
-  PtrVal at(size_t idx, int size) {
-    return PreMem::at(idx, size);
+  PtrVal at(size_t idx0, int size0) {
+    if (size0 == -1) return PreMem::at(idx0, size0);
+    IterVals iter(mem, idx0, size0);
+    PtrVal val, ret;
+    size_t idx; int size;
+    // first value
+    std::tie(idx, ret, size) = *(iter.next());
+    if (idx == idx0) {
+      if (size == size0) return ret;
+      assert(ret);  // otherwise partially undefined
+    }
+    else {
+      // trunc head: idx < idx0
+      ret = trunc(ret, ret->get_bw(), (idx + size - idx0) * 8);
+    }
+    // append more values
+    while (ret->get_bw() < size0 * 8) {
+      std::tie(idx, val, size) = *(iter.next());
+      assert(val);  // otherwise partially undefined
+      // (ret << |val|) | val
+      ret = bv_zext(ret, ret->get_bw() + val->get_bw());
+      ret = int_op_2(op_shl, ret, make_IntV(val->get_bw(), ret->get_bw()));
+      ret = int_op_2(op_or, ret, bv_zext(val, ret->get_bw()));
+    }
+    // trunc tail if necessary
+    if (ret->get_bw() > size0 * 8) {
+      int off = ret->get_bw() - size0 * 8;
+      ret = int_op_2(op_lshr, ret, make_IntV(off, ret->get_bw()));
+      ret = trunc(ret, ret->get_bw(), size0 * 8);
+    }
+    return ret;
   }
 
-  Mem&& update(size_t idx, PtrVal val) {
-    return PreMem::update(idx, val);
+  Mem&& update(size_t idx0, PtrVal val0) {
+    if (!val0) {  // memcpy cases
+      assert(!mem.at(idx0));
+      return PreMem::update(idx0, val0);
+    }
+    int size0 = val0->get_bw() / 8;
+    IterVals iter(mem, idx0, size0);
+    auto tmp = iter.next();
+    do {
+      size_t idx1; PtrVal val1, val; int size1;
+      std::tie(idx1, val1, size1) = *tmp;
+      // cut val from val0
+      size_t idx = std::max(idx0, idx1);
+      int size = std::min(idx0 + size0, idx1 + size1) - idx;
+      val = val0;
+      if (idx + size < idx0 + size0) {
+        int off = idx0 + size0 - idx - size;
+        val = int_op_2(op_lshr, val, make_IntV(off, val->get_bw()));
+      }
+      if (size < size0) {
+        val = trunc(val, val->get_bw(), size * 8);
+      }
+      if (size < size1) {
+        val = bv_zext(val, val1->get_bw());
+      }
+      // prepend
+      if (idx1 < idx) {
+        int off = idx1 + size1 - idx;
+        auto tmp = int_op_2(op_lshr, val1, make_IntV(off, val1->get_bw()));
+        tmp = int_op_2(op_shl, tmp, make_IntV(size, val1->get_bw()));
+        val = int_op_2(op_or, val, tmp);
+      }
+      // append
+      if (idx + size < idx1 + size1) {
+        int off = idx1 + size1 - idx - size;
+        val = int_op_2(op_shl, val, make_IntV(off, val->get_bw()));
+        auto tmp = bv_zext(trunc(val1, val1->get_bw(), off), val->get_bw());
+        val = int_op_2(op_or, val, tmp);
+      }
+      // store
+      mem.at(idx) = val;
+    } while (tmp = iter.next());
+    return move_this();
   }
 };
 
