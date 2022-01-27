@@ -38,7 +38,37 @@ public:
   Mem(immer::flex_vector<PtrVal> mem) : PreMem(mem) { }
 
   PtrVal at(size_t idx, int size) {
-    return PreMem::at(idx, size);
+    auto ret = PreMem::at(idx, size);
+    if (size == -1 || ret && ret->get_bw() == size * 8) return ret;
+    if (!ret) {
+      // look backward
+      size_t idx_prev;
+      for (idx_prev = idx - 1; !ret && idx_prev < idx; idx_prev--)
+        ret = mem.at(idx_prev);
+      assert(ret && idx_prev + ret->get_bw()/8 >= idx + size);
+      // shift off lsb
+      auto off = int(idx_prev + ret->get_bw()/8) - int(idx + size);
+      if (off > 0) ret = int_op_2(op_lshr, ret, make_IntV(off, ret->get_bw()));
+      // trunc msb
+      return trunc(ret, ret->get_bw(), size * 8);
+    }
+    else {
+      while (ret->get_bw() < size * 8) {
+        // append ret2
+        auto ret2 = mem.at(idx + ret->get_bw()); assert(ret2);
+        // (ret << |ret2|) | ret2
+        ret = bv_sext(ret, ret->get_bw() + ret2->get_bw());
+        ret = int_op_2(op_shl, ret, make_IntV(ret2->get_bw(), ret->get_bw()));
+        ret = int_op_2(op_or, ret, bv_sext(ret2, ret->get_bw()));  // TODO: bv_zext
+      }
+      if (ret->get_bw() > size * 8) {
+        // trunc lsb: shift then trunc
+        int off = ret->get_bw() - size * 8;
+        ret = int_op_2(op_lshr, ret, make_IntV(off, ret->get_bw()));
+        return trunc(ret, ret->get_bw(), size * 8);
+      }
+      return ret;
+    }
   }
 
   Mem update(size_t idx, PtrVal val) {

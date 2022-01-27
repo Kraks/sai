@@ -76,7 +76,7 @@ struct FunV : Value {
   }
   virtual bool is_conc() const override { return true; }
   virtual int get_bw() const override {
-    ABORT("get_bw: TODO for FunV?");
+    return addr_bw;
   }
   virtual bool compare(const Value *v) const override {
     auto that = static_cast<decltype(this)>(v);
@@ -102,7 +102,7 @@ struct CPSFunV : Value {
   }
   virtual bool is_conc() const override { return true; }
   virtual int get_bw() const override {
-    ABORT("get_bw: TODO for CPSFunV?");
+    return addr_bw;
   }
   virtual bool compare(const Value *v) const override {
     auto that = static_cast<decltype(this)>(v);
