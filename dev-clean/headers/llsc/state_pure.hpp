@@ -141,6 +141,11 @@ class SS {
       if (loc->k == LocV::kStack) return stack.at(loc->l, size);
       return std::make_shared<StructV>(heap.take(loc->l + size).drop(loc->l).getMem());
     }
+    immer::flex_vector<PtrVal> at_seq(PtrVal addr, int count) {
+      auto s = std::dynamic_pointer_cast<StructV>(at_struct(addr, count));
+      ASSERT(s, "failed to read struct");
+      return s->fs;
+    }
     PtrVal heap_lookup(size_t addr) { return heap.at(addr); }
     BlockLabel incoming_block() { return bb; }
     SS alloc_stack(size_t size) { return SS(heap, stack.alloc(size), pc, bb, fs); }

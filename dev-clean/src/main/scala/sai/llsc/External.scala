@@ -82,8 +82,7 @@ trait GenExternal extends SymExeDefs {
     val buf: Rep[Value] = args(1)
     val count: Rep[Int] = args(2).int
     val fs: Rep[FS] = ss.getFs
-    // TODO: read count bytes from the location pointed to by buf using ss.at(...) <2022-01-27, David Deng> //
-    val content: Rep[List[Value]] = List(IntV(0), IntV(1), IntV(2)) // replace the rhs
+    val content: Rep[List[Value]] = ss.lookupSeq(buf, count)
     val size = fs.writeFile(fd, content, count)
     ss.setFs(fs)
     k(ss, IntV(size))
