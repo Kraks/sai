@@ -5,17 +5,17 @@
 
 /************* Function Declarations **************/
 immer::flex_vector<std::pair<SS, PtrVal>> open(SS, immer::flex_vector<PtrVal>);
-std::monostate open(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
 immer::flex_vector<std::pair<SS, PtrVal>> close(SS, immer::flex_vector<PtrVal>);
+std::monostate open(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
 std::monostate close(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
 
 /************* Functions **************/
-inline immer::flex_vector<std::pair<SS, PtrVal>> close(SS x12, immer::flex_vector<PtrVal> x13) {
-PtrVal x14 = x13.at(0);
-FS x15 = x12.get_fs();
-int x16 = x15.close_file(proj_IntV(x14->to_IntV()));
-x12.set_fs(x15);
-return immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x12, make_IntV(x16, 32))};
+inline immer::flex_vector<std::pair<SS, PtrVal>> close(SS x6, immer::flex_vector<PtrVal> x7) {
+PtrVal x8 = x7.at(0);
+FS x9 = x6.get_fs();
+int x10 = x9.close_file(proj_IntV(x8->to_IntV()));
+x6.set_fs(x9);
+return immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x6, make_IntV(x10, 32))};
 }
 inline std::monostate close(SS x17, immer::flex_vector<PtrVal> x18, std::function<std::monostate(SS, PtrVal)> x19) {
 PtrVal x20 = x18.at(0);
@@ -31,11 +31,11 @@ int x5 = x4.open_file(get_string(x3, x1), 0);
 x1.set_fs(x4);
 return immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x1, make_IntV(x5, 32))};
 }
-inline std::monostate open(SS x6, immer::flex_vector<PtrVal> x7, std::function<std::monostate(SS, PtrVal)> x8) {
-PtrVal x9 = x7.at(0);
-FS x10 = x6.get_fs();
-int x11 = x10.open_file(get_string(x9, x6), 0);
-x6.set_fs(x10);
-return x8(x6, make_IntV(x11, 32));
+inline std::monostate open(SS x11, immer::flex_vector<PtrVal> x12, std::function<std::monostate(SS, PtrVal)> x13) {
+PtrVal x14 = x12.at(0);
+FS x15 = x11.get_fs();
+int x16 = x15.open_file(get_string(x14, x11), 0);
+x11.set_fs(x15);
+return x13(x11, make_IntV(x16, 32));
 }
 #endif // LLSC_EXTERNAL_HEADERS_GEN
