@@ -208,6 +208,7 @@ class FS {
       if (!has_stream(fd)) return std::make_pair(immer::flex_vector<PtrVal>{}, -1);
       auto strm = get_stream(fd);
       auto content = strm.read(nbytes);
+      opened_files = opened_files.set(fd, strm);
       return std::make_pair(content, content.size());
     }
 
