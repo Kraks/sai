@@ -5,7 +5,7 @@ int main()
   // --add-sym-file A
   // expected paths: 3
   char filename[] = "A";
-  char buf[5];
+  char buf[3];
   int fd = open(filename, O_RDONLY);
   if (read(fd, buf, 3) != 3) {
     sym_exit(1);
