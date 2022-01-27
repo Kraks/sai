@@ -4,47 +4,59 @@
 /* Memory, stack, and symbolic state representation */
 
 // Note (5/17): now using a byte-oriented layout
-template <class V>
+template <class V, class M>
 class PreMem {
-  private:
+  protected:
+    M&& move_this() { return std::move(*((M*)this)); }
     std::vector<V> mem;
   public:
     PreMem(std::vector<V> mem) : mem(std::move(mem)) {}
     size_t size() { return mem.size(); }
-    V at(size_t idx, size_t size) { return mem.at(idx); }
-    PreMem&& update(size_t idx, V val) {
+    V at(size_t idx, int size) { return mem.at(idx); }
+    M&& update(size_t idx, V val) {
       mem.at(idx) = val;
-      return std::move(*this);
+      return move_this();
     }
-    PreMem&& append(V val) {
+    M&& append(V val) {
       mem.push_back(val);
-      return std::move(*this);
+      return move_this();
     }
-    PreMem&& append(V val, size_t padding) {
+    M&& append(V val, size_t padding) {
       size_t idx = mem.size();
       return alloc(padding + 1).update(idx, val);
     }
-    PreMem&& append(const std::vector<V>& vs) {
+    M&& append(const std::vector<V>& vs) {
       mem.insert(mem.end(), vs.begin(), vs.end());
-      return std::move(*this);
+      return move_this();
     }
-    PreMem&& alloc(size_t size) {
+    M&& alloc(size_t size) {
       mem.resize(mem.size() + size, nullptr);
-      return std::move(*this);
+      return move_this();
     }
-    PreMem&& take(size_t keep) {
+    M&& take(size_t keep) {
       mem.resize(keep);
-      return std::move(*this);
+      return move_this();
     }
-    PreMem slice(size_t idx, size_t len) {
+    M slice(size_t idx, size_t len) {
       auto off = mem.begin() + idx;
-      return PreMem(std::vector(off, off + len));
+      return M(std::vector(off, off + len));
     }
     // PreMem<V> drop(size_t d) { return PreMem<V>(mem.drop(d)); }
     const std::vector<V>& getMem() { return mem; }
 };
 
-using Mem = PreMem<PtrVal>;
+class Mem: public PreMem<PtrVal, Mem> {
+public:
+  Mem(std::vector<PtrVal> mem) : PreMem(std::move(mem)) {}
+
+  PtrVal at(size_t idx, int size) {
+    return PreMem::at(idx, size);
+  }
+
+  Mem&& update(size_t idx, PtrVal val) {
+    return PreMem::update(idx, val);
+  }
+};
 
 class Frame {
   public:
@@ -114,7 +126,7 @@ class Stack {
     }
     PtrVal lookup_id(Id id) { return env.back().lookup_id(id); }
 
-    PtrVal at(size_t idx, size_t size) { return mem.at(idx, size); }
+    PtrVal at(size_t idx, int size) { return mem.at(idx, size); }
     PtrVal at_struct(size_t idx, int size) {
       return std::make_shared<StructV>(mem.slice(idx, size).getMem());
     }

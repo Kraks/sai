@@ -5,35 +5,46 @@
 
 // Note (5/17): now using a byte-oriented layout
 
-template <class V>
+template <class V, class M>
 class PreMem {
-  private:
+  protected:
     immer::flex_vector<V> mem;
   public:
     PreMem(immer::flex_vector<V> mem) : mem(mem) {}
     size_t size() { return mem.size(); }
-    V at(size_t idx, size_t size) { return mem.at(idx); }
-    PreMem<V> update(size_t idx, V val) {
+    V at(size_t idx, int size) { return mem.at(idx); }
+    M update(size_t idx, V val) {
       ASSERT(idx < mem.size(), "PreMem update index out of bound");
-      return PreMem<V>(mem.set(idx, val));
+      return M(mem.set(idx, val));
     }
-    PreMem<V> append(V val) { return PreMem<V>(mem.push_back(val)); }
-    PreMem<V> append(V val, size_t padding) {
+    M append(V val) { return M(mem.push_back(val)); }
+    M append(V val, size_t padding) {
       size_t idx = mem.size();
-      return PreMem<V>(alloc(padding + 1).update(idx, val));
+      return M(alloc(padding + 1).update(idx, val));
     }
-    PreMem<V> append(immer::flex_vector<V> vs) { return PreMem<V>(mem + vs); }
-    PreMem<V> alloc(size_t size) {
+    M append(immer::flex_vector<V> vs) { return M(mem + vs); }
+    M alloc(size_t size) {
       auto m = mem.transient();
       for (int i = 0; i < size; i++) { m.push_back(nullptr); }
-      return PreMem<V>(m.persistent());
+      return M(m.persistent());
     }
-    PreMem<V> take(size_t keep) { return PreMem<V>(mem.take(keep)); }
-    PreMem<V> drop(size_t d) { return PreMem<V>(mem.drop(d)); }
+    M take(size_t keep) { return M(mem.take(keep)); }
+    M drop(size_t d) { return M(mem.drop(d)); }
     immer::flex_vector<V> getMem() { return mem; }
 };
 
-using Mem = PreMem<PtrVal>;
+class Mem: public PreMem<PtrVal, Mem> {
+public:
+  Mem(immer::flex_vector<PtrVal> mem) : PreMem(mem) { }
+
+  PtrVal at(size_t idx, int size) {
+    return PreMem::at(idx, size);
+  }
+
+  Mem update(size_t idx, PtrVal val) {
+    return PreMem::update(idx, val);
+  }
+};
 
 class Frame {
   public:
@@ -91,7 +102,7 @@ class Stack {
     }
     PtrVal lookup_id(Id id) { return env.back().lookup_id(id); }
 
-    PtrVal at(size_t idx, size_t size) { return mem.at(idx, size); }
+    PtrVal at(size_t idx, int size) { return mem.at(idx, size); }
     PtrVal at_struct(size_t idx, int size) {
       return std::make_shared<StructV>(mem.take(idx + size).drop(idx).getMem());
     }
