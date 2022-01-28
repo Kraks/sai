@@ -39,12 +39,12 @@ class Mem: public PreMem<PtrVal, Mem> {
     size_t begin0, end0, idx, size;
     bool first;
 
-    std::optional<std::tuple<size_t, PtrVal, int>> get_first() {
+    std::optional<std::tuple<size_t, PtrVal, size_t>> get_first() {
       first = false;
       PtrVal ret;
       for (idx = begin0; idx <= begin0 && !(ret = mem.at(idx)); idx--);
       if (ret && idx + (size = ret->get_bw() / 8) > begin0) {
-        return std::tuple(idx, ret, size);
+        return std::tuple(idx, ret, idx + size);
       }
       else {
         idx = begin0; size = 0;
@@ -56,7 +56,7 @@ class Mem: public PreMem<PtrVal, Mem> {
     IterVals(immer::flex_vector<PtrVal> m, size_t idx, int size)
       : mem(m), begin0(idx), end0(idx + size), first(true) { }
     
-    std::optional<std::tuple<size_t, PtrVal, int>> next() {
+    std::optional<std::tuple<size_t, PtrVal, size_t>> next() {
       // assumptions:
       //   1. values do not overlap
       //   2. mem is sufficiently long
@@ -66,77 +66,77 @@ class Mem: public PreMem<PtrVal, Mem> {
         PtrVal ret = mem.at(idx);
         if (ret) {
           size = ret->get_bw()/8;
-          return std::tuple(idx, ret, size);
+          return std::tuple(idx, ret, idx + size);
         }
         else {
           for (size = 1; idx + size < end0 && !mem.at(idx + size); size++);
-          return std::tuple(idx, PtrVal(nullptr), size);
+          return std::tuple(idx, PtrVal(nullptr), idx + size);
         }
       }
       return std::nullopt;
     }
   };
 
+  inline PtrVal q_extract(PtrVal v, size_t end, size_t hi, size_t lo) const {
+    return bv_extract(v, (end - hi) * 8 - 1, (end - lo) * 8);
+  }
+
 public:
   Mem(immer::flex_vector<PtrVal> mem) : PreMem(mem) { }
 
-  PtrVal at(size_t idx0, int size0) {
-    if (size0 == -1) return PreMem::at(idx0, size0);
-    IterVals iter(mem, idx0, size0);
-    size_t idx; PtrVal ret, val; int size;
+  PtrVal at(size_t begin_req, int size_req) {
+    if (size_req == -1) return PreMem::at(begin_req, size_req);
+    IterVals iter(mem, begin_req, size_req);
+    size_t end_req = begin_req + size_req;
     // first value
-    std::tie(idx, ret, size) = *(iter.next());
-    if (idx == idx0 && size == size0) return ret;
-    assert(ret);  // otherwise partially undefined
-    if (idx < idx0 || idx0 + size0 < idx + size) {
-      int hi = idx + size - idx0;
-      int lo = idx + size - std::min(idx0 + size0, idx + size);
-      ret = bv_extract(ret, hi * 8 - 1, lo * 8);
-    }
+    size_t begin_cur, end_cur; PtrVal v_cur;
+    std::tie(begin_cur, v_cur, end_cur) = *(iter.next());
+    if (begin_cur == begin_req && end_cur == end_req) return v_cur;
+    assert(v_cur);  // otherwise partially undefined
+    if (begin_cur < begin_req || end_req < end_cur)
+      v_cur = q_extract(v_cur, end_cur, begin_req, std::min(end_req, end_cur));
     // append more values
-    while (ret->get_bw() < size0 * 8) {
-      std::tie(idx, val, size) = *(iter.next());
-      assert(val);  // otherwise partially undefined
-      int off = ret->get_bw() + size * 8 - size0 * 8;
-      if (off > 0) val = bv_extract(val, size * 8 - 1, off);
-      ret = bv_concat(ret, val);
+    PtrVal v_ret = std::move(v_cur);
+    while (end_cur < end_req) {
+      std::tie(begin_cur, v_cur, end_cur) = *(iter.next());
+      assert(v_cur);  // otherwise partially undefined
+      if (end_cur > end_req)
+        v_cur = q_extract(v_cur, end_cur, begin_cur, end_req);
+      v_ret = bv_concat(v_ret, v_cur);
     }
-    return ret;
+    return v_ret;
   }
 
-  Mem update(size_t idx0, PtrVal val0) {
-    if (!val0) {  // memcpy cases
-      assert(!mem.at(idx0));
-      return PreMem::update(idx0, val0);
+  Mem update(size_t begin_orig, PtrVal v_orig) {
+    if (!v_orig) {  // memcpy cases
+      assert(!mem.at(begin_orig));
+      return PreMem::update(begin_orig, v_orig);
     }
     auto mem = this->mem;
-    int size0 = val0->get_bw() / 8;
-    IterVals iter(mem, idx0, size0);
+    size_t size_orig = v_orig->get_bw()/8, end_orig = begin_orig + size_orig;
+    IterVals iter(mem, begin_orig, size_orig);
     auto tmp = iter.next();
     do {
-      size_t idx1; PtrVal val1, val; int size1;
-      std::tie(idx1, val1, size1) = *tmp;
-      // cut val from val0
-      size_t idx = std::max(idx0, idx1);
-      int size = std::min(idx0 + size0, idx1 + size1) - idx;
-      val = val0;
-      if (idx != idx0 || size != size0) {
-        int hi = idx0 + size0 - idx;
-        int lo = idx0 + size0 - idx - size;
-        val = bv_extract(val, hi * 8 - 1, lo * 8);
+      size_t begin_cur, end_cur; PtrVal v_cur;
+      std::tie(begin_cur, v_cur, end_cur) = *tmp;
+      // cut v_new from v_orig
+      size_t begin_new = std::max(begin_orig, begin_cur);
+      size_t end_new = std::min(end_orig, end_cur);
+      PtrVal v_new = (begin_orig < begin_new || end_new < end_orig) ? 
+                      q_extract(v_orig, end_orig, begin_new, end_new) : v_orig;
+      // prepend & append
+      if (begin_cur < begin_new) {
+        auto v_head = q_extract(v_cur, end_cur, begin_cur, begin_new);
+        v_new = bv_concat(v_head, v_new);
+        begin_new = begin_cur;
       }
-      // prepend
-      if (idx1 < idx) {
-        auto tmp = bv_extract(val1, size1 * 8 - 1, (idx1 + size1 - idx0) * 8);
-        val = bv_concat(tmp, val);
-      }
-      // append
-      if (idx + size < idx1 + size1) {
-        auto tmp = bv_extract(val1, (idx1 + size1 - idx - size) * 8 - 1, 0);
-        val = bv_concat(val, tmp);
+      if (end_new < end_cur) {
+        auto v_tail = q_extract(v_cur, end_cur, end_new, end_cur);
+        v_new = bv_concat(v_new, v_tail);
+        end_new = end_cur;
       }
       // store
-      mem = mem.set(idx, val);
+      mem = mem.set(begin_new, v_new);
     } while (tmp = iter.next());
     return Mem(mem);
   }
