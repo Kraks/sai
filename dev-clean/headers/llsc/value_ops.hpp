@@ -376,7 +376,9 @@ inline PtrVal int_op_2(iOP op, PtrVal v1, PtrVal v2) {
     } else if (op == op_ashr) {
       return make_IntV((i1->i >> i2->i), bw1);
     } else if (op == op_shl) {
-      return make_IntV((i1->i << i2->i), bw1);
+      return make_IntV((i1->i << i2->i) & ((1 << bw1) - 1), bw1);
+    } else if (op == op_lshr) {
+      return make_IntV((uint64_t(i1->i) >> i2->i) & ((1 << bw1) - 1), bw1);
     } else {
       std::cout << op << std::endl;
       ABORT("invalid operator");

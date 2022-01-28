@@ -62,7 +62,7 @@ class Mem: public PreMem<PtrVal, Mem> {
       //   2. mem is sufficiently long
       if (first) return get_first();
       idx += size;
-      while (idx < end0) {
+      if (idx < end0) {
         PtrVal ret = mem.at(idx);
         if (ret) {
           size = ret->get_bw()/8;
@@ -131,7 +131,7 @@ public:
       val = val0;
       if (idx + size < idx0 + size0) {
         int off = idx0 + size0 - idx - size;
-        val = int_op_2(op_lshr, val, make_IntV(off, val->get_bw()));
+        val = int_op_2(op_lshr, val, make_IntV(off * 8, val->get_bw()));
       }
       if (size < size0) {
         val = trunc(val, val->get_bw(), size * 8);
@@ -142,15 +142,15 @@ public:
       // prepend
       if (idx1 < idx) {
         int off = idx1 + size1 - idx;
-        auto tmp = int_op_2(op_lshr, val1, make_IntV(off, val1->get_bw()));
-        tmp = int_op_2(op_shl, tmp, make_IntV(size, val1->get_bw()));
+        auto tmp = int_op_2(op_lshr, val1, make_IntV(off * 8, val1->get_bw()));
+        tmp = int_op_2(op_shl, tmp, make_IntV(size * 8, val1->get_bw()));
         val = int_op_2(op_or, val, tmp);
       }
       // append
       if (idx + size < idx1 + size1) {
         int off = idx1 + size1 - idx - size;
-        val = int_op_2(op_shl, val, make_IntV(off, val->get_bw()));
-        auto tmp = bv_zext(trunc(val1, val1->get_bw(), off), val->get_bw());
+        val = int_op_2(op_shl, val, make_IntV(off * 8, val->get_bw()));
+        auto tmp = bv_zext(trunc(val1, val1->get_bw(), off * 8), val->get_bw());
         val = int_op_2(op_or, val, tmp);
       }
       // store
