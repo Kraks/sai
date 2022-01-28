@@ -173,7 +173,7 @@ struct FloatV : Value {
   }
   virtual bool is_conc() const override { return true; }
   virtual std::shared_ptr<IntV> to_IntV() override { return nullptr; }
-  virtual int get_bw() const override { ABORT("get_bw: unexpected value FloatV."); }
+  virtual int get_bw() const override { return 32; }
 
   virtual bool compare(const Value *v) const override {
     auto that = static_cast<decltype(this)>(v);
