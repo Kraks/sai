@@ -35,7 +35,6 @@ trait BasicDefs { self: SAIOps =>
   type PC = Set[SMTBool]
   type Id[T] = T
   type Fd = Int
-
   val bConst = Backend.Const
   lazy val gNode = Adapter.g.Def
   type bExp = Backend.Exp
@@ -78,15 +77,15 @@ trait Opaques { self: SAIOps with BasicDefs =>
     val warned = MutableSet[String]()
     // TODO: specify the signature of those functions (both in C and Scala)
     val modeled = MutableSet[String](
-      "sym_print", "malloc", "realloc", "llsc_assert", "make_symbolic",
-      "open", "close", "sym_exit",
+      "sym_print", "print_string", "malloc", "realloc", "llsc_assert", "make_symbolic",
+      "open", "close", "read", "write", "sym_exit",
       "__assert_fail"
     )
     def print: Rep[Value] = "llsc-external-wrapper".reflectWith[Value]("sym_print")
     def noop: Rep[Value] = "llsc-external-wrapper".reflectWith[Value]("noop")
   }
 
-  def getString(ptr: Rep[Value], s: Rep[SS]): Rep[String] = "get-string".reflectWith[String](ptr, s)
+  def getString(ptr: Rep[Value], s: Rep[SS]): Rep[String] = "get_string".reflectWith[String](ptr, s)
 
   object Intrinsics {
     val warned = MutableSet[String]()
