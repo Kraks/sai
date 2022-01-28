@@ -83,32 +83,23 @@ public:
   PtrVal at(size_t idx0, int size0) {
     if (size0 == -1) return PreMem::at(idx0, size0);
     IterVals iter(mem, idx0, size0);
-    PtrVal val, ret;
-    size_t idx; int size;
+    size_t idx; PtrVal ret, val; int size;
     // first value
     std::tie(idx, ret, size) = *(iter.next());
-    if (idx == idx0) {
-      if (size == size0) return ret;
-      assert(ret);  // otherwise partially undefined
-    }
-    else {
-      // trunc head: idx < idx0
-      ret = trunc(ret, ret->get_bw(), (idx + size - idx0) * 8);
+    if (idx == idx0 && size == size0) return ret;
+    assert(ret);  // otherwise partially undefined
+    if (idx < idx0 || idx0 + size0 < idx + size) {
+      int hi = idx + size - idx0;
+      int lo = idx + size - std::min(idx0 + size0, idx + size);
+      ret = bv_extract(ret, hi * 8 - 1, lo * 8);
     }
     // append more values
     while (ret->get_bw() < size0 * 8) {
       std::tie(idx, val, size) = *(iter.next());
       assert(val);  // otherwise partially undefined
-      // (ret << |val|) | val
-      ret = bv_zext(ret, ret->get_bw() + val->get_bw());
-      ret = int_op_2(op_shl, ret, make_IntV(val->get_bw(), ret->get_bw()));
-      ret = int_op_2(op_or, ret, bv_zext(val, ret->get_bw()));
-    }
-    // trunc tail if necessary
-    if (ret->get_bw() > size0 * 8) {
-      int off = ret->get_bw() - size0 * 8;
-      ret = int_op_2(op_lshr, ret, make_IntV(off, ret->get_bw()));
-      ret = trunc(ret, ret->get_bw(), size0 * 8);
+      int off = ret->get_bw() + size * 8 - size0 * 8;
+      if (off > 0) val = bv_extract(val, size * 8 - 1, off);
+      ret = bv_concat(ret, val);
     }
     return ret;
   }
@@ -129,29 +120,20 @@ public:
       size_t idx = std::max(idx0, idx1);
       int size = std::min(idx0 + size0, idx1 + size1) - idx;
       val = val0;
-      if (idx + size < idx0 + size0) {
-        int off = idx0 + size0 - idx - size;
-        val = int_op_2(op_lshr, val, make_IntV(off * 8, val->get_bw()));
-      }
-      if (size < size0) {
-        val = trunc(val, val->get_bw(), size * 8);
-      }
-      if (size < size1) {
-        val = bv_zext(val, val1->get_bw());
+      if (idx != idx0 || size != size0) {
+        int hi = idx0 + size0 - idx;
+        int lo = idx0 + size0 - idx - size;
+        val = bv_extract(val, hi * 8 - 1, lo * 8);
       }
       // prepend
       if (idx1 < idx) {
-        int off = idx1 + size1 - idx;
-        auto tmp = int_op_2(op_lshr, val1, make_IntV(off * 8, val1->get_bw()));
-        tmp = int_op_2(op_shl, tmp, make_IntV(size * 8, val1->get_bw()));
-        val = int_op_2(op_or, val, tmp);
+        auto tmp = bv_extract(val1, size1 * 8 - 1, (idx1 + size1 - idx0) * 8);
+        val = bv_concat(tmp, val);
       }
       // append
       if (idx + size < idx1 + size1) {
-        int off = idx1 + size1 - idx - size;
-        val = int_op_2(op_shl, val, make_IntV(off * 8, val->get_bw()));
-        auto tmp = bv_zext(trunc(val1, val1->get_bw(), off * 8), val->get_bw());
-        val = int_op_2(op_or, val, tmp);
+        auto tmp = bv_extract(val1, (idx1 + size1 - idx - size) * 8 - 1, 0);
+        val = bv_concat(val, tmp);
       }
       // store
       mem = mem.set(idx, val);
