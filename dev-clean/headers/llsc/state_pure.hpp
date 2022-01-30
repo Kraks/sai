@@ -36,21 +36,8 @@ class PreMem {
 class Mem: public PreMem<PtrVal, Mem> {
   class IterVals {
     immer::flex_vector<PtrVal> mem;
-    size_t begin0, end0, idx, size;
+    size_t begin0, end0, idx2;
     bool first;
-
-    std::optional<std::tuple<size_t, PtrVal, size_t>> get_first() {
-      first = false;
-      PtrVal ret;
-      for (idx = begin0; idx <= begin0 && !(ret = mem.at(idx)); idx--);
-      if (ret && idx + (size = ret->get_bw() / 8) > begin0) {
-        return std::tuple(idx, ret, idx + size);
-      }
-      else {
-        idx = begin0; size = 0;
-        return next();
-      }
-    }
 
   public:
     IterVals(immer::flex_vector<PtrVal> m, size_t idx, int size)
@@ -60,17 +47,21 @@ class Mem: public PreMem<PtrVal, Mem> {
       // assumptions:
       //   1. values do not overlap
       //   2. mem is sufficiently long
-      if (first) return get_first();
-      idx += size;
-      if (idx < end0) {
-        PtrVal ret = mem.at(idx);
+      size_t idx; PtrVal ret;
+      if (first) {
+        first = false;
+        for (idx = begin0; idx <= begin0 && !(ret = mem.at(idx)); idx--);
+        if (ret && (idx2 = idx + ret->get_bw() / 8) > begin0)
+          return std::tuple(idx, ret, idx2);
+        else idx2 = begin0;
+      }
+      if ((idx = idx2) < end0) {
+        ret = mem.at(idx);
         if (ret) {
-          size = ret->get_bw()/8;
-          return std::tuple(idx, ret, idx + size);
-        }
-        else {
-          for (size = 1; idx + size < end0 && !mem.at(idx + size); size++);
-          return std::tuple(idx, PtrVal(nullptr), idx + size);
+          return std::tuple(idx, ret, (idx2 = idx + ret->get_bw()/8));
+        } else {
+          for (idx2 = idx + 1; idx2 < end0 && !mem.at(idx2); idx2++);
+          return std::tuple(idx, PtrVal(nullptr), idx2);
         }
       }
       return std::nullopt;
@@ -128,15 +119,13 @@ public:
       if (begin_cur < begin_new) {
         auto v_head = q_extract(v_cur, end_cur, begin_cur, begin_new);
         v_new = bv_concat(v_head, v_new);
-        begin_new = begin_cur;
       }
       if (end_new < end_cur) {
         auto v_tail = q_extract(v_cur, end_cur, end_new, end_cur);
         v_new = bv_concat(v_new, v_tail);
-        end_new = end_cur;
       }
       // store
-      mem = mem.set(begin_new, v_new);
+      mem = mem.set(begin_cur, v_new);
     } while (tmp = iter.next());
     return Mem(mem);
   }
