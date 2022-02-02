@@ -119,8 +119,10 @@ inline immer::flex_vector<std::pair<SS, PtrVal>> sym_exit(SS state, immer::flex_
 
 /* TODO: Generate both versions of sym_exit <2022-01-24, David Deng> */
 inline std::monostate sym_exit(SS state, immer::flex_vector<PtrVal> args, Cont k) {
+  ASSERT(args.size() == 1, "sym_exit accepts exactly one argument");
   auto v = args.at(0)->to_IntV();
-  auto status = v ? v->i : 0;
+  ASSERT(v != nullptr, "sym_exit only accepts integer argument");
+  int status = v->i;
   check_pc_to_file(state);
   epilogue();
   exit(status);

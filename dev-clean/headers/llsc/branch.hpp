@@ -1,6 +1,8 @@
 #ifndef LLSC_BRANCH_HEADERS
 #define LLSC_BRANCH_HEADERS
 
+// TODO: should be able to generate these functions too
+
 #ifdef PURE_STATE
 
 inline immer::flex_vector<std::pair<SS, PtrVal>>
@@ -48,12 +50,17 @@ sym_exec_br_k(SS ss, PtrVal t_cond, PtrVal f_cond,
 #if USE_TP
     if (max_par_num > 0) {
       tp.add_task([tf, tbr_ss, t_cond, k]{ tf(tbr_ss, k); });
-      ff(fbr_ss, k);
-      //tp.add_task([ff, fbr_ss, f_cond, k]{ ff(fbr_ss, k); });
+      //ff(fbr_ss, k);
+      tp.add_task([ff, fbr_ss, f_cond, k]{ ff(fbr_ss, k); });
       return std::monostate{};
     } else {
-      tf(tbr_ss, k);
-      ff(fbr_ss, k);
+      if (rand_int(100) > 50) {
+        tf(tbr_ss, k);
+        ff(fbr_ss, k);
+      } else {
+        ff(fbr_ss, k);
+        tf(tbr_ss, k);
+      }
       return std::monostate{};
     }
 #else

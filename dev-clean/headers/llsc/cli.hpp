@@ -33,8 +33,7 @@ inline void handle_cli_args(int argc, char** argv) {
     if (c == -1)
       break;
 
-    switch (c)
-    {
+    switch (c) {
       case 0:
         break;
       case 'd':

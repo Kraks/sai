@@ -19,83 +19,102 @@ import sys.process._
 
 import org.scalatest.FunSuite
 
-case class TestPrg(m: Module, name: String, f: String, nSym: Int, nPath: Int,
-                   runOpt: String = "", result: Option[Int] = None)
+/* m: the parsed LLVM module
+ * name: test name
+ * f: entrance function name
+ * nSym: number of symbolic input to f
+ * nPath: expected number of explored paths
+ * nTest: expteted number of test cases generated
+ * runOpt: the command line argument to run the compiled executable
+ * result: expected return status of the compiled executable
+ */
+case class TestPrg(m: Module, name: String, f: String, nSym: Int, runOpt: Option[String], exp: Map[String, Any])
+object TestPrg {
+  val nPath = "nPath"
+  val nTest = "nTest"
+  val status = "status"
+  def nPath(n: Int): Map[String, Any] = Map(nPath -> n)
+  def nTest(n: Int): Map[String, Any] = Map(nTest -> n)
+  def status(n: Int): Map[String, Any] = Map(status -> n)
+
+  implicit def lift[T](t: T): Option[T] = Some(t)
+}
+import TestPrg._
 
 object TestCases {
   val concrete: List[TestPrg] = List(
-    TestPrg(add, "addTest", "@main", 0, 1),
-    TestPrg(power, "powerTest", "@main", 0, 1),
-    TestPrg(global, "globalTest", "@main", 0, 1),
-    TestPrg(makeSymbolic, "makeSymbolicTest", "@main", 0, 4),
-    TestPrg(ptrpred, "ptrPredTest", "@main", 0, 1),
-    TestPrg(switchTestConc, "switchConcreteTest", "@main", 0, 1),
-    TestPrg(trunc, "truncTest", "@main", 0, 1),
-    TestPrg(floatArith, "floatArithTest", "@main", 0, 1),
+    TestPrg(add, "addTest", "@main", 0, None, nPath(1)),
+    TestPrg(power, "powerTest", "@main", 0, None, nPath(1)),
+    TestPrg(global, "globalTest", "@main", 0, None, nPath(1)),
+    TestPrg(makeSymbolic, "makeSymbolicTest", "@main", 0, None, nPath(1)),
+    TestPrg(ptrpred, "ptrPredTest", "@main", 0, None, nPath(1)),
+    TestPrg(switchTestConc, "switchConcreteTest", "@main", 0, None, nPath(1)),
+    TestPrg(trunc, "truncTest", "@main", 0, None, nPath(1)),
+    TestPrg(floatArith, "floatArithTest", "@main", 0, None, nPath(1)),
     // FIXME: Support parsing fp80 literals <2022-01-12, David Deng> //
     // TestPrg(floatFp80, "floatFp80Test", "@main", 0, 1),
 
-    TestPrg(arrayAccess, "arrayAccTest", "@main", 0, 1),
-    TestPrg(arrayAccessLocal, "arrayAccLocalTest", "@main", 0, 1),
-    TestPrg(arrayGetSet, "arrayGetSetTest", "@main", 0, 1),
-    TestPrg(complexStruct, "complexStructTest", "@main", 0, 1),
-    TestPrg(structReturnLong, "structReturnLongTest", "@main", 0, 1),
-    TestPrg(structAccess, "structAccessTest", "@main", 0, 1),
-    TestPrg(structReturn, "structReturnTest", "@main", 0, 1),
+    TestPrg(arrayAccess, "arrayAccTest", "@main", 0, None, nPath(1)),
+    TestPrg(arrayAccessLocal, "arrayAccLocalTest", "@main", 0, None, nPath(1)),
+    TestPrg(arrayGetSet, "arrayGetSetTest", "@main", 0, None, nPath(1)),
+    TestPrg(complexStruct, "complexStructTest", "@main", 0, None, nPath(1)),
+    TestPrg(structReturnLong, "structReturnLongTest", "@main", 0, None, nPath(1)),
+    TestPrg(structAccess, "structAccessTest", "@main", 0, None, nPath(1)),
+    TestPrg(structReturn, "structReturnTest", "@main", 0, None, nPath(1)),
   )
-    
+
   val memModel: List[TestPrg] = List(
-    TestPrg(funptr, "funptr", "@main", 0, 1),
-    TestPrg(heapFunptr, "heapFunptr", "@main", 0, 1),
-    TestPrg(ptrtoint, "ptrToInt", "@main", 0, 1),
-    TestPrg(flexAddr, "flexAddr", "@main", 0, 1),
+    TestPrg(funptr, "funptr", "@main", 0, None, nPath(1)),
+    TestPrg(heapFunptr, "heapFunptr", "@main", 0, None, nPath(1))
+    TestPrg(ptrtoint, "ptrToInt", "@main", 0, None, nPath(1)),
+    TestPrg(flexAddr, "flexAddr", "@main", 0, None, nPath(1)),
   )
 
   val varArg: List[TestPrg] = List(
-    TestPrg(varArgInt, "varArgInt", "@main", 0, 1),
+    TestPrg(varArgInt, "varArgInt", "@main", 0, None, nPath(1))
     // FIXME(PureLLSC): Sext an invalid value
-    // TestPrg(varArgChar, "varArgChar", "@main", 0, 1),
+    // TestPrg(varArgChar, "varArgChar", "@main", 0, None, nPath(1))
   )
 
   val symbolicSimple: List[TestPrg] = List(
-    TestPrg(branch, "branch1", "@f", 2, 4),
-    TestPrg(branch2, "branch2", "@f", 2, 4),
-    TestPrg(branch3, "branch3", "@f", 2, 4),
-    TestPrg(switchTestSym, "switchSymTest", "@main", 0, 5),
+    TestPrg(branch, "branch1", "@f", 2, None, nPath(4)),
+    TestPrg(branch2, "branch2", "@f", 2, None, nPath(4)),
+    TestPrg(branch3, "branch3", "@f", 2, None, nPath(4)),
+    TestPrg(switchTestSym, "switchSymTest", "@main", 0, None, nPath(5)),
   )
 
   val symbolicSmall: List[TestPrg] = List(
-    TestPrg(mergesort, "mergeSortTest", "@main", 0, 720),
-    TestPrg(bubblesort, "bubbleSortTest", "@main", 0, 24),
-    TestPrg(quicksort, "quickSortTest", "@main", 0, 120),
-    TestPrg(kmpmatcher, "kmp", "@main", 0, 1287),
-    TestPrg(kth, "k_of_st_arrays", "@main", 0, 252),
-    TestPrg(binSearch, "binSearch", "@main", 0, 92),
-    TestPrg(knapsack, "knapsackTest", "@main", 0, 1666),
+    TestPrg(mergesort, "mergeSortTest", "@main", 0, None, nPath(720)),
+    TestPrg(bubblesort, "bubbleSortTest", "@main", 0, None, nPath(24)),
+    TestPrg(quicksort, "quickSortTest", "@main", 0, None, nPath(120)),
+    TestPrg(kmpmatcher, "kmp", "@main", 0, None, nPath(1287)),
+    TestPrg(kth, "k_of_st_arrays", "@main", 0, None, nPath(252)),
+    TestPrg(binSearch, "binSearch", "@main", 0, None, nPath(92)),
+    TestPrg(knapsack, "knapsackTest", "@main", 0, None, nPath(1666)),
     // The oopsla20 version of maze
-    TestPrg(maze, "mazeTest", "@main", 2, 309),
-    TestPrg(mp1024, "mp1024Test", "@f", 10, 1024),
+    TestPrg(maze, "mazeTest", "@main", 2, None, nPath(309)),
+    TestPrg(mp1024, "mp1024Test", "@f", 10, None, nPath(1024)),
   )
 
   val symbolicLarge: List[TestPrg] = List(
-    TestPrg(mp65536, "mp65kTest", "@f", 16, 65536, "--disable-solver"),
-    TestPrg(mp1048576, "mp1mTest", "@f", 20, 1048576, "--disable-solver"),
+    TestPrg(mp65536, "mp65kTest", "@f", 16, "--disable-solver", nPath(65536)),
+    TestPrg(mp1048576, "mp1mTest", "@f", 20, "--disable-solver", nPath(1048576)),
   )
 
   val external: List[TestPrg] = List(
-    TestPrg(assertTest, "assertTest", "@main", 0, 3),
-    TestPrg(assertfixTest, "assertfix", "@main", 0, 4),
+    TestPrg(assertTest, "assertTest", "@main", 0, None, nPath(3)),
+    TestPrg(assertfixTest, "assertfix", "@main", 0, None, nPath(4)),
   )
 
   val filesys: List[TestPrg] = List(
-    TestPrg(openTest, "openTestSucc", "@main", 0, 1, "--add-sym-file A", Some(0)),
-    TestPrg(openTest, "openTestFail", "@main", 0, 1, "", Some(1)),
-    TestPrg(closeTest, "closeTest", "@main", 0, 1, "", Some(0)),
-    TestPrg(read1Test, "readTestRetVal", "@main", 0, 1, "--sym-file-size 10 --add-sym-file A", Some(0)),
-    TestPrg(read2Test, "readTestPaths", "@main", 0, 3, "--sym-file-size 3 --add-sym-file A", Some(0)),
-    TestPrg(write1Test, "writeTestPaths", "@main", 0, 2, "--sym-file-size 10 --add-sym-file A", Some(0)),
-    TestPrg(kleefsminiTest, "kleefsmini", "@main", 0, 2, "", Some(0)),
-    TestPrg(kleefsglobalTest, "kleefsminiglobal", "@main", 0, 2, "", Some(0)),
+    TestPrg(openTest, "openTestSucc", "@main", 0, "--add-sym-file A", nPath(1)++status(0)),
+    TestPrg(openTest, "openTestFail", "@main", 0, None, nPath(1)++status(1)),
+    TestPrg(closeTest, "closeTest", "@main", 0, None, nPath(1)++status(0)),
+    TestPrg(read1Test, "readTestRetVal", "@main", 0, "--sym-file-size 10 --add-sym-file A", nPath(1)++status(0)),
+    TestPrg(read2Test, "readTestPaths", "@main", 0, "--sym-file-size 3 --add-sym-file A", nPath(3)++status(0)),
+    TestPrg(write1Test, "writeTestPaths", "@main", 0, "--sym-file-size 10 --add-sym-file A", nPath(2)++status(0)),
+    TestPrg(kleefsminiTest, "kleefsmini", "@main", 0, None, nPath(2)++status(0)),
+    TestPrg(kleefsglobalTest, "kleefsminiglobal", "@main", 0, None, nPath(2)++status(0)),
   )
 
   val all: List[TestPrg] = concrete ++ memModel ++ symbolicSimple ++ symbolicSmall ++ external
@@ -140,20 +159,28 @@ abstract class TestLLSC extends FunSuite {
   }
 
   def testLLSC(llsc: LLSC, tst: TestPrg): Unit = {
-    val TestPrg(m, name, f, nSym, expPath, runOpt, expRetOpt) = tst
+    val TestPrg(m, name, f, nSym, cliArgOpt, exp) = tst
+    val expPathOpt = exp.get(nPath)
+    val expTestOpt = exp.get(nTest)
+    val expRetOpt = exp.get(status)
+    val cliArg = cliArgOpt.getOrElse("")
     test(name) {
       val code = llsc.newInstance(m, llsc.insName + "_" + name, f, nSym)
       code.genAll
       val mkRet = code.make(2)
       assert(mkRet == 0, "make failed")
-      val (output, ret) = code.runWithStatus(1, runOpt)
+      val (output, ret) = code.runWithStatus(1, cliArg)
       System.err.println(output)
       val resStat = parseOutput(llsc.insName, name, output)
       System.err.println(resStat)
-      val path = resStat.pathNum
-      assert(path == expPath, "Unexpected path number")
+      if (expPathOpt.nonEmpty) {
+        assert(resStat.pathNum == expPathOpt.get, "Unexpected path number")
+      }
       if (expRetOpt.nonEmpty) {
         assert(ret == expRetOpt.get, "Unexpected returned status")
+      }
+      if (expTestOpt.nonEmpty) {
+        assert(resStat.testQueryNum == expTestOpt.get, "Unexpected number of test cases")
       }
       // TODO: check the number of generated test files?
       // TODO: for concrete runs, also check result?
@@ -181,6 +208,7 @@ class TestPureCPSLLSC_Z3 extends TestLLSC {
   testLLSC(new PureCPSLLSC_Z3, TestCases.all ++ filesys)
   //testLLSC(llsc, TestPrg(funptr, "funptr", "@main", 0, 1))
   //testLLSC(llsc, TestPrg(heapFunptr, "heapFunptr", "@main", 0, 1))
+  testLLSC(llsc, TestPrg(unboundedLoop, "unboundedLoop", "@main", 0, None, nTest(1)))
 }
 
 class TestImpLLSC extends TestLLSC {

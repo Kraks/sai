@@ -68,7 +68,7 @@ struct Monitor {
     }
     void start_monitor() {
       std::future<void> future = signal_exit.get_future();
-      watcher = std::thread([this](std::future<void> fut){
+      watcher = std::thread([this](std::future<void> fut) {
         while (this->block_cov.size() <= this->num_blocks &&
                fut.wait_for(milliseconds(1)) == std::future_status::timeout) {
           print_time();
