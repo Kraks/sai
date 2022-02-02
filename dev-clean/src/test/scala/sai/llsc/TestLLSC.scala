@@ -32,9 +32,13 @@ case class TestPrg(m: Module, name: String, f: String, nSym: Int, runOpt: Option
 object TestPrg {
   val nPath = "nPath"
   val nTest = "nTest"
+  val minPath = "minPath"
+  val minTest = "minTest"
   val status = "status"
   def nPath(n: Int): Map[String, Any] = Map(nPath -> n)
   def nTest(n: Int): Map[String, Any] = Map(nTest -> n)
+  def minTest(n: Int): Map[String, Any] = Map(minTest -> n)
+  def minPath(n: Int): Map[String, Any] = Map(minPath -> n)
   def status(n: Int): Map[String, Any] = Map(status -> n)
 
   implicit def lift[T](t: T): Option[T] = Some(t)
@@ -46,7 +50,6 @@ object TestCases {
     TestPrg(add, "addTest", "@main", 0, None, nPath(1)),
     TestPrg(power, "powerTest", "@main", 0, None, nPath(1)),
     TestPrg(global, "globalTest", "@main", 0, None, nPath(1)),
-    TestPrg(makeSymbolic, "makeSymbolicTest", "@main", 0, None, nPath(1)),
     TestPrg(ptrpred, "ptrPredTest", "@main", 0, None, nPath(1)),
     TestPrg(switchTestConc, "switchConcreteTest", "@main", 0, None, nPath(1)),
     TestPrg(trunc, "truncTest", "@main", 0, None, nPath(1)),
@@ -77,6 +80,7 @@ object TestCases {
   )
 
   val symbolicSimple: List[TestPrg] = List(
+    TestPrg(makeSymbolic, "makeSymbolicTest", "@main", 0, None, nPath(4)),
     TestPrg(branch, "branch1", "@f", 2, None, nPath(4)),
     TestPrg(branch2, "branch2", "@f", 2, None, nPath(4)),
     TestPrg(branch3, "branch3", "@f", 2, None, nPath(4)),
@@ -102,7 +106,7 @@ object TestCases {
   )
 
   val external: List[TestPrg] = List(
-    TestPrg(assertTest, "assertTest", "@main", 0, None, nPath(3)),
+    TestPrg(assertTest, "assertTest", "@main", 0, None, minPath(3)),
     TestPrg(assertfixTest, "assertfix", "@main", 0, None, nPath(4)),
   )
 
@@ -169,14 +173,20 @@ abstract class TestLLSC extends FunSuite {
       System.err.println(output)
       val resStat = parseOutput(llsc.insName, name, output)
       System.err.println(resStat)
-      if (exp.contains(nPath)) {
-        assert(resStat.pathNum == exp(nPath), "Unexpected path number")
-      }
       if (exp.contains(status)) {
         assert(ret == exp(status), "Unexpected returned status")
       }
+      if (exp.contains(nPath)) {
+        assert(resStat.pathNum == exp(nPath), "Unexpected path number")
+      }
+      if (exp.contains(minPath)) {
+        assert(resStat.pathNum >= exp(minPath).asInstanceOf[Int], "Unexpected number of least test cases")
+      }
       if (exp.contains(nTest)) {
         assert(resStat.testQueryNum == exp(nTest), "Unexpected number of test cases")
+      }
+      if (exp.contains(minTest)) {
+        assert(resStat.testQueryNum >= exp(minTest).asInstanceOf[Int], "Unexpected number of least test cases")
       }
     }
   }
