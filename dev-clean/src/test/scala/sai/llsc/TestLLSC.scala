@@ -160,30 +160,24 @@ abstract class TestLLSC extends FunSuite {
 
   def testLLSC(llsc: LLSC, tst: TestPrg): Unit = {
     val TestPrg(m, name, f, nSym, cliArgOpt, exp) = tst
-    val expPathOpt = exp.get(nPath)
-    val expTestOpt = exp.get(nTest)
-    val expRetOpt = exp.get(status)
-    val cliArg = cliArgOpt.getOrElse("")
     test(name) {
       val code = llsc.newInstance(m, llsc.insName + "_" + name, f, nSym)
       code.genAll
       val mkRet = code.make(2)
       assert(mkRet == 0, "make failed")
-      val (output, ret) = code.runWithStatus(1, cliArg)
+      val (output, ret) = code.runWithStatus(1, cliArgOpt.getOrElse(""))
       System.err.println(output)
       val resStat = parseOutput(llsc.insName, name, output)
       System.err.println(resStat)
-      if (expPathOpt.nonEmpty) {
-        assert(resStat.pathNum == expPathOpt.get, "Unexpected path number")
+      if (exp.contains(nPath)) {
+        assert(resStat.pathNum == exp(nPath), "Unexpected path number")
       }
-      if (expRetOpt.nonEmpty) {
-        assert(ret == expRetOpt.get, "Unexpected returned status")
+      if (exp.contains(status)) {
+        assert(ret == exp(status), "Unexpected returned status")
       }
-      if (expTestOpt.nonEmpty) {
-        assert(resStat.testQueryNum == expTestOpt.get, "Unexpected number of test cases")
+      if (exp.contains(nTest)) {
+        assert(resStat.testQueryNum == exp(nTest), "Unexpected number of test cases")
       }
-      // TODO: check the number of generated test files?
-      // TODO: for concrete runs, also check result?
     }
   }
 
