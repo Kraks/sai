@@ -64,6 +64,8 @@ inline std::string int_op2string(iOP op) {
     case op_sext: return "sext";
     case op_zext: return "zext";
     case op_trunc: return "trunc";
+    case op_concat: return "concat";
+    case op_extract: return "extract";
   }
   return "unknown op";
 }
