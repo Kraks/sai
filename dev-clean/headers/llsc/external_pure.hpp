@@ -15,14 +15,26 @@ inline std::string get_string(PtrVal ptr, SS state) {
 }
 
 inline immer::flex_vector<std::pair<SS, PtrVal>> sym_print(SS state, immer::flex_vector<PtrVal> args) {
-  for (auto x : args) { std::cout << *x << "; "; }
-  std::cout << "\n";
+  for (auto x : args) { 
+    if (x == nullptr) {
+      std::cout << "nullptr";
+    } else {
+      std::cout << *x;
+    }
+    std::cout << "; " << std::endl;
+  }
   return immer::flex_vector<std::pair<SS, PtrVal>>{{state, make_IntV(0)}};
 }
 
 inline std::monostate sym_print(SS state, immer::flex_vector<PtrVal> args, Cont k) {
-  for (auto x : args) { std::cout << *x << "; "; }
-  std::cout << "\n";
+  for (auto x : args) { 
+    if (x == nullptr) {
+      std::cout << "nullptr";
+    } else {
+      std::cout << *x;
+    }
+    std::cout << "; " << std::endl;
+  }
   return k(state, make_IntV(0));
 }
 
