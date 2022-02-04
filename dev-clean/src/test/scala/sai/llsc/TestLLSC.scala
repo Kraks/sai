@@ -166,30 +166,25 @@ class TestPureLLSC extends TestLLSC {
 // FIXME: varArg is problematic for instances other than PureLLSC
 
 class TestPureCPSLLSC extends TestLLSC {
-  testLLSC(new PureCPSLLSC, concrete ++ /* varArg ++*/ symbolicSimple ++ symbolicSmall ++ external)
+  testLLSC(new PureCPSLLSC, concrete ++ /* varArg ++*/ symbolicSimple ++ symbolicSmall ++ external ++ filesys)
   //testLLSC(new PureCPSLLSC, TestPrg(mergesort, "mergeSortTest", "@main", 0, 720))
   //testLLSC(new PureCPSLLSC, external)
 }
 
 class TestPureCPSLLSC_Z3 extends TestLLSC {
-  val llsc = new PureCPSLLSC_Z3
-  testLLSC(llsc, concrete ++ /* varArg ++*/ symbolicSimple ++ symbolicSmall ++ external)
+  testLLSC(new PureCPSLLSC_Z3, concrete ++ /* varArg ++*/ symbolicSimple ++ symbolicSmall ++ external ++ filesys)
   //testLLSC(llsc, TestPrg(funptr, "funptr", "@main", 0, 1))
   //testLLSC(llsc, TestPrg(heapFunptr, "heapFunptr", "@main", 0, 1))
 }
 
 class TestImpLLSC extends TestLLSC {
-  testLLSC(new ImpLLSC, concrete ++ /* varArg ++*/ symbolicSimple ++ symbolicSmall ++ external)
+  testLLSC(new ImpLLSC, concrete ++ /* varArg ++*/ symbolicSimple ++ symbolicSmall ++ external ++ filesys)
   //testLLSC(new ImpLLSC, TestPrg(mergesort, "mergeSortTest", "@main", 0, 720))
   //testLLSC(new ImpLLSC, external)
 }
 
 class TestImpCPSLLSC extends TestLLSC {
-  testLLSC(new ImpCPSLLSC, concrete ++ /* varArg ++*/ symbolicSimple ++ symbolicSmall ++ external)
+  testLLSC(new ImpCPSLLSC, concrete ++ /* varArg ++*/ symbolicSimple ++ symbolicSmall ++ external ++ filesys)
   //testLLSC(new ImpCPSLLSC, TestPrg(mergesort, "mergeSortTest", "@main", 0, 720))
   //testLLSC(new ImpCPSLLSC, external)
-}
-
-class TestFS extends TestLLSC {
-  testLLSC(new PureLLSC, filesys)
 }
