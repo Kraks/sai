@@ -157,7 +157,7 @@ inline std::monostate llsc_assert(SS state, immer::flex_vector<PtrVal> args, Con
   // undefined/error if v is a value of other types
   auto cond = to_SMTNeg(v);
   auto new_s = state.add_PC(cond);
-  if (check_pc(new_s.get_PC())) return stop(state, args); // check if v == 1 is not valid
+  if (check_pc(new_s.get_PC())) return stop(state, args, k); // check if v == 1 is not valid
   return k(new_s, make_IntV(1, 32));
 }
 
