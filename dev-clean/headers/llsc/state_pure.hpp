@@ -15,13 +15,7 @@ class PreMem: public Printable {
       ss << "PreMem(";
       for (int i = 0; i < mem.size(); i++) {
         auto ptrval = mem.at(i);
-        ss << i << ": ";
-        if (ptrval != nullptr) {
-          ss << *ptrval;
-        } else {
-          ss << "nullptr";
-        }
-        ss << ", ";
+        ss << i << ": " << ptrval_to_string(ptrval) << ", ";
       }
       ss << ")";
       return ss.str();
@@ -157,7 +151,11 @@ class Frame: public Printable {
   public:
     std::string toString() const override {
       std::ostringstream ss;
-      ss << "Frame(" << map_to_string(env) << ")";
+      ss << "Frame(";
+      for (auto p : env) {
+        ss << p.first << ": " << ptrval_to_string(p.second) << ", ";
+      }
+      ss << ")";
       return ss.str();
     }
     Frame(Env env) : env(env) {}

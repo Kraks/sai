@@ -496,4 +496,8 @@ inline PtrVal bv_concat(PtrVal v1, PtrVal v2) {
 
 inline const PtrVal IntV0 = make_IntV(0);
 
+inline std::string ptrval_to_string(const PtrVal& ptr) {
+  return std::string(ptr == nullptr ? "nullptr" : ptr->toString());
+}
+
 #endif
