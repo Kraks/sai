@@ -345,6 +345,16 @@ inline PtrVal structV_at(PtrVal v, int idx) {
   else ABORT("StructV_at: non StructV value");
 }
 
+inline int64_t make_signed(IntData val, int bw) {
+  return (int64_t(val) << (64-bw)) >> (64-bw);
+}
+
+inline uint64_t make_unsigned(IntData val, int bw) {
+  return val & ((0ull-1)>>(64-bw));
+}
+
+// assume all values are signed, convert to unsigned if necessary
+// require return value to be signed or non-negative
 inline PtrVal int_op_2(iOP op, PtrVal v1, PtrVal v2) {
   auto i1 = v1->to_IntV();
   auto i2 = v2->to_IntV();
@@ -356,14 +366,16 @@ inline PtrVal int_op_2(iOP op, PtrVal v1, PtrVal v2) {
   }
   if (i1 && i2) {
     if (op == op_add) {
-      return make_IntV(i1->i + i2->i, bw1);
+      return make_IntV(make_signed(i1->i + i2->i, bw1), bw1);
     } else if (op == op_sub) {
-      return make_IntV(i1->i - i2->i, bw1);
+      return make_IntV(make_signed(i1->i - i2->i, bw1), bw1);
     } else if (op == op_mul) {
-      return make_IntV(i1->i * i2->i, bw1);
+      return make_IntV(make_signed(i1->i * i2->i, bw1), bw1);
     // FIXME: singed and unsigned div
-    } else if (op == op_sdiv || op == op_udiv) {
-      return make_IntV(i1->i / i2->i, bw1);
+    } else if (op == op_sdiv) {
+      return make_IntV(make_signed(i1->i / i2->i, bw1), bw1);
+    } else if (op == op_udiv) {
+      return make_IntV(make_unsigned(i1->i, bw1) / make_unsigned(i2->i, bw1), bw1);
     } else if (op == op_eq) {
       return make_IntV(i1->i == i2->i, 1);
     } else if (op == op_uge || op == op_sge) {
@@ -387,9 +399,9 @@ inline PtrVal int_op_2(iOP op, PtrVal v1, PtrVal v2) {
     } else if (op == op_ashr) {
       return make_IntV((i1->i >> i2->i), bw1);
     } else if (op == op_shl) {
-      return make_IntV((i1->i << i2->i) & ((1 << bw1) - 1), bw1);
+      return make_IntV(make_signed(i1->i << i2->i, bw1), bw1);
     } else if (op == op_lshr) {
-      return make_IntV((uint64_t(i1->i) >> i2->i) & ((1 << bw1) - 1), bw1);
+      return make_IntV((make_unsigned(i1->i, bw1) >> i2->i), bw1);
     } else {
       std::cout << op << std::endl;
       ABORT("invalid operator");
@@ -433,7 +445,7 @@ inline PtrVal bv_sext(PtrVal v, int bw) {
 inline PtrVal bv_zext(PtrVal v, int bw) {
   auto i1 = std::dynamic_pointer_cast<IntV>(v);
   if (i1) {
-    return make_IntV(i1->i, bw);
+    return make_IntV(make_unsigned(i1->i, bw), bw);
   } else {
     auto s1 = std::dynamic_pointer_cast<SymV>(v);
     if (s1) {
@@ -448,10 +460,7 @@ inline PtrVal bv_zext(PtrVal v, int bw) {
 inline PtrVal trunc(PtrVal v1, int from, int to) {
   auto i1 = std::dynamic_pointer_cast<IntV>(v1);
   if (i1) {
-    IntData i = i1->i;
-    i = i << (from - to);
-    i = i >> (from - to);
-    return make_IntV(i, to);
+    return make_IntV(make_signed(i1->i, to), to);
   }
   auto s1 = std::dynamic_pointer_cast<SymV>(v1);
   if (s1) {
@@ -463,8 +472,8 @@ inline PtrVal trunc(PtrVal v1, int from, int to) {
 inline PtrVal bv_extract(PtrVal v1, int hi, int lo) {
   auto i1 = std::dynamic_pointer_cast<IntV>(v1);
   if (i1) {
-    uint64_t i = i1->i;
-    i = (i & ((1<<(hi+1)) - 1)) >> lo;
+    int64_t i = i1->i;
+    i = (i << (63 - hi)) >> (63 - hi + lo);
     return make_IntV(i, hi - lo + 1);
   }
   auto s1 = std::dynamic_pointer_cast<SymV>(v1);
@@ -482,7 +491,7 @@ inline PtrVal bv_concat(PtrVal v1, PtrVal v2) {
   int bw2 = v2->get_bw();
   assert(bw1 + bw2 <= 64);
   if (i1 && i2) {
-    return make_IntV(((i1->i & ((1<<bw1)-1)) << bw2) | (i2->i & ((1<<bw2)-1)), bw1 + bw2);
+    return make_IntV((int64_t(i1->i) << bw2) | make_unsigned(i2->i, bw2), bw1 + bw2);
   }
   else {
     return std::make_shared<SymV>(op_concat, immer::flex_vector<PtrVal> { v1, v2 }, bw1 + bw2);
