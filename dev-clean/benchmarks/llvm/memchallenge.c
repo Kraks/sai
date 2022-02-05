@@ -8,6 +8,11 @@ typedef struct {
     int16_t b, c;
 } pair_t;
 
+typedef struct {
+    int32_t a;
+    int16_t b;
+} pair2_t;
+
 void llsc_assert(bool);
 
 int main() {
@@ -26,6 +31,11 @@ int main() {
         llsc_assert(val.a == 0xfedcba09);
         llsc_assert(val.b == (int16_t)0x8765);
         llsc_assert(val.c == (int16_t)0x4321);
+    } while(0);
+    do {
+        pair_t p1 = { 0x12345678, 0x90ab, 0xcdef };
+        pair2_t p2;
+        memcpy(&p2, &p1, sizeof(p2));
     } while(0);
     return 0;
 }
