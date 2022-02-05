@@ -144,7 +144,8 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
       // Conversion Operations
       /* Backend Work Needed */
       // TODO zext to type
-      case ZExtInst(from, value, to) => k(ss, eval(value, from, ss))
+      case ZExtInst(from, value, to) =>
+        k(ss, eval(value, from, ss).bv_zext(to.asInstanceOf[IntType].size))
       case SExtInst(from, value, to) =>
         k(ss, eval(value, from, ss).bv_sext(to.asInstanceOf[IntType].size))
       case TruncInst(from, value, to) =>
