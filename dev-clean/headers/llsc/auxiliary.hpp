@@ -100,4 +100,13 @@ void hash_combine(size_t& seed, T const& v) {
   seed ^= std::hash<T>{}(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
+class Printable {
+  public:
+    friend std::ostream& operator<<(std::ostream& os, Printable& p) {
+      return os << p.toString();
+    }
+    virtual std::string toString() const = 0;
+};
+
+
 #endif

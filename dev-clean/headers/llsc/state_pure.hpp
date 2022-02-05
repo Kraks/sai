@@ -6,10 +6,26 @@
 // Note (5/17): now using a byte-oriented layout
 
 template <class V, class M>
-class PreMem {
+class PreMem: public Printable {
   protected:
     immer::flex_vector<V> mem;
   public:
+    std::string toString() const override {
+      std::ostringstream ss;
+      ss << "PreMem(";
+      for (int i = 0; i < mem.size(); i++) {
+        auto ptrval = mem.at(i);
+        ss << i << ": ";
+        if (ptrval != nullptr) {
+          ss << *ptrval;
+        } else {
+          ss << "nullptr";
+        }
+        ss << ", ";
+      }
+      ss << ")";
+      return ss.str();
+    }
     PreMem(immer::flex_vector<V> mem) : mem(mem) {}
     size_t size() { return mem.size(); }
     V at(size_t idx, int size) { return mem.at(idx); }
@@ -130,6 +146,8 @@ public:
     return Mem(mem);
   }
 };
+
+template class PreMem<PtrVal, Mem>; // instantiate the class
 
 class Frame {
   public:
