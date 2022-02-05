@@ -67,25 +67,39 @@ template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 template<typename T>
-void print_vec(immer::flex_vector<T>& v) {
-  std::cout << "[";
+std::string vec_to_string(immer::flex_vector<T>& v) {
+  std::ostringstream ss;
+  ss << "[";
   for (int i = 0; i < v.size(); i++) {
-    std::cout << v.at(i);
-    if (i != v.size()-1) std::cout << ", ";
+    ss << v.at(i);
+    if (i != v.size()-1) ss << ", ";
   }
-  std::cout << "]";
+  ss << "]";
+  return ss.str();
+}
+
+template<template <typename U> typename C, typename T>
+std::string set_to_string(C<T>& s) {
+  std::ostringstream ss;
+  ss << "{";
+  int i = 0;
+  for (auto x : s) {
+    ss << x;
+    if (i != s.size()-1) ss << ", ";
+    i = i + 1;
+  }
+  ss << "}";
+  return ss.str();
+}
+
+template<typename T>
+void print_vec(immer::flex_vector<T>& v) {
+  std::cout << vec_to_string(v);
 }
 
 template<template <typename U> typename C, typename T>
 void print_set(C<T>& s) {
-  std::cout << "{";
-  int i = 0;
-  for (auto x : s) {
-    std::cout << x;
-    if (i != s.size()-1) std::cout << ", ";
-    i = i + 1;
-  }
-  std::cout << "}";
+  std::cout << set_to_string(s);
 }
 
 template<typename T>
