@@ -67,7 +67,7 @@ template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 template<typename T>
-std::string vec_to_string(immer::flex_vector<T>& v) {
+std::string vec_to_string(const immer::flex_vector<T>& v) {
   std::ostringstream ss;
   ss << "[";
   for (int i = 0; i < v.size(); i++) {
@@ -79,7 +79,7 @@ std::string vec_to_string(immer::flex_vector<T>& v) {
 }
 
 template<template <typename U> typename C, typename T>
-std::string set_to_string(C<T>& s) {
+std::string set_to_string(const C<T>& s) {
   std::ostringstream ss;
   ss << "{";
   int i = 0;
@@ -92,14 +92,33 @@ std::string set_to_string(C<T>& s) {
   return ss.str();
 }
 
+template<template <typename U, typename W> typename C, typename K, typename V>
+std::string map_to_string(const C<K, V>& m) {
+  std::ostringstream ss;
+  ss << "{";
+  int i = 0;
+  for (auto p : m) {
+    ss << p.first << ": " << p.second;
+    if (i != m.size()-1) ss << ", ";
+    i = i + 1;
+  }
+  ss << "}";
+  return ss.str();
+}
+
 template<typename T>
-void print_vec(immer::flex_vector<T>& v) {
+void print_vec(const immer::flex_vector<T>& v) {
   std::cout << vec_to_string(v);
 }
 
 template<template <typename U> typename C, typename T>
-void print_set(C<T>& s) {
+void print_set(const C<T>& s) {
   std::cout << set_to_string(s);
+}
+
+template<template <typename U, typename W> typename C, typename K, typename V>
+void print_map(const C<K, V>& m) {
+  std::cout << map_to_string(m);
 }
 
 template<typename T>

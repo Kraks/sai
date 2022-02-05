@@ -149,12 +149,17 @@ public:
 
 template class PreMem<PtrVal, Mem>; // instantiate the class
 
-class Frame {
+class Frame: public Printable {
   public:
     using Env = immer::map<Id, PtrVal>;
   private:
     Env env;
   public:
+    std::string toString() const override {
+      std::ostringstream ss;
+      ss << "Frame(" << map_to_string(env) << ")";
+      return ss.str();
+    }
     Frame(Env env) : env(env) {}
     Frame() : env(immer::map<Id, PtrVal>{}) {}
     size_t size() { return env.size(); }
@@ -169,11 +174,19 @@ class Frame {
     }
 };
 
-class Stack {
+class Stack: public Printable {
   private:
     Mem mem;
     immer::flex_vector<Frame> env;
   public:
+    std::string toString() const override {
+      std::ostringstream ss;
+      ss << "Stack(" <<
+        "mem=" << mem << ", " <<
+        "env=" << vec_to_string(env) << 
+        ")";
+      return ss.str();
+    }
     Stack(Mem mem, immer::flex_vector<Frame> env) : mem(mem), env(env) {}
     size_t mem_size() { return mem.size(); }
     size_t frame_depth() { return env.size(); }
@@ -213,7 +226,7 @@ class Stack {
     Stack alloc(size_t size) { return Stack(mem.alloc(size), env); }
 };
 
-class PC {
+class PC: public Printable {
   private:
     immer::flex_vector<PtrVal> pc;
   public:
@@ -225,10 +238,14 @@ class PC {
       if (pc.size() > 0) return pc.back();
       return nullptr;
     }
-    void print() { print_vec(pc); }
+    std::string toString() const override {
+      std::ostringstream ss;
+      ss << "PC(" << vec_to_string<PtrVal>(pc) << ")";
+      return ss.str();
+    }
 };
 
-class SS {
+class SS: public Printable {
   private:
     Mem heap;
     Stack stack;
@@ -236,6 +253,17 @@ class SS {
     BlockLabel bb;
     FS fs;
   public:
+    std::string toString() const override {
+      std::ostringstream ss;
+      ss << "SS(" << 
+        "stack => {{ " << stack << " }}, " <<
+        "heap => {{ " << heap << " }}, " <<
+        "pc => {{ " << pc << " }}, " <<
+        "bb => {{ " << bb << " }}, " <<
+        "fs => {{ " << fs << " }}, " <<
+        ")";
+      return ss.str();
+    }
     SS(Mem heap, Stack stack, PC pc, BlockLabel bb) : heap(heap), stack(stack), pc(pc), bb(bb), fs(initial_fs) {}
     SS(Mem heap, Stack stack, PC pc, BlockLabel bb, FS fs) : heap(heap), stack(stack), pc(pc), bb(bb), fs(fs) {}
     PtrVal env_lookup(Id id) { return stack.lookup_id(id); }

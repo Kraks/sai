@@ -102,7 +102,7 @@ void hash_combine(size_t& seed, T const& v) {
 
 class Printable {
   public:
-    friend std::ostream& operator<<(std::ostream& os, Printable& p) {
+    friend std::ostream& operator<<(std::ostream& os, const Printable& p) {
       return os << p.toString();
     }
     virtual std::string toString() const = 0;
