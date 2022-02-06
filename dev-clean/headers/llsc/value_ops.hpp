@@ -195,6 +195,7 @@ inline int proj_FloatV(PtrVal v) {
 
 struct LocV : Value {
   enum Kind { kStack, kHeap };
+  static const int64_t stack_offset = 1LL<<30;
   Addr l;
   Kind k;
   int size;
@@ -217,7 +218,7 @@ struct LocV : Value {
     ABORT("is_conc: unexpected value LocV.");
   }
   virtual std::shared_ptr<IntV> to_IntV() override {
-    return std::make_shared<IntV>(l + (k == kStack ? (1 << 30) : 0), addr_bw);
+    return std::make_shared<IntV>(l + (k == kStack ? stack_offset : 0), addr_bw);
   }
   virtual int get_bw() const override { return addr_bw; }
 
@@ -226,8 +227,6 @@ struct LocV : Value {
     if (this->l != that->l) return false;
     return this->k == that->k;
   }
-
-  static PtrVal from_IntV(PtrVal v);
 };
 
 inline PtrVal make_LocV(unsigned int i, LocV::Kind k, int size) {
@@ -238,13 +237,13 @@ inline PtrVal make_LocV(unsigned int i, LocV::Kind k) {
   return std::make_shared<LocV>(i, k, -1);
 }
 
-inline PtrVal LocV::from_IntV(PtrVal v) {
+inline PtrVal make_LocV(PtrVal v) {
   auto v2 = std::dynamic_pointer_cast<IntV>(v);
   assert(v2->get_bw() == 64);
-  if (v2->i >= (1 << 30))
-    return make_LocV(v2->i - (1<<30), kStack);
+  if (v2->i >= LocV::stack_offset)
+    return make_LocV(v2->i - LocV::stack_offset, LocV::kStack);
   else
-    return make_LocV(v2->i, kHeap);
+    return make_LocV(v2->i, LocV::kHeap);
 }
 
 inline unsigned int proj_LocV(PtrVal v) {
