@@ -15,7 +15,7 @@ struct Value : public std::enable_shared_from_this<Value>, public Printable {
   virtual bool compare(const Value *v) const = 0;
 
   virtual PtrVal to_SMT() = 0;
-  virtual std::shared_ptr<IntV> to_IntV(int bw = -1) = 0;
+  virtual std::shared_ptr<IntV> to_IntV() = 0;
 
   size_t hashval;
   Value() : hashval(0) {}
@@ -69,7 +69,7 @@ struct FunV : Value {
   virtual PtrVal to_SMT() override {
     ABORT("to_SMT: unexpected value FunV.");
   }
-  virtual std::shared_ptr<IntV> to_IntV(int bw) override {
+  virtual std::shared_ptr<IntV> to_IntV() override {
     ABORT("to_IntV: TODO for FunV?");
   }
   virtual bool is_conc() const override { return true; }
@@ -97,7 +97,7 @@ struct CPSFunV : Value {
   virtual PtrVal to_SMT() override {
     ABORT("to_SMT: unexpected value CPSFunV.");
   }
-  virtual std::shared_ptr<IntV> to_IntV(int bw) override {
+  virtual std::shared_ptr<IntV> to_IntV() override {
     ABORT("to_IntV: TODO for CPSFunV?");
   }
   virtual bool is_conc() const override { return true; }
@@ -127,7 +127,7 @@ struct IntV : Value {
   virtual PtrVal to_SMT() override {
     ABORT("to_SMT: unexpected value IntV.");
   }
-  virtual std::shared_ptr<IntV> to_IntV(int bw) override {
+  virtual std::shared_ptr<IntV> to_IntV() override {
     auto thisptr = shared_from_this();
     return std::static_pointer_cast<IntV>(thisptr);
   }
@@ -176,7 +176,7 @@ struct FloatV : Value {
     ABORT("to_SMT: unexpected value FloatV.");
   }
   virtual bool is_conc() const override { return true; }
-  virtual std::shared_ptr<IntV> to_IntV(int bw) override { return nullptr; }
+  virtual std::shared_ptr<IntV> to_IntV() override { return nullptr; }
   virtual int get_bw() const override { return 32; }
 
   virtual bool compare(const Value *v) const override {
@@ -216,8 +216,8 @@ struct LocV : Value {
   virtual bool is_conc() const override {
     ABORT("is_conc: unexpected value LocV.");
   }
-  virtual std::shared_ptr<IntV> to_IntV(int bw) override {
-    return std::make_shared<IntV>(l + (k == kStack ? (1 << 30) : 0), bw > 0 ? bw : addr_bw);
+  virtual std::shared_ptr<IntV> to_IntV() override {
+    return std::make_shared<IntV>(l + (k == kStack ? (1 << 30) : 0), addr_bw);
   }
   virtual int get_bw() const override { return addr_bw; }
 
@@ -301,7 +301,7 @@ struct SymV : Value {
   }
   virtual PtrVal to_SMT() override { return shared_from_this(); }
   virtual bool is_conc() const override { return false; }
-  virtual std::shared_ptr<IntV> to_IntV(int bw) override { return nullptr; }
+  virtual std::shared_ptr<IntV> to_IntV() override { return nullptr; }
   virtual int get_bw() const override { return bw; }
 
   virtual bool compare(const Value *v) const override {
@@ -345,7 +345,7 @@ struct StructV : Value {
   virtual bool is_conc() const override {
     ABORT("is_conc: unexpected value StructV.");
   }
-  virtual std::shared_ptr<IntV> to_IntV(int bw) override { return nullptr; }
+  virtual std::shared_ptr<IntV> to_IntV() override { return nullptr; }
   virtual int get_bw() const override { ABORT("get_bw: unexpected value StructV."); }
 
   virtual bool compare(const Value *v) const override {
