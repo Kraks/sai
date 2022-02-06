@@ -13,7 +13,9 @@ inline void epilogue() {
 #ifdef USE_TP
   tp.wait_for_tasks();
 #endif
+  std::cout << "wait for task\n" << std::flush;
   cov.stop_monitor();
+  std::cout << "stop mon\n" << std::flush;
   cov.print_time();
   cov.print_block_cov();
   cov.print_path_cov();

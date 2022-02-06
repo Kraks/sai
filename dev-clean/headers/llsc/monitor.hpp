@@ -1,5 +1,6 @@
 #ifndef LLSC_MON_HEADERS
 #define LLSC_MON_HEADERS
+#include<signal.h>
 
 /* Coverage information */
 
@@ -71,6 +72,15 @@ struct Monitor {
       watcher = std::thread([this](std::future<void> fut) {
         while (this->block_cov.size() <= this->num_blocks &&
                fut.wait_for(milliseconds(1)) == std::future_status::timeout) {
+          steady_clock::time_point now = steady_clock::now();
+          if (duration_cast<seconds>(now - start) > seconds(timeout)) {
+            std::cout << "Timeout.\n";
+#ifdef USE_TP
+            tp.stop_all_tasks();
+#endif
+            //raise(SIGINT);
+            break;
+          }
           print_time();
           print_block_cov();
           print_path_cov();
@@ -84,7 +94,9 @@ struct Monitor {
       signal_exit.set_value();
       if (watcher.joinable()) {
         // XXX: this is still not idea, since for execution < 1s, we need to wait for watcher to join...
+        std::cout << "before join\n" << std::flush;
         watcher.join();
+        std::cout << "after join\n" << std::flush;
       }
     }
 };

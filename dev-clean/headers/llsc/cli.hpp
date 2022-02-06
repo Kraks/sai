@@ -19,6 +19,7 @@ static struct option long_options[] =
   {"add-sym-file",         required_argument, 0, '+'},
   {"sym-file-size",        required_argument, 0, 's'},
   {"thread",               required_argument, 0, 't'},
+  {"timeout",              required_argument, 0, 'e'},
   {0,                      0,                 0, 0  }
 };
 
@@ -72,13 +73,13 @@ inline void handle_cli_args(int argc, char** argv) {
 #endif
         break;
       case 's':
-        default_sym_file_size = std::atoi(optarg);
+        default_sym_file_size = atoi(optarg);
 #ifdef DEBUG
         printf("set symfile size to %d\n", default_sym_file_size);
 #endif
         break;
       case 't': {
-        int t = std::stoi(optarg);
+        int t = atoi(optarg);
         if (t <= 1) {
           max_par_num = 0;
         } else {
@@ -86,6 +87,9 @@ inline void handle_cli_args(int argc, char** argv) {
         }
         break;
       }
+      case 'e':
+        timeout = atoi(optarg);
+        break;
       case '?':
         // parsing error, should be printed by getopt
       default:
