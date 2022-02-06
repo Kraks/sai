@@ -16,9 +16,6 @@
 #include <type_traits>
 #include <utility>
 
-// the maximal number of additional parallel thread (excluding main thread)
-inline size_t max_par_num = 0;
-
 struct Task {
   std::function<void()> f;
   int weight;

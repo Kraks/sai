@@ -12,13 +12,16 @@ inline unsigned int bitwidth = 32;
 inline unsigned int addr_bw = 64;
 inline unsigned int var_name = 0;
 
-// TODO: refactor those counters into Monitor
 inline std::atomic<unsigned int> num_async = 0;
 inline std::atomic<unsigned int> tt_num_async = 0;
 
 inline unsigned int test_query_num = 0;
 inline unsigned int br_query_num = 0;
 inline unsigned int cached_query_num = 0;
+
+// the maximal number of additional parallel thread (excluding main thread)
+inline unsigned int max_par_num = 0;
+inline unsigned int timeout = 0;
 
 inline duration<double, std::micro> solver_time = microseconds::zero();
 
