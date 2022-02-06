@@ -68,7 +68,7 @@ object TestCases {
 
   val memModel: List[TestPrg] = List(
     TestPrg(funptr, "funptr", "@main", 0, None, nPath(1)),
-    TestPrg(heapFunptr, "heapFunptr", "@main", 0, None, nPath(1))
+    TestPrg(heapFunptr, "heapFunptr", "@main", 0, None, nPath(1)),
     TestPrg(ptrtoint, "ptrToInt", "@main", 0, None, nPath(1)),
     TestPrg(flexAddr, "flexAddr", "@main", 0, None, nPath(1)),
   )
@@ -180,7 +180,7 @@ abstract class TestLLSC extends FunSuite {
         assert(resStat.pathNum == exp(nPath), "Unexpected path number")
       }
       if (exp.contains(minPath)) {
-        assert(resStat.pathNum >= exp(minPath).asInstanceOf[Int], "Unexpected number of least test cases")
+        assert(resStat.pathNum >= exp(minPath).asInstanceOf[Int], "Unexpected number of least paths")
       }
       if (exp.contains(nTest)) {
         assert(resStat.testQueryNum == exp(nTest), "Unexpected number of test cases")
