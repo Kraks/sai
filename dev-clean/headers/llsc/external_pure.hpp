@@ -58,10 +58,14 @@ inline immer::flex_vector<std::pair<SS, PtrVal>> noop(SS state, immer::flex_vect
 }
 
 inline immer::flex_vector<std::pair<SS, PtrVal>> stop(SS state, immer::flex_vector<PtrVal> args) {
+  check_pc_to_file(state);
   return immer::flex_vector<std::pair<SS, PtrVal>>{};
 }
 
-inline std::monostate stop(SS state, immer::flex_vector<PtrVal> args, Cont k) { return std::monostate(); }
+inline std::monostate stop(SS state, immer::flex_vector<PtrVal> args, Cont k) {
+  check_pc_to_file(state);
+  return std::monostate();
+}
 
 inline immer::flex_vector<std::pair<SS, PtrVal>> malloc(SS state, immer::flex_vector<PtrVal> args) {
   IntData bytes = proj_IntV(args.at(0));
@@ -132,14 +136,14 @@ inline immer::flex_vector<std::pair<SS, PtrVal>> llsc_assert(SS state, immer::fl
   auto v = args.at(0);
   auto i = v->to_IntV();
   if (i) {
-    if (i->i == 0) return stop(state, args); // concrete false - generate the test and exit FIXME: generate test case
+    if (i->i == 0) return stop(state, args); // concrete false - generate the test and exit
     return immer::flex_vector<std::pair<SS, PtrVal>>{{state, make_IntV(1, 32)}};
   }
   // otherwise add a symbolic condition that constraints it to be true
   // undefined/error if v is a value of other types
   auto cond = to_SMTNeg(v);
   auto new_s = state.add_PC(cond);
-  if (check_pc(new_s.get_PC())) return stop(state, args); // check if v == 1 is not valid FIXME: generate test case
+  if (check_pc(new_s.get_PC())) return stop(new_s, args); // check if v == 1 is not valid
   return immer::flex_vector<std::pair<SS, PtrVal>>{{state.add_PC(v), make_IntV(1, 32)}};
 }
 
@@ -147,14 +151,14 @@ inline std::monostate llsc_assert(SS state, immer::flex_vector<PtrVal> args, Con
   auto v = args.at(0);
   auto i = v->to_IntV();
   if (i) {
-    if (i->i == 0) return stop(state, args, k); // concrete false - generate the test and exit FIXME
+    if (i->i == 0) return stop(state, args, k); // concrete false - generate the test and exit
     return k(state, make_IntV(1, 32));
   }
   // otherwise add a symbolic condition that constraints it to be true
   // undefined/error if v is a value of other types
   auto cond = to_SMTNeg(v);
   auto new_s = state.add_PC(cond);
-  if (check_pc(new_s.get_PC())) return stop(state, args, k); // check if v == 1 is not valid FIXME
+  if (check_pc(new_s.get_PC())) return stop(new_s, args, k); // check if v == 1 is not valid
   return k(state.add_PC(v), make_IntV(1, 32));
 }
 

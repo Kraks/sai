@@ -19,8 +19,8 @@ inline unsigned int test_query_num = 0;
 inline unsigned int br_query_num = 0;
 inline unsigned int cached_query_num = 0;
 
-// the maximal number of additional parallel thread (excluding main thread)
-inline unsigned int max_par_num = 0;
+// the maximal number of total threads (including the main thread)
+inline unsigned int n_thread = 1;
 inline unsigned int timeout = 3600; // in seconds, one hour by default
 
 inline duration<double, std::micro> solver_time = microseconds::zero();

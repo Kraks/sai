@@ -48,21 +48,9 @@ sym_exec_br_k(SS ss, PtrVal t_cond, PtrVal f_cond,
     SS tbr_ss = ss.add_PC(t_cond);
     SS fbr_ss = ss.add_PC(f_cond);
 #if USE_TP
-    if (max_par_num > 0) {
-      tp.add_task([tf, tbr_ss, t_cond, k]{ tf(tbr_ss, k); });
-      //ff(fbr_ss, k);
-      tp.add_task([ff, fbr_ss, f_cond, k]{ ff(fbr_ss, k); });
-      return std::monostate{};
-    } else {
-      if (rand_int(100) > 50) {
-        tf(tbr_ss, k);
-        ff(fbr_ss, k);
-      } else {
-        ff(fbr_ss, k);
-        tf(tbr_ss, k);
-      }
-      return std::monostate{};
-    }
+    tp.add_task([tf, tbr_ss, t_cond, k]{ tf(tbr_ss, k); });
+    tp.add_task([ff, fbr_ss, f_cond, k]{ ff(fbr_ss, k); });
+    return std::monostate{};
 #else
     if (can_par_async()) {
       std::future<std::monostate> tf_res =

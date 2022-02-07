@@ -80,11 +80,7 @@ inline void handle_cli_args(int argc, char** argv) {
         break;
       case 't': {
         int t = atoi(optarg);
-        if (t <= 1) {
-          max_par_num = 0;
-        } else {
-          max_par_num = t - 1;
-        }
+        n_thread = (t <= 0) ? 1 : t;
         break;
       }
       case 'e':
@@ -105,14 +101,14 @@ inline void handle_cli_args(int argc, char** argv) {
       exit(-1);
     }
   }
-  if (max_par_num == 0) {
+  if (n_thread == 1) {
     // It is safe the reuse the global_vc object within one thread, but not otherwise.
     std::cout << "Use global solver\n";
     use_global_solver = true;
-  } else {
-    std::cout << "Use " << (max_par_num+1) << " total threads\n";
-    tp.init(max_par_num);
   }
+  std::cout << "Use " << n_thread << " total threads\n";
+  // thread pool will create (n_thread) threads, leaving the main thread idle.
+  tp.init(n_thread);
   use_objcache = use_objcache && use_global_solver;
   use_cexcache = use_cexcache && use_global_solver;
 #ifdef DEBUG

@@ -37,7 +37,6 @@ private:
   std::queue<std::function<void()>> tasks = {};
   std::priority_queue<Task> ptasks = {};
 
-  size_t thread_num;
   std::unique_ptr<std::thread[]> threads;
   std::unique_ptr<std::thread::id[]> thread_ids;
 
@@ -45,6 +44,7 @@ private:
   std::atomic<size_t> tasks_num_total = 0;
   bool inited = false;
 public:
+  size_t thread_num;
 
   thread_pool(const size_t thread_num) :
     thread_num(thread_num), threads(new std::thread[thread_num]), thread_ids(new std::thread::id[thread_num]) {

@@ -56,8 +56,8 @@ struct Monitor {
       }
     }
     void print_async() {
+      // FIXME: thread pool version
       std::cout << "#threads: " << num_async + 1 << "; #async created: " << tt_num_async << "; " << std::flush;
-      //std::cout << "current #async: " << pool.tasks_size() << " total #async: " << tt_num_async << "\n";
     }
     void print_query_stat() {
       std::cout << "#queries: " << br_query_num << "/" << test_query_num << " (" << cached_query_num << ")\n" << std::flush;
@@ -74,12 +74,13 @@ struct Monitor {
                fut.wait_for(milliseconds(1)) == std::future_status::timeout) {
           steady_clock::time_point now = steady_clock::now();
           if (duration_cast<seconds>(now - start) > seconds(timeout)) {
-            std::cout << "Timeout.\n";
+            std::cout << "Timeout, aborting.\n";
 #ifdef USE_TP
-            tp.stop_all_tasks();
+              tp.stop_all_tasks();
+              break;
+#else
+              exit(0);
 #endif
-            //raise(SIGINT);
-            break;
           }
           print_time();
           print_block_cov();
@@ -94,9 +95,7 @@ struct Monitor {
       signal_exit.set_value();
       if (watcher.joinable()) {
         // XXX: this is still not idea, since for execution < 1s, we need to wait for watcher to join...
-        std::cout << "before join\n" << std::flush;
         watcher.join();
-        std::cout << "after join\n" << std::flush;
       }
     }
 };
