@@ -140,21 +140,15 @@ struct IntV : Value {
     return this->bw == that->bw;
   }
 
-  uint64_t to_unsigned() const {
-    return i & ((0ull-1)>>(64-bw));
-  }
+  int64_t as_signed() const { return int64_t(i) >> (addr_bw - bw); }
 };
 
-
-inline PtrVal make_IntV(IntData i, int bw=bitwidth, bool trim=false) {
-  if (trim) {
-    i = (i << (64-bw)) >> (64-bw);
-  }
-  return std::make_shared<IntV>(i, bw);
+inline PtrVal make_IntV(IntData i, int bw=bitwidth, bool toMSB=true) {
+  return std::make_shared<IntV>(toMSB ? (i << (addr_bw - bw)) : i, bw);
 }
 
 inline IntData proj_IntV(PtrVal v) {
-  return std::dynamic_pointer_cast<IntV>(v)->i;
+  return std::dynamic_pointer_cast<IntV>(v)->as_signed();
 }
 
 inline char proj_IntV_char(PtrVal v) {
@@ -376,51 +370,51 @@ inline PtrVal int_op_2(iOP op, PtrVal v1, PtrVal v2) {
   if (i1 && i2) {
     switch (op) {
     case op_add:
-      return make_IntV(i1->i + i2->i, bw1, true);
+      return make_IntV(i1->i + i2->i, bw1, false);
     case op_sub:
-      return make_IntV(i1->i - i2->i, bw1, true);
+      return make_IntV(i1->i - i2->i, bw1, false);
     case op_mul:
-      return make_IntV(i1->i * i2->i, bw1, true);
+      return make_IntV(i1->i * i2->as_signed(), bw1, false);
     case op_sdiv:  // divide overflow is hardware exception
-      return make_IntV(i1->i / i2->i, bw1, true);
+      return make_IntV(int64_t(i1->i) / int64_t(i2->i), bw1);
     case op_udiv:
-      return make_IntV(i1->to_unsigned() / i2->to_unsigned(), bw1, true);
+      return make_IntV(uint64_t(i1->i) / uint64_t(i2->i), bw1);
     case op_srem:
-      return make_IntV(i1->i % i2->i, bw1, true);
+      return make_IntV(int64_t(i1->i) % int64_t(i2->i), bw1, false);
     case op_urem:
-      return make_IntV(i1->to_unsigned() % i2->to_unsigned(), bw1, true);
+      return make_IntV(uint64_t(i1->i) % uint64_t(i2->i), bw1, false);
     case op_eq:
-      return make_IntV(i1->i == i2->i, 1);
+      return make_IntV(i1->i == i2->i, 8);
     case op_neq:
-      return make_IntV(i1->i != i2->i, 1);
+      return make_IntV(i1->i != i2->i, 8);
     case op_uge:
-      return make_IntV(i1->to_unsigned() >= i2->to_unsigned(), 1);
+      return make_IntV(uint64_t(i1->i) >= uint64_t(i2->i), 8);
     case op_sge:
-      return make_IntV(i1->i >= i2->i, 1);
+      return make_IntV(int64_t(i1->i) >= int64_t(i2->i), 8);
     case op_ugt:
-      return make_IntV(i1->to_unsigned() > i2->to_unsigned(), 1);
+      return make_IntV(uint64_t(i1->i) > uint64_t(i2->i), 8);
     case op_sgt:
-      return make_IntV(i1->i > i2->i, 1);
+      return make_IntV(int64_t(i1->i) > int64_t(i2->i), 8);
     case op_ule:
-      return make_IntV(i1->to_unsigned() <= i2->to_unsigned(), 1);
+      return make_IntV(uint64_t(i1->i) <= uint64_t(i2->i), 8);
     case op_sle:
-      return make_IntV(i1->i <= i2->i, 1);
+      return make_IntV(int64_t(i1->i) <= int64_t(i2->i), 8);
     case op_ult:
-      return make_IntV(i1->to_unsigned() < i2->to_unsigned(), 1);
+      return make_IntV(uint64_t(i1->i) < uint64_t(i2->i), 8);
     case op_slt:
-      return make_IntV(i1->i < i2->i, 1);
+      return make_IntV(int64_t(i1->i) < int64_t(i2->i), 8);
     case op_and:
-      return make_IntV(i1->i & i2->i, bw1);
+      return make_IntV(i1->i & i2->i, bw1, false);
     case op_or:
-      return make_IntV(i1->i | i2->i, bw1);
+      return make_IntV(i1->i | i2->i, bw1, false);
     case op_xor:
-      return make_IntV(i1->i ^ i2->i, bw1);
-    case op_ashr:
-      return make_IntV((i1->i >> i2->i), bw1);
+      return make_IntV(i1->i ^ i2->i, bw1, false);
     case op_shl:
-      return make_IntV(i1->i << i2->i, bw1, true);
+      return make_IntV(i1->i << i2->i, bw1, false);
+    case op_ashr:
+      return make_IntV(int64_t(i1->i) >> (i2->as_signed() + addr_bw - bw1), bw1);
     case op_lshr:
-      return make_IntV((i1->to_unsigned() >> i2->i), bw1, true);
+      return make_IntV(uint64_t(i1->i) >> (i2->as_signed() + addr_bw - bw1), bw1);
     default:
       std::cout << op << std::endl;
       ABORT("invalid operator");
@@ -449,7 +443,7 @@ inline PtrVal float_op_2(fOP op, PtrVal v1, PtrVal v2) {
 inline PtrVal bv_sext(PtrVal v, int bw) {
   auto i1 = std::dynamic_pointer_cast<IntV>(v);
   if (i1) {
-    return make_IntV(i1->i, bw);
+    return make_IntV(int64_t(i1->i) >> (bw - i1->bw), bw, false);
   } else {
     auto s1 = std::dynamic_pointer_cast<SymV>(v);
     if (s1) {
@@ -464,7 +458,7 @@ inline PtrVal bv_sext(PtrVal v, int bw) {
 inline PtrVal bv_zext(PtrVal v, int bw) {
   auto i1 = std::dynamic_pointer_cast<IntV>(v);
   if (i1) {
-    return make_IntV(i1->to_unsigned(), bw);
+    return make_IntV(uint64_t(i1->i) >> (bw - i1->bw), bw, false);
   } else {
     auto s1 = std::dynamic_pointer_cast<SymV>(v);
     if (s1) {
@@ -479,7 +473,7 @@ inline PtrVal bv_zext(PtrVal v, int bw) {
 inline PtrVal trunc(PtrVal v1, int from, int to) {
   auto i1 = std::dynamic_pointer_cast<IntV>(v1);
   if (i1) {
-    return make_IntV(i1->i, to, true);
+    return make_IntV(i1->i << (from - to), to, false);
   }
   auto s1 = std::dynamic_pointer_cast<SymV>(v1);
   if (s1) {
@@ -491,9 +485,7 @@ inline PtrVal trunc(PtrVal v1, int from, int to) {
 inline PtrVal bv_extract(PtrVal v1, int hi, int lo) {
   auto i1 = std::dynamic_pointer_cast<IntV>(v1);
   if (i1) {
-    int64_t i = i1->i;
-    i = (i << (63 - hi)) >> (63 - hi + lo);
-    return make_IntV(i, hi - lo + 1);
+    return make_IntV(i1->i >> (lo + addr_bw - i1->bw), hi - lo + 1);
   }
   auto s1 = std::dynamic_pointer_cast<SymV>(v1);
   if (s1) {
@@ -510,7 +502,7 @@ inline PtrVal bv_concat(PtrVal v1, PtrVal v2) {
   int bw2 = v2->get_bw();
   assert(bw1 + bw2 <= addr_bw);
   if (i1 && i2) {
-    return make_IntV((i1->i << bw2) | i2->to_unsigned(), bw1 + bw2);
+    return make_IntV(i1->i | (uint64_t(i2->i) >> bw1), bw1 + bw2, false);
   }
   else {
     return std::make_shared<SymV>(op_concat, immer::flex_vector<PtrVal> { v1, v2 }, bw1 + bw2);

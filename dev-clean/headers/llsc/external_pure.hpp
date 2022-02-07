@@ -115,7 +115,7 @@ inline immer::flex_vector<std::pair<SS, PtrVal>> sym_exit(SS state, immer::flex_
   ASSERT(args.size() == 1, "sym_exit accepts exactly one argument");
   auto v = args.at(0)->to_IntV();
   ASSERT(v != nullptr, "sym_exit only accepts integer argument");
-  int status = v->i;
+  int status = v->as_signed();
   check_pc_to_file(state);
 #ifdef USE_TP
   tp.stop_all_tasks();
@@ -132,7 +132,7 @@ inline std::monostate sym_exit(SS state, immer::flex_vector<PtrVal> args, Cont k
   ASSERT(args.size() == 1, "sym_exit accepts exactly one argument");
   auto v = args.at(0)->to_IntV();
   ASSERT(v != nullptr, "sym_exit only accepts integer argument");
-  int status = v->i;
+  int status = v->as_signed();
   check_pc_to_file(state);
 #ifdef USE_TP
   // XXX: brutally call _exit? then what should happen if two threads are calling sym_exit?

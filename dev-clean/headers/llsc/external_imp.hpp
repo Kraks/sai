@@ -136,7 +136,7 @@ inline std::vector<std::pair<SS, PtrVal>> sym_print(SS state, std::vector<PtrVal
   if (std::dynamic_pointer_cast<FloatV>(x)) {
     std::cout << "FloatV" << std::dynamic_pointer_cast<FloatV>(x)->f << ")\n";
   } else if (std::dynamic_pointer_cast<IntV>(x)) {
-    std::cout << "IntV(" << std::dynamic_pointer_cast<IntV>(x)->i << ")\n";
+    std::cout << "IntV(" << std::dynamic_pointer_cast<IntV>(x)->as_signed() << ")\n";
   } else if (std::dynamic_pointer_cast<LocV>(x)){
     ABORT("Unimplemented LOCV");
   } else if ( x == nullptr ){
