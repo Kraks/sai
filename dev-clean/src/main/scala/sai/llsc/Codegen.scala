@@ -185,7 +185,7 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     |  $name(0);
     |#endif
     |  epilogue();
-    |  return 0;
+    |  return exit_code.load().value_or(0);
     |} """.stripMargin)
   }
 }

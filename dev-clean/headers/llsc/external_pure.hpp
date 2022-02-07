@@ -119,6 +119,7 @@ inline immer::flex_vector<std::pair<SS, PtrVal>> sym_exit(SS state, immer::flex_
   check_pc_to_file(state);
 #ifdef USE_TP
   tp.stop_all_tasks();
+  set_exit_code(status);
   return immer::flex_vector<std::pair<SS, PtrVal>>{};
 #else
   epilogue();
@@ -135,6 +136,7 @@ inline std::monostate sym_exit(SS state, immer::flex_vector<PtrVal> args, Cont k
   check_pc_to_file(state);
 #ifdef USE_TP
   tp.stop_all_tasks();
+  set_exit_code(status);
   return std::monostate{};
 #else
   epilogue();

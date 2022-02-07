@@ -155,10 +155,10 @@ abstract class TestLLSC extends FunSuite {
     }
     val pathNum = groups(4).dropRight(1).toInt
     val (brQueryNum, testQueryNum) = {
-      val t = groups(11).split("/")
+      val t = groups(10).split("/")
       (t(0).toInt, t(1).toInt)
     }
-    val cexCacheHit = groups(12).drop(1).dropRight(1).toInt
+    val cexCacheHit = groups(11).drop(1).dropRight(1).toInt
     TestResult(engine, testName, solverTime, wholeTime, blockCov, pathNum, brQueryNum, testQueryNum, cexCacheHit)
   }
 
@@ -203,7 +203,7 @@ class TestPureLLSC extends TestLLSC {
 // FIXME: varArg is problematic for instances other than PureLLSC
 
 class TestPureCPSLLSC extends TestLLSC {
-  testLLSC(new PureCPSLLSC, TestCases.all ++ filesys)
+  //testLLSC(new PureCPSLLSC, TestCases.all ++ filesys)
   //testLLSC(new PureCPSLLSC, TestPrg(mergesort, "mergeSortTest", "@main", 0, 720))
   //testLLSC(new PureCPSLLSC, external)
 }
@@ -212,7 +212,7 @@ class TestPureCPSLLSC_Z3 extends TestLLSC {
   testLLSC(new PureCPSLLSC_Z3, TestCases.all ++ filesys)
   //testLLSC(llsc, TestPrg(funptr, "funptr", "@main", 0, 1))
   //testLLSC(llsc, TestPrg(heapFunptr, "heapFunptr", "@main", 0, 1))
-  testLLSC(new PureCPSLLSC_Z3, TestPrg(unboundedLoop, "unboundedLoop", "@main", 0, "--timeout=2", minTest(1)))
+  //testLLSC(new PureCPSLLSC_Z3, TestPrg(unboundedLoop, "unboundedLoop", "@main", 0, "--timeout=2", minTest(1)))
 }
 
 class TestImpLLSC extends TestLLSC {
