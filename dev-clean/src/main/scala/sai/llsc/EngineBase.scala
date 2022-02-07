@@ -201,7 +201,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
       case BoolConst(b) => IntV(if (b) 1 else 0, 1)
       case IntConst(n) => IntV(n, ty.asInstanceOf[IntType].size)
       case FloatConst(f) => FloatV(f)
-      case NullConst => NullV()
+      case NullConst => LocV(-1, LocV.kHeap)
       case PtrToIntExpr(from, const, to) =>
         IntV(evalAddr(const, from), to.asInstanceOf[IntType].size)
       case GlobalId(id) if funMap.contains(id) =>

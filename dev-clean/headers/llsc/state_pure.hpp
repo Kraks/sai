@@ -60,7 +60,7 @@ class Mem: public PreMem<PtrVal, Mem> {
       size_t idx; PtrVal ret;
       if (first) {
         first = false;
-        for (idx = begin0; idx <= begin0 && !(ret = mem.at(idx)); idx--);
+        for (idx = begin0; idx <= begin0 && begin0 < idx + 8 && !(ret = mem.at(idx)); idx--);
         if (ret && (idx2 = idx + ret->get_bw() / 8) > begin0)
           return std::tuple(idx, ret, idx2);
         else idx2 = begin0;
