@@ -117,8 +117,13 @@ inline immer::flex_vector<std::pair<SS, PtrVal>> sym_exit(SS state, immer::flex_
   ASSERT(v != nullptr, "sym_exit only accepts integer argument");
   int status = v->i;
   check_pc_to_file(state);
+#ifdef USE_TP
+  tp.stop_all_tasks();
+  return immer::flex_vector<std::pair<SS, PtrVal>>{};
+#else
   epilogue();
   exit(status);
+#endif
 }
 
 /* TODO: Generate both versions of sym_exit <2022-01-24, David Deng> */
@@ -128,8 +133,13 @@ inline std::monostate sym_exit(SS state, immer::flex_vector<PtrVal> args, Cont k
   ASSERT(v != nullptr, "sym_exit only accepts integer argument");
   int status = v->i;
   check_pc_to_file(state);
+#ifdef USE_TP
+  tp.stop_all_tasks();
+  return std::monostate{};
+#else
   epilogue();
   exit(status);
+#endif
 }
 
 inline immer::flex_vector<std::pair<SS, PtrVal>> llsc_assert(SS state, immer::flex_vector<PtrVal> args) {

@@ -169,7 +169,7 @@ abstract class TestLLSC extends FunSuite {
       code.genAll
       val mkRet = code.make(2)
       assert(mkRet == 0, "make failed")
-      val (output, ret) = code.runWithStatus(1, cliArgOpt.getOrElse(""))
+      val (output, ret) = code.runWithStatus(cliArgOpt.getOrElse(""))
       System.err.println(output)
       val resStat = parseOutput(llsc.insName, name, output)
       System.err.println(resStat)
