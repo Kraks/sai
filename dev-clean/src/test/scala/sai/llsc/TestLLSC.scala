@@ -140,7 +140,7 @@ abstract class TestLLSC extends FunSuite {
 
   def parseOutput(engine: String, testName: String, output: String): TestResult = {
     // example:
-    // [43.4s/46.0s] #blocks: 12/12; #paths: 1666; #threads: 1; #async created: 0; #queries: 7328/1666 (1996)
+    // [43.4s/46.0s] #blocks: 12/12; #paths: 1666; #threads: 1; #task-in-q: 0; #queries: 7328/1666 (1996)
     val lastLine = output.split("\n").last
     val groups = lastLine.split(" ")
     val (solverTime, wholeTime) = {
