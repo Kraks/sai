@@ -85,22 +85,32 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
   }
 
   object StructCalc {
-    def padding(size: Int, align: Int): Int =
-      size + (align - size % align) % align
+    private def padding(size: Int, align: Int): Int =
+      (align - size % align) % align
 
-    private def offset(types: List[LLVMType]): (Int, Int) =
-      types.foldLeft((0, 0)) { case ((size, align), ty) =>
-        val (sz, al) = getTySizeAlign(ty)
-        (padding(size, al) + sz, al max align)
+    private def fields(types: List[LLVMType]): (Int, Int, Int) =
+      types.foldLeft((0, 0, 0)) { case ((begin, end, maxalign), ty) =>
+        val (size, align) = getTySizeAlign(ty)
+        val new_begin = end + padding(end, align)
+        (new_begin, new_begin + size, align max maxalign)
       }
 
     def getSizeAlign(types: List[LLVMType]): (Int, Int) = {
-      val (size, align) = offset(types)
-      (padding(size, align), align)
+      val (_, size, align) = fields(types)
+      (size + padding(size, align), align)
     }
 
     def getFieldOffset(types: List[LLVMType], idx: Int): Int =
-      padding(offset(types.take(idx))._1, getTySizeAlign(types(idx))._2)
+      fields(types.take(idx+1))._1
+    
+    def concat[E](cs: List[E])(feval: E => (List[Rep[Value]], Int)): List[Rep[Value]] = {
+      val fill: Int => List[Rep[Value]] = (StaticList.fill(_)(NullV()))
+      val (list, align) = cs.foldLeft((StaticList[Rep[Value]](), 0)) { case ((list, maxalign), c) =>
+        val (value, align) = feval(c)
+        (list ++ fill(padding(list.size, align)) ++ value, align max maxalign)
+      }
+      list ++ fill(padding(list.size, align))
+    }
   }
 
   def getTySizeAlign(vt: LLVMType): (Int, Int) = vt match {
@@ -200,30 +210,21 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
       case BitCastExpr(from, const, to) => evalValue(const, to)
       case _ => LocV(evalAddr(v, ty), LocV.kHeap)
     }
-    def evalConst(v: Constant, ty: LLVMType): List[Rep[Value]] = v match {
-      case CharArrayConst(s) => s.map(c => IntV(c.toInt, 8)).toList ++ StaticList.fill(getTySize(ty) - s.length)(NullV())
-      case ZeroInitializerConst => IntV(0, 8 * getTySize(ty)) :: StaticList.fill(getTySize(ty) - 1)(NullV())
-      case _ => evalValue(v, ty) :: StaticList.fill(getTySize(ty) - 1)(NullV())
-    }
-    def getcslist(v: Constant, ty: LLVMType): Option[StaticList[TypedConst]] = v match {
-      case StructConst(cs) => Some(cs)
-      case ArrayConst(cs) => Some(cs)
-      case ZeroInitializerConst => ty match {
-        case ArrayType(size, ety) => Some(StaticList.fill(size)(TypedConst(Some(true), ety, ZeroInitializerConst)))
-        case Struct(types) => Some(types.map(ty => TypedConst(Some(true), ty, ZeroInitializerConst)))
-        case _ => None
-      }
-      case _ => None
-    }
     val real_ty = getRealType(ty)
-    getcslist(v, real_ty) match {
-      case Some(cslist) =>
-        cslist.foldLeft (StaticList[Rep[Value]](), 0) { case ((l, align),c) =>
-          val (sz, al) = getTySizeAlign(c.ty)
-          val size = l.size
-          (l ++ StaticList.fill(StructCalc.padding(size, al) - size)(NullV()) ++ evalHeapConst(c.const, c.ty), al max align)
-        }._1
-      case None => evalConst(v, real_ty)
+    v match {
+      case StructConst(cs) =>
+        StructCalc.concat(cs) { c => (evalHeapConst(c.const, c.ty), getTySizeAlign(c.ty)._2) }
+      case ArrayConst(cs) =>
+        cs.flatMap { case c => evalHeapConst(c.const, c.ty) }
+      case CharArrayConst(s) =>
+        s.map(c => IntV(c.toInt, 8)).toList ++ StaticList.fill(getTySize(real_ty) - s.length)(NullV())
+      case ZeroInitializerConst => real_ty match {
+        case ArrayType(size, ety) => StaticList.fill(size)(evalHeapConst(ZeroInitializerConst, ety)).flatten
+        case Struct(types) => StructCalc.concat(types) { t => (evalHeapConst(ZeroInitializerConst, t), getTySizeAlign(t)._2) }
+        // TODO: fallback case is not typed
+        case _ => IntV(0, 8 * getTySize(real_ty)) :: StaticList.fill(getTySize(real_ty) - 1)(NullV())
+      }
+      case _ => evalValue(v, real_ty) :: StaticList.fill(getTySize(real_ty) - 1)(NullV())
     }
   }
 
