@@ -201,13 +201,13 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
       case _ => LocV(evalAddr(v, ty), LocV.kHeap)
     }
     def evalConst(v: Constant, ty: LLVMType): List[Rep[Value]] = v match {
+      case CharArrayConst(s) => s.map(c => IntV(c.toInt, 8)).toList ++ StaticList.fill(getTySize(ty) - s.length)(NullV())
       case ZeroInitializerConst => IntV(0, 8 * getTySize(ty)) :: StaticList.fill(getTySize(ty) - 1)(NullV())
       case _ => evalValue(v, ty) :: StaticList.fill(getTySize(ty) - 1)(NullV())
     }
     def getcslist(v: Constant, ty: LLVMType): Option[StaticList[TypedConst]] = v match {
       case StructConst(cs) => Some(cs)
       case ArrayConst(cs) => Some(cs)
-      case CharArrayConst(s) => Some(s.map(c => TypedConst(Some(true), IntType(8), IntConst(c.toInt))).toList)
       case ZeroInitializerConst => ty match {
         case ArrayType(size, ety) => Some(StaticList.fill(size)(TypedConst(Some(true), ety, ZeroInitializerConst)))
         case Struct(types) => Some(types.map(ty => TypedConst(Some(true), ty, ZeroInitializerConst)))
