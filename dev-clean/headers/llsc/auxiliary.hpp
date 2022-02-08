@@ -1,7 +1,7 @@
 #ifndef LLSC_AUX_HEADERS
 #define LLSC_AUX_HEADERS
 
-using namespace std::placeholders;
+template<typename T> using List = immer::flex_vector<T>;
 
 using BlockLabel = int;
 using Id = int;
@@ -127,5 +127,8 @@ class Printable {
     virtual std::string toString() const = 0;
 };
 
+inline std::monostate operator+ (const std::monostate& lhs, const std::monostate& rhs) {
+  return std::monostate{};
+}
 
 #endif

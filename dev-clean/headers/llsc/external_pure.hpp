@@ -1,13 +1,6 @@
 #ifndef LLSC_EXTERNAL_PURE_HEADERS
 #define LLSC_EXTERNAL_PURE_HEADERS
 
-// TODO: move somewhere top level
-template<typename T> using List = immer::flex_vector<T>;
-using SSVal = std::pair<SS, PtrVal>;
-inline std::monostate operator+ (const std::monostate& lhs, const std::monostate& rhs) {
-  return std::monostate{};
-}
-
 template<typename T> using __Cont = std::function<T(SS, PtrVal)>;
 template<typename T> using __Halt = std::function<T(SS, List<PtrVal>)>;
 using Cont = std::function<std::monostate(SS, PtrVal)>;
@@ -25,14 +18,14 @@ inline std::string get_string(PtrVal ptr, SS state) {
 
 inline List<SSVal> stop(SS state, List<PtrVal> args) {
   check_pc_to_file(state);
-  return List<std::pair<SS, PtrVal>>{};
+  return List<SSVal>{};
 }
 inline std::monostate stop(SS state, List<PtrVal> args, Cont k) {
   check_pc_to_file(state);
   return std::monostate();
 }
 inline List<SSVal> noop(SS state, List<PtrVal> args) {
-  return List<std::pair<SS, PtrVal>>{{state, make_IntV(0)}};
+  return List<SSVal>{{state, make_IntV(0)}};
 }
 
 /******************************************************************************/
@@ -92,16 +85,16 @@ inline List<SSVal> malloc(SS state, List<PtrVal> args) {
 }
 
 inline std::monostate malloc(SS state, List<PtrVal> args, Cont k) {
-  // TODO: in the thread pool version, we should add task into the pool
+  // TODO: in the thread pool version, we should add task into the pool when forking
   return __malloc<std::monostate>(state, args, [&k](auto s, auto v) { return k(s, v); });
 }
 
 /******************************************************************************/
 
-inline List<std::pair<SS, PtrVal>> realloc(SS state, List<PtrVal> args) {
+template<typename T>
+inline T __realloc(SS& state, List<PtrVal>& args, __Cont<T> k) {
   Addr src = proj_LocV(args.at(0));
   IntData bytes = proj_IntV(args.at(1));
-
   auto emptyMem = List<PtrVal>(bytes, nullptr);
   std::cout << "realloc size: " << emptyMem.size() << std::endl;
   PtrVal memLoc = make_LocV(state.heap_size(), LocV::kHeap, bytes);
@@ -111,7 +104,15 @@ inline List<std::pair<SS, PtrVal>> realloc(SS state, List<PtrVal> args) {
   for (int i = 0; i < prevBytes; i++) {
     res = res.update(make_LocV_inc(memLoc, i), res.heap_lookup(src + i));
   }
-  return List<std::pair<SS, PtrVal>>{{res, memLoc}};
+  return k(res, memLoc);
+}
+
+inline List<SSVal> realloc(SS state, List<PtrVal> args) {
+  return __realloc<List<SSVal>>(state, args, [](auto s, auto v) { return List<SSVal>{{s, v}}; });
+}
+
+inline std::monostate realloc(SS state, List<PtrVal> args, Cont k) {
+  return __realloc<std::monostate>(state, args, [&k](auto s, auto v) { return k(s, v); });
 }
 
 /******************************************************************************/
@@ -134,8 +135,8 @@ inline T __sym_exit(SS& state, List<PtrVal>& args, __Cont<T> k) {
 #endif
 }
 
-inline List<std::pair<SS, PtrVal>> sym_exit(SS state, List<PtrVal> args) {
-  return __sym_exit<List<SSVal>>(state, args, [](auto s, auto v) { return List<std::pair<SS, PtrVal>>{}; });
+inline List<SSVal> sym_exit(SS state, List<PtrVal> args) {
+  return __sym_exit<List<SSVal>>(state, args, [](auto s, auto v) { return List<SSVal>{}; });
 }
 
 inline std::monostate sym_exit(SS state, List<PtrVal> args, Cont k) {
@@ -160,7 +161,7 @@ inline T __llsc_assert(SS& state, List<PtrVal>& args, __Cont<T> k, __Halt<T> h) 
   return k(state.add_PC(v), make_IntV(1, 32));
 }
 
-inline List<std::pair<SS, PtrVal>> llsc_assert(SS state, List<PtrVal> args) {
+inline List<SSVal> llsc_assert(SS state, List<PtrVal> args) {
   return __llsc_assert<List<SSVal>>(state, args,
       [](auto s, auto v) { return List<SSVal>{{s, v}}; },
       [](auto s, auto a) { return stop(s, a); });
@@ -172,7 +173,7 @@ inline std::monostate llsc_assert(SS state, List<PtrVal> args, Cont k) {
       [&k](auto s, auto a) { return stop(s, a, k); });
 }
 
-inline List<std::pair<SS, PtrVal>> llsc_assert_eager(SS state, List<PtrVal> args) {
+inline List<SSVal> llsc_assert_eager(SS state, List<PtrVal> args) {
   return __llsc_assert<List<SSVal>>(state, args,
       [](auto s, auto v) { return List<SSVal>{{s, v}}; },
       [](auto s, auto a) { return sym_exit(s, a); });
@@ -186,18 +187,8 @@ inline std::monostate llsc_assert_eager(SS state, List<PtrVal> args, Cont k) {
 
 /******************************************************************************/
 
-inline List<std::pair<SS, PtrVal>> make_symbolic(SS state, List<PtrVal> args) {
-  PtrVal make_loc = args.at(0);
-  IntData len = proj_IntV(args.at(1));
-  SS res = state;
-  //std::cout << "sym array size: " << proj_LocV_size(make_loc) << "\n";
-  for (int i = 0; i < len; i++) {
-    res = res.update(make_LocV_inc(make_loc, i), make_SymV("x" + std::to_string(var_name++), 8));
-  }
-  return List<std::pair<SS, PtrVal>>{{res, make_IntV(0)}};
-}
-
-inline std::monostate make_symbolic(SS state, List<PtrVal> args, Cont k) {
+template<typename T>
+inline T __make_symbolic(SS& state, List<PtrVal>& args, __Cont<T> k) {
   PtrVal make_loc = args.at(0);
   IntData len = proj_IntV(args.at(1));
   SS res = state;
@@ -208,18 +199,124 @@ inline std::monostate make_symbolic(SS state, List<PtrVal> args, Cont k) {
   return k(res, make_IntV(0));
 }
 
+inline List<SSVal> make_symbolic(SS state, List<PtrVal> args) {
+  return __make_symbolic<List<SSVal>>(state, args, [](auto s, auto v) { return List<SSVal>{{s, v}}; });
+}
+
+inline std::monostate make_symbolic(SS state, List<PtrVal> args, Cont k) {
+  return __make_symbolic<std::monostate>(state, args, [&k](auto s, auto v) { return k(s, v); });
+}
+
 /******************************************************************************/
 
-inline List<std::pair<SS, PtrVal>> __assert_fail(SS state, List<PtrVal> args) {
-  // TODO get real argument string
-  // std::cout << "Fail: Calling to __assert_fail" << std::endl;
-  return List<std::pair<SS, PtrVal>>{{state, make_IntV(0)}};
+inline List<SSVal> __assert_fail(SS state, List<PtrVal> args) {
+  return llsc_assert(state, args);
+  //return List<SSVal>{{state, make_IntV(0)}};
 }
 
 inline std::monostate __assert_fail(SS state, List<PtrVal> args, Cont k) {
-  // TODO get real argument string
-  // std::cout << "Fail: Calling to __assert_fail" << std::endl;
-  return k(state, make_IntV(0));
+  return llsc_assert(state, args, k);
+  //return k(state, make_IntV(0));
+}
+
+/******************************************************************************/
+
+template<typename T>
+inline T __llvm_memcpy(SS& state, List<PtrVal>& args, __Cont<T> k) {
+  PtrVal dest = args.at(0);
+  PtrVal src = args.at(1);
+  PtrVal bytes = args.at(2);
+  SS res = state;
+  Addr dest_addr = proj_LocV(dest);
+  Addr src_addr = proj_LocV(src);
+  IntData bytes_int = proj_IntV(bytes);
+  // TODO(Opt): flex_vector_transient
+  for (int i = 0; i < bytes_int; i++) {
+    res = res.update(make_LocV_inc(dest, i), res.at(make_LocV_inc(src, i)));
+  }
+  return k(res, IntV0);
+}
+
+inline List<SSVal> llvm_memcpy(SS state, List<PtrVal> args) {
+  return __llvm_memcpy<List<SSVal>>(state, args, [](auto s, auto v) { return List<SSVal>{}; });
+}
+
+
+inline std::monostate llvm_memcpy(SS state, List<PtrVal> args, Cont k) {
+  return __llvm_memcpy<std::monostate>(state, args, [](auto s, auto v) { return std::monostate{}; });
+}
+
+/******************************************************************************/
+
+template<typename T>
+inline T __llvm_memmove(SS& state, List<PtrVal>& args, __Cont<T> k) {
+  PtrVal dest = args.at(0);
+  PtrVal src = args.at(1);
+  PtrVal bytes = args.at(2);
+  SS res = state;
+  IntData bytes_int = proj_IntV(bytes);
+  // Optmize: flex_vector_transient
+  auto temp_mem = List<PtrVal>{};
+  for (int i = 0; i < bytes_int; i++) {
+    temp_mem = temp_mem.push_back(res.at(make_LocV_inc(src, i)));
+  }
+  for (int i = 0; i < bytes_int; i++) {
+    res = res.update(make_LocV_inc(dest, i), temp_mem.at(i));
+  }
+  return k(res, IntV0);
+}
+
+inline List<SSVal> llvm_memmove(SS state, List<PtrVal> args) {
+  return __llvm_memmove<List<SSVal>>(state, args, [](auto s, auto v) { return List<SSVal>{}; });
+}
+
+inline std::monostate llvm_memmove(SS state, List<PtrVal> args, Cont k) {
+  return __llvm_memmove<std::monostate>(state, args, [](auto s, auto v) { return std::monostate{}; });
+}
+
+/******************************************************************************/
+
+template<typename T>
+inline T __llvm_memset(SS& state, List<PtrVal>& args, __Cont<T> k) {
+  PtrVal dest = args.at(0);
+  PtrVal seti8 = args.at(1);
+  PtrVal bytes = args.at(2);
+  SS res = state;
+  Addr dest_addr = proj_LocV(dest);
+  // what could be other set value?
+  int setInt = 0;
+  IntData bytes_int = proj_IntV(bytes);
+  // Optmize: flex_vector_transient
+  for (int i = 0; i < bytes_int; i++) {
+    res = res.update(make_LocV_inc(dest, i), IntV0);
+  }
+  return k(res, IntV0);
+}
+
+inline List<SSVal> llvm_memset(SS state, List<PtrVal> args) {
+  return __llvm_memset<List<SSVal>>(state, args, [](auto s, auto v) { return List<SSVal>{}; });
+}
+
+inline std::monostate llvm_memset(SS state, List<PtrVal> args, Cont k) {
+  return __llvm_memset<std::monostate>(state, args, [](auto s, auto v) { return std::monostate{}; });
+}
+
+/******************************************************************************/
+
+// FIXME: vaargs and refactor
+// args 0: LocV to {i32, i32, i8*, i8*}
+// in memory {4, 4, 8, 8}
+inline List<SSVal> llvm_va_start(SS state, List<PtrVal> args) {
+  PtrVal va_list = args.at(0);
+  PtrVal va_arg = state.getVarargLoc();
+  SS res = state;
+
+  res = res.update(make_LocV_inc(va_list, 0), IntV0);
+  res = res.update(make_LocV_inc(va_list, 4), IntV0);
+  res = res.update(make_LocV_inc(va_list, 8), make_LocV_inc(va_arg, 40));
+  res = res.update(make_LocV_inc(va_list, 16), va_arg);
+
+  return List<SSVal>{{res, IntV0}};
 }
 
 #endif
