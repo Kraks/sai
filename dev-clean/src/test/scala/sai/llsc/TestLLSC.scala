@@ -213,7 +213,7 @@ class TestPureCPSLLSC_Z3 extends TestLLSC {
   //testLLSC(llsc, TestPrg(funptr, "funptr", "@main", 0, 1))
   //testLLSC(llsc, TestPrg(heapFunptr, "heapFunptr", "@main", 0, 1))
   testLLSC(new PureCPSLLSC_Z3, TestPrg(unboundedLoop, "unboundedLoop", "@main", 0, "--timeout=2", minTest(1)))
-  testLLSC(new PureCPSLLSC_Z3, TestPrg(unboundedLoop, "unboundedLoop", "@main", 0, "--thread=2 --timeout=2", minTest(1)))
+  testLLSC(new PureCPSLLSC_Z3, TestPrg(unboundedLoop, "unboundedLoopMT", "@main", 0, "--thread=2 --timeout=2", minTest(1)))
 }
 
 class TestImpLLSC extends TestLLSC {

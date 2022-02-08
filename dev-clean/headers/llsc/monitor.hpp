@@ -70,6 +70,13 @@ struct Monitor {
       std::cout << "[" << (solver_time.count() / 1.0e6) << "s/"
                 << (duration_cast<microseconds>(now - start).count() / 1.0e6) << "s] ";
     }
+    void print_all() {
+      print_time();
+      print_block_cov();
+      print_path_cov();
+      print_async();
+      print_query_stat();
+    }
     void start_monitor() {
       std::future<void> future = signal_exit.get_future();
       watcher = std::thread([this](std::future<void> fut) {
@@ -78,18 +85,14 @@ struct Monitor {
           steady_clock::time_point now = steady_clock::now();
           if (duration_cast<seconds>(now - start) > seconds(timeout)) {
             std::cout << "Timeout, aborting.\n";
-#ifdef USE_TP
-              tp.stop_all_tasks();
-              break;
-#else
-              exit(0);
-#endif
+            print_all();
+            _exit(0);
+            // Note: Directly exit may cause other threads in a random state.
+            // When using the thread pool, we could use the following to wait
+            // all other worker threads to finish:
+            // tp.stop_all_tasks(); break;
           }
-          print_time();
-          print_block_cov();
-          print_path_cov();
-          print_async();
-          print_query_stat();
+          print_all();
           std::this_thread::sleep_for(seconds(1));
         }
       }, std::move(future));

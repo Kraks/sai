@@ -122,8 +122,8 @@ inline immer::flex_vector<std::pair<SS, PtrVal>> sym_exit(SS state, immer::flex_
   set_exit_code(status);
   return immer::flex_vector<std::pair<SS, PtrVal>>{};
 #else
-  epilogue();
-  exit(status);
+  cov.print_all();
+  _exit(status);
 #endif
 }
 
@@ -135,12 +135,13 @@ inline std::monostate sym_exit(SS state, immer::flex_vector<PtrVal> args, Cont k
   int status = v->i;
   check_pc_to_file(state);
 #ifdef USE_TP
+  // XXX: brutally call _exit? then what should happen if two threads are calling sym_exit?
   tp.stop_all_tasks();
   set_exit_code(status);
   return std::monostate{};
 #else
-  epilogue();
-  exit(status);
+  cov.print_all();
+  _exit(status);
 #endif
 }
 
