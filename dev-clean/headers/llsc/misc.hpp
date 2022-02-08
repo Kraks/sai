@@ -7,6 +7,7 @@ inline void prelude(int argc, char** argv) {
 #ifdef Z3
   cz3.init_solvers();
 #endif
+  cov.start_monitor();
 }
 
 inline void epilogue() {
