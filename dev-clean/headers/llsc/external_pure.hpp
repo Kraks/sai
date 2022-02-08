@@ -1,9 +1,15 @@
 #ifndef LLSC_EXTERNAL_PURE_HEADERS
 #define LLSC_EXTERNAL_PURE_HEADERS
 
+// TODO: move somewhere top level
+template<typename T> using List = immer::flex_vector<T>;
+using SSVal = std::pair<SS, PtrVal>;
+inline std::monostate operator+ (const std::monostate& lhs, const std::monostate& rhs) {
+  return std::monostate{};
+}
+
 template<typename T> using __Cont = std::function<T(SS, PtrVal)>;
-template<typename T> using __Halt = std::function<T(SS, immer::flex_vector<PtrVal>)>;
-using ListSSVal = immer::flex_vector<std::pair<SS, PtrVal>>;
+template<typename T> using __Halt = std::function<T(SS, List<PtrVal>)>;
 using Cont = std::function<std::monostate(SS, PtrVal)>;
 
 inline std::string get_string(PtrVal ptr, SS state) {
@@ -17,92 +23,86 @@ inline std::string get_string(PtrVal ptr, SS state) {
   return name;
 }
 
-inline immer::flex_vector<std::pair<SS, PtrVal>> sym_print(SS state, immer::flex_vector<PtrVal> args) {
-  for (auto x : args) {
-    std::cout << ptrval_to_string(x) << "; " << std::endl;
-  }
-  return immer::flex_vector<std::pair<SS, PtrVal>>{{state, make_IntV(0)}};
-}
-
-inline std::monostate sym_print(SS state, immer::flex_vector<PtrVal> args, Cont k) {
-  for (auto x : args) {
-    if (x == nullptr) {
-      std::cout << "nullptr";
-    } else {
-      std::cout << *x;
-    }
-    std::cout << "; " << std::endl;
-  }
-  return k(state, make_IntV(0));
-}
-
-inline immer::flex_vector<std::pair<SS, PtrVal>> print_string(SS state, immer::flex_vector<PtrVal> args) {
-  PtrVal x = args.at(0);
-  if (std::dynamic_pointer_cast<LocV>(x)){
-    std::cout << get_string(x, state) << std::endl;
-  } else {
-    ABORT("Cannot print non-LocV value as string");
-  }
-  return immer::flex_vector<std::pair<SS, PtrVal>>{{state, make_IntV(0)}};
-}
-
-inline std::monostate print_string(SS state, immer::flex_vector<PtrVal> args, Cont k) {
-  PtrVal x = args.at(0);
-  if (std::dynamic_pointer_cast<LocV>(x)){
-    std::cout << get_string(x, state) << std::endl;
-  } else {
-    ABORT("Cannot print non-LocV value as string");
-  }
-  return k(state, make_IntV(0));
-}
-
-inline immer::flex_vector<std::pair<SS, PtrVal>> noop(SS state, immer::flex_vector<PtrVal> args) {
-  return immer::flex_vector<std::pair<SS, PtrVal>>{{state, make_IntV(0)}};
-}
-
-inline immer::flex_vector<std::pair<SS, PtrVal>> stop(SS state, immer::flex_vector<PtrVal> args) {
+inline List<SSVal> stop(SS state, List<PtrVal> args) {
   check_pc_to_file(state);
-  return immer::flex_vector<std::pair<SS, PtrVal>>{};
+  return List<std::pair<SS, PtrVal>>{};
 }
-
-inline std::monostate stop(SS state, immer::flex_vector<PtrVal> args, Cont k) {
+inline std::monostate stop(SS state, List<PtrVal> args, Cont k) {
   check_pc_to_file(state);
   return std::monostate();
 }
+inline List<SSVal> noop(SS state, List<PtrVal> args) {
+  return List<std::pair<SS, PtrVal>>{{state, make_IntV(0)}};
+}
 
-inline immer::flex_vector<std::pair<SS, PtrVal>> malloc(SS state, immer::flex_vector<PtrVal> args) {
+/******************************************************************************/
+
+template<typename T>
+inline T __sym_print(SS& state, List<PtrVal>& args, __Cont<T> k) {
+  for (auto x : args) {
+    std::cout << ((x == nullptr) ? "nullptr" : x->toString()) << ";" << std::endl;
+  }
+  return k(state, make_IntV(0));
+}
+
+inline List<SSVal> sym_print(SS state, List<PtrVal> args) {
+  return __sym_print<List<SSVal>>(state, args, [](auto s, auto v) { return List<SSVal>{{s, v}}; });
+}
+
+inline std::monostate sym_print(SS state, List<PtrVal> args, Cont k) {
+  return __sym_print<std::monostate>(state, args, [&k](auto s, auto v) { return k(s, v); });
+}
+
+/******************************************************************************/
+
+template<typename T>
+inline T __print_string(SS& state, List<PtrVal>& args, __Cont<T> k) {
+  PtrVal x = args.at(0);
+  if (std::dynamic_pointer_cast<LocV>(x)) {
+    std::cout << get_string(x, state) << std::endl;
+    return k(state, make_IntV(0));
+  }
+  ABORT("Cannot print non-LocV value as string");
+}
+
+inline List<SSVal> print_string(SS state, List<PtrVal> args) {
+  return __print_string<List<SSVal>>(state, args, [](auto s, auto v) { return List<SSVal>{{s, v}}; });
+}
+
+inline std::monostate print_string(SS state, List<PtrVal> args, Cont k) {
+  return __print_string<std::monostate>(state, args, [&k](auto s, auto v) { return k(s, v); });
+}
+
+/******************************************************************************/
+
+template<typename T>
+inline T __malloc(SS& state, List<PtrVal>& args, __Cont<T> k) {
   IntData bytes = proj_IntV(args.at(0));
-  auto emptyMem = immer::flex_vector<PtrVal>(bytes, nullptr);
+  auto emptyMem = List<PtrVal>(bytes, nullptr);
   PtrVal memLoc = make_LocV(state.heap_size(), LocV::kHeap, bytes);
   if (exlib_failure_branch) {
     // simulating the failed branch
-    PtrVal nullLoc = make_LocV_null();
-    return immer::flex_vector<std::pair<SS, PtrVal>>{{state.heap_append(emptyMem), memLoc}, {state, nullLoc}};
-  } else {
-    return immer::flex_vector<std::pair<SS, PtrVal>>{{state.heap_append(emptyMem), memLoc}};
+    return k(state.heap_append(emptyMem), memLoc) + k(state, make_LocV_null());
   }
+  return k(state.heap_append(emptyMem), memLoc);
 }
 
-inline std::monostate malloc(SS state, immer::flex_vector<PtrVal> args, Cont k) {
-  IntData bytes = proj_IntV(args.at(0));
-  auto emptyMem = immer::flex_vector<PtrVal>(bytes, nullptr);
-  PtrVal memLoc = make_LocV(state.heap_size(), LocV::kHeap, bytes);
-  if (exlib_failure_branch) {
-    // simulating the failed branch
-    PtrVal nullLoc = make_LocV_null();
-    k(state.heap_append(emptyMem), memLoc);
-    return k(state, nullLoc);
-  } else {
-    return k(state.heap_append(emptyMem), memLoc);
-  }
+inline List<SSVal> malloc(SS state, List<PtrVal> args) {
+  return __malloc<List<SSVal>>(state, args, [](auto s, auto v) { return List<SSVal>{{s, v}}; });
 }
 
+inline std::monostate malloc(SS state, List<PtrVal> args, Cont k) {
+  // TODO: in the thread pool version, we should add task into the pool
+  return __malloc<std::monostate>(state, args, [&k](auto s, auto v) { return k(s, v); });
+}
 
-inline immer::flex_vector<std::pair<SS, PtrVal>> realloc(SS state, immer::flex_vector<PtrVal> args) {
+/******************************************************************************/
+
+inline List<std::pair<SS, PtrVal>> realloc(SS state, List<PtrVal> args) {
   Addr src = proj_LocV(args.at(0));
   IntData bytes = proj_IntV(args.at(1));
 
-  auto emptyMem = immer::flex_vector<PtrVal>(bytes, nullptr);
+  auto emptyMem = List<PtrVal>(bytes, nullptr);
   std::cout << "realloc size: " << emptyMem.size() << std::endl;
   PtrVal memLoc = make_LocV(state.heap_size(), LocV::kHeap, bytes);
   IntData prevBytes = proj_LocV_size(args.at(0));
@@ -111,11 +111,13 @@ inline immer::flex_vector<std::pair<SS, PtrVal>> realloc(SS state, immer::flex_v
   for (int i = 0; i < prevBytes; i++) {
     res = res.update(make_LocV_inc(memLoc, i), res.heap_lookup(src + i));
   }
-  return immer::flex_vector<std::pair<SS, PtrVal>>{{res, memLoc}};
+  return List<std::pair<SS, PtrVal>>{{res, memLoc}};
 }
 
+/******************************************************************************/
+
 template<typename T>
-inline T __sym_exit(SS& state, immer::flex_vector<PtrVal>& args, __Cont<T> k) {
+inline T __sym_exit(SS& state, List<PtrVal>& args, __Cont<T> k) {
   ASSERT(args.size() == 1, "sym_exit accepts exactly one argument");
   auto v = args.at(0)->to_IntV();
   ASSERT(v != nullptr, "sym_exit only accepts integer argument");
@@ -132,16 +134,18 @@ inline T __sym_exit(SS& state, immer::flex_vector<PtrVal>& args, __Cont<T> k) {
 #endif
 }
 
-inline immer::flex_vector<std::pair<SS, PtrVal>> sym_exit(SS state, immer::flex_vector<PtrVal> args) {
-  return __sym_exit<ListSSVal>(state, args, [](auto s, auto v) { return immer::flex_vector<std::pair<SS, PtrVal>>{}; });
+inline List<std::pair<SS, PtrVal>> sym_exit(SS state, List<PtrVal> args) {
+  return __sym_exit<List<SSVal>>(state, args, [](auto s, auto v) { return List<std::pair<SS, PtrVal>>{}; });
 }
 
-inline std::monostate sym_exit(SS state, immer::flex_vector<PtrVal> args, Cont k) {
+inline std::monostate sym_exit(SS state, List<PtrVal> args, Cont k) {
   return __sym_exit<std::monostate>(state, args, [](auto s, auto v) { return std::monostate{}; });
 }
 
+/******************************************************************************/
+
 template<typename T>
-inline T __llsc_assert(SS& state, immer::flex_vector<PtrVal>& args, __Cont<T> k, __Halt<T> h) {
+inline T __llsc_assert(SS& state, List<PtrVal>& args, __Cont<T> k, __Halt<T> h) {
   auto v = args.at(0);
   auto i = v->to_IntV();
   if (i) {
@@ -156,31 +160,33 @@ inline T __llsc_assert(SS& state, immer::flex_vector<PtrVal>& args, __Cont<T> k,
   return k(state.add_PC(v), make_IntV(1, 32));
 }
 
-inline immer::flex_vector<std::pair<SS, PtrVal>> llsc_assert(SS state, immer::flex_vector<PtrVal> args) {
-  return __llsc_assert<ListSSVal>(state, args,
-      [](auto s, auto v) { return immer::flex_vector<std::pair<SS, PtrVal>>{{s, v}}; },
+inline List<std::pair<SS, PtrVal>> llsc_assert(SS state, List<PtrVal> args) {
+  return __llsc_assert<List<SSVal>>(state, args,
+      [](auto s, auto v) { return List<SSVal>{{s, v}}; },
       [](auto s, auto a) { return stop(s, a); });
 }
 
-inline std::monostate llsc_assert(SS state, immer::flex_vector<PtrVal> args, Cont k) {
+inline std::monostate llsc_assert(SS state, List<PtrVal> args, Cont k) {
   return __llsc_assert<std::monostate>(state, args,
       [&k](auto s, auto v) { return k(s, v); },
       [&k](auto s, auto a) { return stop(s, a, k); });
 }
 
-inline immer::flex_vector<std::pair<SS, PtrVal>> llsc_assert_eager(SS state, immer::flex_vector<PtrVal> args) {
-  return __llsc_assert<ListSSVal>(state, args,
-      [](auto s, auto v) { return immer::flex_vector<std::pair<SS, PtrVal>>{{s, v}}; },
+inline List<std::pair<SS, PtrVal>> llsc_assert_eager(SS state, List<PtrVal> args) {
+  return __llsc_assert<List<SSVal>>(state, args,
+      [](auto s, auto v) { return List<SSVal>{{s, v}}; },
       [](auto s, auto a) { return sym_exit(s, a); });
 }
 
-inline std::monostate llsc_assert_eager(SS state, immer::flex_vector<PtrVal> args, Cont k) {
+inline std::monostate llsc_assert_eager(SS state, List<PtrVal> args, Cont k) {
   return __llsc_assert<std::monostate>(state, args,
       [&k](auto s, auto v) { return k(s, v); },
       [&k](auto s, auto a) { return sym_exit(s, a, k); });
 }
 
-inline immer::flex_vector<std::pair<SS, PtrVal>> make_symbolic(SS state, immer::flex_vector<PtrVal> args) {
+/******************************************************************************/
+
+inline List<std::pair<SS, PtrVal>> make_symbolic(SS state, List<PtrVal> args) {
   PtrVal make_loc = args.at(0);
   IntData len = proj_IntV(args.at(1));
   SS res = state;
@@ -188,10 +194,10 @@ inline immer::flex_vector<std::pair<SS, PtrVal>> make_symbolic(SS state, immer::
   for (int i = 0; i < len; i++) {
     res = res.update(make_LocV_inc(make_loc, i), make_SymV("x" + std::to_string(var_name++), 8));
   }
-  return immer::flex_vector<std::pair<SS, PtrVal>>{{res, make_IntV(0)}};
+  return List<std::pair<SS, PtrVal>>{{res, make_IntV(0)}};
 }
 
-inline std::monostate make_symbolic(SS state, immer::flex_vector<PtrVal> args, Cont k) {
+inline std::monostate make_symbolic(SS state, List<PtrVal> args, Cont k) {
   PtrVal make_loc = args.at(0);
   IntData len = proj_IntV(args.at(1));
   SS res = state;
@@ -202,13 +208,15 @@ inline std::monostate make_symbolic(SS state, immer::flex_vector<PtrVal> args, C
   return k(res, make_IntV(0));
 }
 
-inline immer::flex_vector<std::pair<SS, PtrVal>> __assert_fail(SS state, immer::flex_vector<PtrVal> args) {
+/******************************************************************************/
+
+inline List<std::pair<SS, PtrVal>> __assert_fail(SS state, List<PtrVal> args) {
   // TODO get real argument string
   // std::cout << "Fail: Calling to __assert_fail" << std::endl;
-  return immer::flex_vector<std::pair<SS, PtrVal>>{{state, make_IntV(0)}};
+  return List<std::pair<SS, PtrVal>>{{state, make_IntV(0)}};
 }
 
-inline std::monostate __assert_fail(SS state, immer::flex_vector<PtrVal> args, Cont k) {
+inline std::monostate __assert_fail(SS state, List<PtrVal> args, Cont k) {
   // TODO get real argument string
   // std::cout << "Fail: Calling to __assert_fail" << std::endl;
   return k(state, make_IntV(0));
