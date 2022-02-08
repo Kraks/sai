@@ -238,12 +238,12 @@ inline T __llvm_memcpy(SS& state, List<PtrVal>& args, __Cont<T> k) {
 }
 
 inline List<SSVal> llvm_memcpy(SS state, List<PtrVal> args) {
-  return __llvm_memcpy<List<SSVal>>(state, args, [](auto s, auto v) { return List<SSVal>{}; });
+  return __llvm_memcpy<List<SSVal>>(state, args, [](auto s, auto v) { return List<SSVal>{{s, v}}; });
 }
 
 
 inline std::monostate llvm_memcpy(SS state, List<PtrVal> args, Cont k) {
-  return __llvm_memcpy<std::monostate>(state, args, [](auto s, auto v) { return std::monostate{}; });
+  return __llvm_memcpy<std::monostate>(state, args, [&k](auto s, auto v) { return k(s, v); });
 }
 
 /******************************************************************************/
@@ -267,11 +267,11 @@ inline T __llvm_memmove(SS& state, List<PtrVal>& args, __Cont<T> k) {
 }
 
 inline List<SSVal> llvm_memmove(SS state, List<PtrVal> args) {
-  return __llvm_memmove<List<SSVal>>(state, args, [](auto s, auto v) { return List<SSVal>{}; });
+  return __llvm_memmove<List<SSVal>>(state, args, [](auto s, auto v) { return List<SSVal>{{s, v}}; });
 }
 
 inline std::monostate llvm_memmove(SS state, List<PtrVal> args, Cont k) {
-  return __llvm_memmove<std::monostate>(state, args, [](auto s, auto v) { return std::monostate{}; });
+  return __llvm_memmove<std::monostate>(state, args, [&k](auto s, auto v) { return k(s, v); });
 }
 
 /******************************************************************************/
@@ -294,11 +294,11 @@ inline T __llvm_memset(SS& state, List<PtrVal>& args, __Cont<T> k) {
 }
 
 inline List<SSVal> llvm_memset(SS state, List<PtrVal> args) {
-  return __llvm_memset<List<SSVal>>(state, args, [](auto s, auto v) { return List<SSVal>{}; });
+  return __llvm_memset<List<SSVal>>(state, args, [](auto s, auto v) { return List<SSVal>{{s, v}}; });
 }
 
 inline std::monostate llvm_memset(SS state, List<PtrVal> args, Cont k) {
-  return __llvm_memset<std::monostate>(state, args, [](auto s, auto v) { return std::monostate{}; });
+  return __llvm_memset<std::monostate>(state, args, [&k](auto s, auto v) { return k(s, v); });
 }
 
 /******************************************************************************/
