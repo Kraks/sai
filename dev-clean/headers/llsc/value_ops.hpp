@@ -55,7 +55,7 @@ struct ShadowV : public Value {
   virtual int get_bw() const { return 0; }
   virtual bool compare(const Value *v) const { return false; }
   virtual PtrVal to_SMT() { return nullptr; }
-  virtual std::shared_ptr<IntV> to_IntV(int) { return nullptr; }
+  virtual std::shared_ptr<IntV> to_IntV() { return nullptr; }
   virtual std::string toString() const { return "ShadowV"; }
 };
 
