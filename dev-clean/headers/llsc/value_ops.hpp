@@ -270,6 +270,7 @@ inline int proj_LocV_size(PtrVal v) {
 inline bool is_LocV_null(PtrVal v) {
   return std::dynamic_pointer_cast<LocV>(v)->l == -1;
 }
+// FIXME: remove it after refactoring external_imp/intrinsics_imp
 inline PtrVal make_LocV_inc(PtrVal loc, int i) {
   return make_LocV(proj_LocV(loc) + i, proj_LocV_kind(loc), proj_LocV_size(loc));
 }
