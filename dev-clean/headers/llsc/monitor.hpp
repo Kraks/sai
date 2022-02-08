@@ -59,7 +59,7 @@ struct Monitor {
 #ifdef USE_TP
       std::cout << "#threads: " << n_thread << "; #task-in-q: " << tp.tasks_num_queued() << "; " << std::flush;
 #else
-      std::cout << "#threads: " << num_async + 1 << "; #async created: " << tt_num_async << "; " << std::flush;
+      std::cout << "#threads: " << num_async + 1 << "; #async-created: " << tt_num_async << "; " << std::flush;
 #endif
     }
     void print_query_stat() {

@@ -139,7 +139,6 @@ abstract class PureLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: 
 // avoding reifying the returned nondet list.
 abstract class PureCPSLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: String, folder: String = ".")
     extends GenericLLSCDriver[A, B](appName, folder) with PureCPSLLSCEngine { q =>
-  extraFlags = "-D USE_TP"
   val codegen = new PureLLSCCodeGen {
     val IR: q.type = q
     val codegenFolder = s"$folder/$appName/"

@@ -107,8 +107,10 @@ inline void handle_cli_args(int argc, char** argv) {
     use_global_solver = true;
   }
   std::cout << "Use " << n_thread << " total threads\n";
+#ifdef USE_TP
   // thread pool will create (n_thread) threads, leaving the main thread idle.
   tp.init(n_thread);
+#endif
   use_objcache = use_objcache && use_global_solver;
   use_cexcache = use_cexcache && use_global_solver;
 #ifdef DEBUG

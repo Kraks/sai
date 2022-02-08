@@ -203,7 +203,7 @@ class TestPureLLSC extends TestLLSC {
 // FIXME: varArg is problematic for instances other than PureLLSC
 
 class TestPureCPSLLSC extends TestLLSC {
-  //testLLSC(new PureCPSLLSC, TestCases.all ++ filesys)
+  testLLSC(new PureCPSLLSC, TestCases.all ++ filesys)
   //testLLSC(new PureCPSLLSC, TestPrg(mergesort, "mergeSortTest", "@main", 0, 720))
   //testLLSC(new PureCPSLLSC, external)
 }
