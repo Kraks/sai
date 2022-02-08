@@ -50,7 +50,7 @@ inline immer::flex_vector<std::pair<SS, PtrVal>> realloc(SS state, immer::flex_v
   return immer::flex_vector<std::pair<SS, PtrVal>>{{res, memLoc}};
 }
 
-inline void sym_exit(SS state, immer::flex_vector<PtrVal> args) {
+inline immer::flex_vector<std::pair<SS, PtrVal>> sym_exit(SS state, immer::flex_vector<PtrVal> args) {
   ASSERT(args.size() == 1, "sym_exit accepts exactly one argument");
   auto v = args.at(0)->to_IntV();
   ASSERT(v != nullptr, "sym_exit only accepts integer argument");

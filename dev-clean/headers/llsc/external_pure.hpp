@@ -111,7 +111,7 @@ inline immer::flex_vector<std::pair<SS, PtrVal>> realloc(SS state, immer::flex_v
   return immer::flex_vector<std::pair<SS, PtrVal>>{{res, memLoc}};
 }
 
-inline void sym_exit(SS state, immer::flex_vector<PtrVal> args) {
+inline immer::flex_vector<std::pair<SS, PtrVal>> sym_exit(SS state, immer::flex_vector<PtrVal> args) {
   ASSERT(args.size() == 1, "sym_exit accepts exactly one argument");
   auto v = args.at(0)->to_IntV();
   ASSERT(v != nullptr, "sym_exit only accepts integer argument");
@@ -125,6 +125,15 @@ inline void sym_exit(SS state, immer::flex_vector<PtrVal> args) {
   cov.print_all();
   _exit(status);
 #endif
+}
+
+/* TODO: Generate both versions of sym_exit <2022-01-24, David Deng> */
+inline std::monostate sym_exit(SS state, immer::flex_vector<PtrVal> args, Cont k) {
+  auto v = args.at(0)->to_IntV();
+  auto status = v ? v->as_signed() : 0;
+  check_pc_to_file(state);
+  epilogue();
+  exit(status);
 }
 
 inline immer::flex_vector<std::pair<SS, PtrVal>> llsc_assert(SS state, immer::flex_vector<PtrVal> args) {
