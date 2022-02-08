@@ -129,11 +129,20 @@ inline immer::flex_vector<std::pair<SS, PtrVal>> sym_exit(SS state, immer::flex_
 
 /* TODO: Generate both versions of sym_exit <2022-01-24, David Deng> */
 inline std::monostate sym_exit(SS state, immer::flex_vector<PtrVal> args, Cont k) {
+  ASSERT(args.size() == 1, "sym_exit accepts exactly one argument");
   auto v = args.at(0)->to_IntV();
-  auto status = v ? v->as_signed() : 0;
+  ASSERT(v != nullptr, "sym_exit only accepts integer argument");
+  int status = v->as_signed();
   check_pc_to_file(state);
-  epilogue();
-  exit(status);
+#ifdef USE_TP
+  // XXX: brutally call _exit? then what should happen if two threads are calling sym_exit?
+  tp.stop_all_tasks();
+  set_exit_code(status);
+  return std::monostate{};
+#else
+  cov.print_all();
+  _exit(status);
+#endif
 }
 
 inline immer::flex_vector<std::pair<SS, PtrVal>> llsc_assert(SS state, immer::flex_vector<PtrVal> args) {
