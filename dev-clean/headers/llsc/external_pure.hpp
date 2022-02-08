@@ -145,14 +145,14 @@ inline T __llsc_assert(SS& state, immer::flex_vector<PtrVal>& args, __Cont<T> k,
   auto v = args.at(0);
   auto i = v->to_IntV();
   if (i) {
-    if (i->i == 0) return h(state, args); // concrete false - generate the test and ``halt''
+    if (i->i == 0) return h(state, { make_IntV(-1) }); // concrete false - generate the test and ``halt''
     return k(state, make_IntV(1, 32));
   }
   // otherwise add a symbolic condition that constraints it to be true
   // undefined/error if v is a value of other types
   auto cond = to_SMTNeg(v);
   auto new_s = state.add_PC(cond);
-  if (check_pc(new_s.get_PC())) return h(new_s, args); // check if v == 1 is not valid
+  if (check_pc(new_s.get_PC())) return h(new_s, { make_IntV(-1) }); // check if v == 1 is not valid
   return k(state.add_PC(v), make_IntV(1, 32));
 }
 
@@ -169,33 +169,15 @@ inline std::monostate llsc_assert(SS state, immer::flex_vector<PtrVal> args, Con
 }
 
 inline immer::flex_vector<std::pair<SS, PtrVal>> llsc_assert_eager(SS state, immer::flex_vector<PtrVal> args) {
-  auto v = args.at(0);
-  auto i = v->to_IntV();
-  if (i) {
-    if (i->i == 0) sym_exit(state, { make_IntV(-1) }); // concrete false - generate the test and exit
-    return immer::flex_vector<std::pair<SS, PtrVal>>{{state, make_IntV(1, 32)}};
-  }
-  // otherwise add a symbolic condition that constraints it to be true
-  // undefined/error if v is a value of other types
-  auto cond = to_SMTNeg(v);
-  auto new_s = state.add_PC(cond);
-  if (check_pc(new_s.get_PC())) sym_exit(new_s, { make_IntV(-1) }); // check if v == 1 is not valid
-  return immer::flex_vector<std::pair<SS, PtrVal>>{{state.add_PC(v), make_IntV(1, 32)}};
+  return __llsc_assert<ListSSVal>(state, args,
+      [](auto s, auto v) { return immer::flex_vector<std::pair<SS, PtrVal>>{{s, v}}; },
+      [](auto s, auto a) { return sym_exit(s, a); });
 }
 
 inline std::monostate llsc_assert_eager(SS state, immer::flex_vector<PtrVal> args, Cont k) {
-  auto v = args.at(0);
-  auto i = v->to_IntV();
-  if (i) {
-    if (i->i == 0) sym_exit(state, { make_IntV(-1) }); // concrete false - generate the test and exit
-    return k(state, make_IntV(1, 32));
-  }
-  // otherwise add a symbolic condition that constraints it to be true
-  // undefined/error if v is a value of other types
-  auto cond = to_SMTNeg(v);
-  auto new_s = state.add_PC(cond);
-  if (check_pc(new_s.get_PC())) sym_exit(new_s, { make_IntV(-1) }); // check if v == 1 is not valid
-  return k(state.add_PC(v), make_IntV(1, 32));
+  return __llsc_assert<std::monostate>(state, args,
+      [&k](auto s, auto v) { return k(s, v); },
+      [&k](auto s, auto a) { return sym_exit(s, a, k); });
 }
 
 inline immer::flex_vector<std::pair<SS, PtrVal>> make_symbolic(SS state, immer::flex_vector<PtrVal> args) {
