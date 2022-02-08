@@ -8,9 +8,10 @@ using Cont = std::function<std::monostate(SS, PtrVal)>;
 inline std::string get_string(PtrVal ptr, SS state) {
   std::string name;
   char c = proj_IntV_char(state.at(ptr)); // c = *ptr
+  ASSERT(std::dynamic_pointer_cast<LocV>(ptr) != nullptr, "Non-location value");
   while (c != '\0') {
     name += c;
-    ptr = make_LocV_inc(ptr, 1); // ptr++
+    ptr = ptr + 1;
     c = proj_IntV_char(state.at(ptr)); // c = *ptr
   }
   return name;

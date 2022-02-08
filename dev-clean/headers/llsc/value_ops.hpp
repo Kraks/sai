@@ -270,13 +270,21 @@ inline int proj_LocV_size(PtrVal v) {
 inline bool is_LocV_null(PtrVal v) {
   return std::dynamic_pointer_cast<LocV>(v)->l == -1;
 }
-
 inline PtrVal make_LocV_inc(PtrVal loc, int i) {
   return make_LocV(proj_LocV(loc) + i, proj_LocV_kind(loc), proj_LocV_size(loc));
 }
-
 inline PtrVal make_LocV_null() {
   return make_LocV(-1, LocV::kHeap, -1);
+}
+
+inline PtrVal operator+ (const PtrVal& lhs, const int& rhs) {
+  if (auto loc = std::dynamic_pointer_cast<LocV>(lhs)) {
+    return make_LocV(loc->l + rhs, loc->k, loc->size);
+  }
+  if (auto i = std::dynamic_pointer_cast<IntV>(lhs)) {
+    return make_IntV(i->i + rhs, i->bw);
+  }
+  ABORT("Unknown application of operator+");
 }
 
 struct SymV : Value {
