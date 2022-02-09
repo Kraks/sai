@@ -257,7 +257,7 @@ inline T __llvm_memmove(SS& state, List<PtrVal>& args, __Cont<T> k) {
   ASSERT(std::dynamic_pointer_cast<LocV>(src) != nullptr, "Non-location value");
   SS res = state;
   IntData bytes_int = proj_IntV(args.at(2));
-  // Optmize: flex_vector_transient
+  // Optimize: flex_vector_transient
   auto temp_mem = List<PtrVal>{};
   for (int i = 0; i < bytes_int; i++) {
     temp_mem = temp_mem.push_back(res.at(src + i));
@@ -284,7 +284,7 @@ inline T __llvm_memset(SS& state, List<PtrVal>& args, __Cont<T> k) {
   IntData bytes_int = proj_IntV(args.at(2));
   ASSERT(std::dynamic_pointer_cast<LocV>(dest) != nullptr, "Non-location value");
   SS res = state;
-  // Optmize: flex_vector_transient
+  // Optimize: flex_vector_transient
   for (int i = 0; i < bytes_int; i++) {
     res = res.update(dest + i, IntV0);
   }
