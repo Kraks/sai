@@ -87,6 +87,7 @@ class File: public Printable {
   private:
     std::string name;
     immer::flex_vector<PtrVal> content;
+    Stat stat;
   public:
     std::string toString() const override {
       std::ostringstream ss;
@@ -100,6 +101,10 @@ class File: public Printable {
     File(std::string name): name(name) {}
     File(std::string name, immer::flex_vector<PtrVal> content): name(name), content(content) {}
     File(const File& f): name(f.name), content(f.content) {}
+
+    Stat& get_stat() {
+      return stat;
+    }
 
     // if writing beyond the last byte, will simply append to the end without filling
     void write_at_no_fill(immer::flex_vector<PtrVal> new_content, size_t pos) {
@@ -308,6 +313,13 @@ class FS: public Printable {
       auto written = strm.write(content, nbytes);
       opened_files = opened_files.set(fd, strm);
       return written;
+    }
+
+    std::pair<immer::flex_vector<PtrVal>, int> stat_file(std::string name) {
+      if (!has_file(name)) return std::make_pair(immer::flex_vector<PtrVal>{}, -1);
+      auto file = files.at(name);
+      auto stat = file.get_stat();
+      return std::make_pair(stat.get_struct(), 0);
     }
 
 };

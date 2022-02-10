@@ -94,6 +94,9 @@ object TestCases {
     TestPrg(read1Test, "readTestRetVal", "@main", 0, 1, "--sym-file-size 10 --add-sym-file A", Some(0)),
     TestPrg(read2Test, "readTestPaths", "@main", 0, 3, "--sym-file-size 3 --add-sym-file A", Some(0)),
     TestPrg(write1Test, "writeTestPaths", "@main", 0, 2, "--sym-file-size 10 --add-sym-file A", Some(0)),
+    TestPrg(stat1Test, "statTestAssign", "@main", 0, 1, "", Some(0)),
+    TestPrg(stat2Test, "statTestRead", "@main", 0, 3, "--add-sym-file A", Some(0)),
+    TestPrg(stat2Test, "statTestFail", "@main", 0, 1, "", Some(1)),
     TestPrg(kleefsminiTest, "kleefsmini", "@main", 0, 2, "", Some(0)),
     TestPrg(kleefsglobalTest, "kleefsminiglobal", "@main", 0, 2, "", Some(0)),
   )
