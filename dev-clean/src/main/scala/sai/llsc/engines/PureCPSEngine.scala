@@ -83,7 +83,7 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
       case ZeroInitializerConst =>
         System.out.println("Warning: Evaluate zeroinitialize in body")
         NullV()
-      case NullConst => LocV(-1, LocV.kHeap)
+      case NullConst => LocV.nullloc
       case NoneConst => NullV()
     }
 
@@ -162,10 +162,14 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
       case SiToFPInst(from, value, to) =>
         k(ss, eval(value, from, ss).si_tofp)
       case PtrToIntInst(from, value, to) =>
-        k(ss, eval(value, from, ss).to_IntV(to.asInstanceOf[IntType].size))
+        import Constants._
+        val v = eval(value, from, ss).to_IntV
+        val toSize = to.asInstanceOf[IntType].size
+        k(ss, if (ARCH_WORD_SIZE == toSize) v else v.trunc(ARCH_WORD_SIZE, toSize))
       case IntToPtrInst(from, value, to) =>
         k(ss, eval(value, from, ss).to_LocV)
-      case BitCastInst(from, value, to) => k(ss, eval(value, to, ss))
+      case BitCastInst(from, value, to) =>
+        k(ss, eval(value, to, ss))
 
       // Aggregate Operations
       /* Backend Work Needed */
@@ -338,7 +342,6 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
     compile(funMap.map(_._2).toList)
     Coverage.setBlockNum
     Coverage.incPath(1)
-    Coverage.startMonitor
     val ss = initState(preHeap.asRepOf[Mem])
     if (!isCommandLine) {
       val fv = eval(GlobalId(fname), VoidType, ss)(fname)

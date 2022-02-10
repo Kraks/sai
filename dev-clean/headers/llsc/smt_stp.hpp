@@ -68,7 +68,7 @@ private:
   ExprHandle construct_STP_expr_internal(PtrVal e, std::set<ExprHandle> &vars) {
     auto int_e = std::dynamic_pointer_cast<IntV>(e);
     if (int_e) {
-      return vc_bvConstExprFromLL(vc, int_e->bw, int_e->i);
+      return vc_bvConstExprFromLL(vc, int_e->bw, int_e->as_signed());
     }
     auto sym_e = std::dynamic_pointer_cast<SymV>(e);
     if (!sym_e) ABORT("Non-symbolic/integer value in path condition");
@@ -223,7 +223,7 @@ private:
 
 public:
   CheckerSTP() {
-    std::cout << "Using STP solver\n";
+    std::cout << "Use STP solver\n";
     vc = vc_createValidityChecker();
   }
   ~CheckerSTP() {

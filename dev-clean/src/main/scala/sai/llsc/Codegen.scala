@@ -86,13 +86,14 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     case Node(s, "ss-set-fs", List(ss, fs), _) => es"$ss.set_fs($fs)"
     case Node(s, "get-pc", List(ss), _) => es"$ss.get_PC()"
     case Node(s, "null-v", _, _) => es"nullptr"
+    case Node(s, "shadow-v", _, _) => es"make_ShadowV()"
 
     case Node(s, "is-conc", List(v), _) => es"$v->is_conc()"
     case Node(s, "to-SMT", List(v), _) => es"$v->to_SMT()"
     case Node(s, "to-SMTNeg", List(v), _) => es"to_SMTNeg($v)"
     case Node(s, "ValPtr-deref", List(v), _) => es"*$v"
-    case Node(s, "to-IntV", List(v, bw), _) => es"$v->to_IntV($bw)"
-    case Node(s, "to-LocV", List(v), _) => es"LocV::from_IntV($v)"
+    case Node(s, "to-IntV", List(v), _) => es"$v->to_IntV()"
+    case Node(s, "to-LocV", List(v), _) => es"make_LocV($v)"
 
     case Node(s, "cov-set-blocknum", List(n), _) => es"cov.set_num_blocks($n)"
     case Node(s, "cov-inc-block", List(id), _) => es"cov.inc_block($id)"
@@ -180,9 +181,13 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     emitln(s"""
     |int main(int argc, char *argv[]) {
     |  prelude(argc, argv);
+    |#ifdef USE_TP
+    |  tp.add_task([]() { $name(0); });
+    |#else
     |  $name(0);
+    |#endif
     |  epilogue();
-    |  return 0;
+    |  return exit_code.load().value_or(0);
     |} """.stripMargin)
   }
 }
