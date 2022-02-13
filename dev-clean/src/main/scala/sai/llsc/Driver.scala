@@ -203,7 +203,7 @@ class PureLLSC extends LLSC {
       @virtualize
       def snippet(u: Rep[Int]) = {
         val args: Rep[List[Value]] = SymV.makeSymVList(nSym)
-        val res = exec(fname, args, false, 4)
+        val res = exec(fname, args, true, 0)
         // FIXME: pass isCommandLine, symarg=4 seems doesn't work on mp1p?
         res.foreach { s => checkPCToFile(s._1) }
         ()

@@ -20,6 +20,7 @@ static struct option long_options[] =
   {"sym-file-size",        required_argument, 0, 's'},
   {"thread",               required_argument, 0, 't'},
   {"timeout",              required_argument, 0, 'e'},
+  {"argv",                 required_argument, 0, 'a'},
   {0,                      0,                 0, 0  }
 };
 
@@ -65,6 +66,9 @@ inline void handle_cli_args(int argc, char** argv) {
         break;
       case 'i':
         use_cons_indep = true;
+        break;
+      case 'a':
+        cli_argv = parse_args(std::string(optarg));
         break;
       case '+':
         initial_fs.add_file(make_SymFile(std::string(optarg), default_sym_file_size));
