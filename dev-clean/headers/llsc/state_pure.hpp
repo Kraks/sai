@@ -83,9 +83,7 @@ private:
   }
 public:
   Mem0(List<PtrVal> mem) : PreMem(mem) {}
-  PtrVal at(size_t idx, size_t bit_size) {
-    ASSERT(bit_size == 1 || bit_size % 8 == 0, "Reading an invalid number of bits");
-    size_t byte_size = (bit_size == 1) ? 1 : bit_size / 8;
+  PtrVal at(size_t idx, size_t byte_size) {
     auto val = mem.at(idx);
     if (std::dynamic_pointer_cast<IntV>(val) || std::dynamic_pointer_cast<SymV>(val)) {
       auto span = slice(mem, idx, byte_size);
@@ -97,11 +95,10 @@ public:
     ASSERT(!std::dynamic_pointer_cast<ShadowV>(val), "Reading a shadowed value");
     return val;
   }
-  Mem0 update(size_t idx, PtrVal val, size_t bit_size) {
+  Mem0 update(size_t idx, PtrVal val, size_t byte_size) {
     auto old_val = mem.at(idx);
     ASSERT(!std::dynamic_pointer_cast<ShadowV>(old_val), "Updating a shadowed value");
-    size_t byte_size = (bit_size == 1) ? 1 : bit_size / 8;
-    ASSERT(val->get_bw() == bit_size, "Mismatched value and size to write");
+    ASSERT(val->get_bw() == 1 || val->get_bw() == byte_size * 8, "Mismatched value and size to write");
     size_t end = idx + byte_size - 1;
     auto raw_vals = val->unfold();
     ASSERT(raw_vals.size() == byte_size, "Value raw representation not equal to byte_size");

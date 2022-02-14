@@ -142,8 +142,8 @@ struct IntV : Value {
     if (bw <= 8) return List<PtrVal>{shared_from_this()};
     size_t byte_sz = bw / 8;
     auto res = List<PtrVal>{}.transient();
-    for (size_t i = byte_sz; i < 0; i--) {
-      res.push_back(bv_extract(shared_from_this(), i*8-1, (i-1)*8));
+    for (size_t i = 0; i < byte_sz; i++) {
+      res.push_back(bv_extract(shared_from_this(), (i+1)*8-1, i*8));
     }
     return res.persistent();
   }
@@ -331,8 +331,8 @@ struct SymV : Value {
     if (bw <= 8) return List<PtrVal>{shared_from_this()};
     size_t byte_sz = bw / 8;
     auto res = List<PtrVal>{}.transient();
-    for (size_t i = 0; i < byte_sz; i++) {
-      res.push_back(bv_extract(shared_from_this(), (i+1)*8-1, i*8));
+    for (size_t i = byte_sz; i > 0; i--) {
+      res.push_back(bv_extract(shared_from_this(), i*8-1, (i-1)*8));
     }
     return res.persistent();
   }
