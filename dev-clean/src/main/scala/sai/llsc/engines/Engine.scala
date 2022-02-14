@@ -467,7 +467,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
         //_ <- popFrame(s.stackSize)
       } yield v
     } else {
-      val commandLineArgs = List[Value](IntV(2), LocV(0, LocV.kStack))
+      val commandLineArgs = List[Value](unchecked[Value]("g_argc"), unchecked[Value]("g_argv"))
       for {
         fv <- eval(GlobalId(fname), VoidType)(fname)
         _ <- pushFrame

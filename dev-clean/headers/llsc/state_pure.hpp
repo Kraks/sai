@@ -349,31 +349,18 @@ class SS: public Printable {
       SS updated_ss = *this;
 
       unsigned num_args = cli_argv.size();
-      std::cout << "num_args: " << num_args << std::endl;
-      auto stack_ptr = stack.mem_size();
-      updated_ss = updated_ss.alloc_stack(8 + (num_args + 1) * 8); // allocate space for argv and the array of pointers
+      auto stack_ptr = stack.mem_size(); // top of the stack
+      updated_ss = updated_ss.alloc_stack((num_args + 1) * 8); // allocate space for the array of pointers
 
-      PtrVal g_argv = make_LocV(stack_ptr, LocV::kStack); // The global argv, pass to llsc_main
-      stack_ptr += 8; // point to the array of pointers
-      PtrVal ptrs = make_LocV(stack_ptr, LocV::kStack); // Value of argv. A pointer to the array of pointers
-      updated_ss = updated_ss.update(g_argv, ptrs);
-
-      std::cout << "*ptrs: " << *ptrs << std::endl;
-      std::cout << "*g_argv: " << *g_argv << std::endl;
       // copy each argument onto the stack, and update the pointers
-
-      /* std::cout << "cli_argv: " << cli_argv << std::endl; */
-      std::cout << "init_arg called" << std::endl;
       for (int i = 0; i < num_args; ++i) {
-        std::cout << "i: " << i << std::endl;
         auto arg = cli_argv.at(i);
-        auto addr = updated_ss.stack_size();
+        auto addr = updated_ss.stack_size(); // top of the stack
         updated_ss = updated_ss.alloc_stack(arg.size());
-        updated_ss = updated_ss.update_seq(make_LocV(addr, LocV::kStack), arg); // copy the values
+        updated_ss = updated_ss.update_seq(make_LocV(addr, LocV::kStack), arg); // copy the values to the newly allocated space
         updated_ss = updated_ss.update(make_LocV(stack_ptr + (8 * i), LocV::kStack), make_LocV(addr, LocV::kStack)); // copy the pointer value
       }
-      updated_ss = updated_ss.update(make_LocV(stack_ptr + (8 * num_args), LocV::kStack), make_LocV(0, LocV::kStack)); // terminate the array of pointers
-
+      updated_ss = updated_ss.update(make_LocV(stack_ptr + (8 * num_args), LocV::kStack), make_LocV(-1, LocV::kStack)); // terminate the array of pointers
       return updated_ss;
     }
     PC get_PC() { return pc; }

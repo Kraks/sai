@@ -1,9 +1,11 @@
 int main(int argc, char *argv[])
 {
+  print_string("argc");
   sym_print(argc);
+  print_string("argv");
   sym_print(argv);
-  sym_print(argv[0]);
-  sym_print(argv[1]);
-  sym_print(argv[2]);
+  for (int i = 0; i < argc; ++i) {
+    print_string(argv[i]);
+  }
   return 0;
 }

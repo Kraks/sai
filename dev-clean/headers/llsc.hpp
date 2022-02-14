@@ -6,6 +6,7 @@
 #include <variant>
 #include <string>
 #include <regex>
+#include <typeinfo>
 #include <vector>
 #include <iostream>
 #include <map>

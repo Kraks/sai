@@ -69,6 +69,8 @@ inline void handle_cli_args(int argc, char** argv) {
         break;
       case 'a':
         cli_argv = parse_args(std::string(optarg));
+        g_argv = make_LocV(0, LocV::kStack); // The global argv, pass to llsc_main
+        g_argc = make_IntV(cli_argv.size());
         break;
       case '+':
         initial_fs.add_file(make_SymFile(std::string(optarg), default_sym_file_size));
