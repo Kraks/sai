@@ -76,6 +76,11 @@ object TestCases {
     // TestPrg(arrayFlow, "arrayFlow", "@main", 0, None, nPath(15)),
   )
 
+  val argv: List[TestPrg] = List(
+    TestPrg(argv1Test, "argvConc", "@main", 0, "--argv=abcdef", nPath(1)++status(0)),
+    TestPrg(argv2Test, "argvSym", "@main", 0, "--argv=abc#{3}def", nPath(4)++status(0)),
+  )
+
   val varArg: List[TestPrg] = List(
     TestPrg(varArgInt, "varArgInt", "@main", 0, None, nPath(1))
     // FIXME(PureLLSC): Sext an invalid value
