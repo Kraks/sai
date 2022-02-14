@@ -20,6 +20,13 @@ struct Value : public std::enable_shared_from_this<Value>, public Printable {
    */
   virtual List<PtrVal> to_bytes() = 0;
 
+  /* `to_bytes_shadow` produces a compact memory representation
+   * of this value, potentially using shadow values.
+   * This should give us an ``optimized'' data layout that
+   * avoids low-level concat or shift.
+   */
+  virtual List<PtrVal> to_bytes_shadow() = 0;
+
   virtual PtrVal to_SMT() = 0;
   virtual std::shared_ptr<IntV> to_IntV() = 0;
 
@@ -67,6 +74,7 @@ struct ShadowV : public Value {
   virtual std::shared_ptr<IntV> to_IntV() { return nullptr; }
   virtual std::string toString() const { return "ShadowV"; }
   virtual List<PtrVal> to_bytes() { return List<PtrVal>{shared_from_this()}; }
+  virtual List<PtrVal> to_bytes_shadow() { return to_bytes(); }
 };
 
 inline PtrVal make_ShadowV() {
@@ -82,7 +90,15 @@ inline PtrVal make_ShadowV(int8_t offset) {
     std::make_shared<ShadowV>(-3), std::make_shared<ShadowV>(-4),
     std::make_shared<ShadowV>(-5), std::make_shared<ShadowV>(-6),
     std::make_shared<ShadowV>(-7) };
-  return shadow_vals[0-offset];
+  return shadow_vals[-offset];
+}
+
+inline List<PtrVal> make_ShadowV_seq(int8_t size) {
+  auto res = List<PtrVal>{}.transient();
+  for (size_t i = 1; i <= size; i++) {
+    res.push_back(make_ShadowV(-i));
+  }
+  return res.persistent();
 }
 
 // FunV types:
@@ -115,6 +131,9 @@ struct FunV : Value {
   }
   virtual List<PtrVal> to_bytes() {
     return List<PtrVal>{shared_from_this()} + List<PtrVal>(7, make_ShadowV());
+  }
+  virtual List<PtrVal> to_bytes_shadow() {
+    return List<PtrVal>{shared_from_this()} + make_ShadowV_seq(7);
   }
 };
 
@@ -158,6 +177,10 @@ struct IntV : Value {
     }
     return res.persistent();
   }
+  virtual List<PtrVal> to_bytes_shadow() {
+    if (bw <= 8) return List<PtrVal>{shared_from_this()};
+    return List<PtrVal>{shared_from_this()} + make_ShadowV_seq(bw/8 - 1);
+  }
 };
 
 inline PtrVal make_IntV(IntData i, int bw=bitwidth, bool toMSB=true) {
@@ -200,6 +223,9 @@ struct FloatV : Value {
   }
   virtual List<PtrVal> to_bytes() {
     return List<PtrVal>{shared_from_this()} + List<PtrVal>(3, make_ShadowV()); // TODO: support bw other than 32
+  }
+  virtual List<PtrVal> to_bytes_shadow() {
+    return List<PtrVal>{shared_from_this()} + make_ShadowV_seq(3);
   }
 };
 
@@ -247,6 +273,9 @@ struct LocV : Value {
   }
   virtual List<PtrVal> to_bytes() {
     return List<PtrVal>{shared_from_this()} + List<PtrVal>(7, make_ShadowV());
+  }
+  virtual List<PtrVal> to_bytes_shadow() {
+    return List<PtrVal>{shared_from_this()} + make_ShadowV_seq(7);
   }
 };
 
@@ -346,6 +375,10 @@ struct SymV : Value {
     }
     return res.persistent();
   }
+  virtual List<PtrVal> to_bytes_shadow() {
+    if (bw <= 8) return List<PtrVal>{shared_from_this()};
+    return List<PtrVal>{shared_from_this()} + make_ShadowV_seq(bw/8 - 1);
+  }
 };
 
 inline PtrVal make_SymV(String n) {
@@ -388,9 +421,8 @@ struct StructV : Value {
     return std::equal_to<decltype(fs)>{}(this->fs, that->fs);
   }
 
-  virtual List<PtrVal> to_bytes() {
-    ABORT("???");
-  }
+  virtual List<PtrVal> to_bytes() { ABORT("???"); }
+  virtual List<PtrVal> to_bytes_shadow() { ABORT("???"); }
 };
 
 inline PtrVal structV_at(PtrVal v, int idx) {
