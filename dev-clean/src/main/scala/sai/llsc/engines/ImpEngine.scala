@@ -365,7 +365,7 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
       ss.push
       fv[Ref](ss, args)
     } else {
-      val commandLineArgs = List[Value](IntV(2), LocV(0, LocV.kStack))
+      val commandLineArgs = List[Value](unchecked[Value]("g_argc"), unchecked[Value]("g_argv"))
       val fv = eval(GlobalId(fname), VoidType, ss)(fname)
       ss.push
       ss.updateArg(symarg)

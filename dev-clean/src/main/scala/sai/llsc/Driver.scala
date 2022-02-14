@@ -220,7 +220,7 @@ class PureCPSLLSC extends LLSC {
         val k: Rep[Cont] = fun { case sv =>
           checkPCToFile(sv._1); ()
         }
-        exec(fname, args, false, 4, k)
+        exec(fname, args, true, 0, k)
       }
     }
 }
@@ -241,7 +241,7 @@ class ImpLLSC extends LLSC {
     new ImpLLSCDriver[Int, Unit](m, name, "./llsc_gen") {
       def snippet(u: Rep[Int]) = {
         val args: Rep[List[Value]] = SymV.makeSymVList(nSym)
-        val res = exec(fname, args, false, 4)
+        val res = exec(fname, args, true, 0)
         res.foreach { s => checkPCToFile(s._1)}
         ()
       }
@@ -254,7 +254,7 @@ class ImpVecLLSC extends LLSC {
     new ImpVecLLSCDriver[Int, Unit](m, name, "./llsc_gen") {
       def snippet(u: Rep[Int]) = {
         val args: Rep[List[Value]] = SymV.makeSymVList(nSym)
-        val res = exec(fname, args, false, 4)
+        val res = exec(fname, args, true, 0)
         res.foreach { s => checkPCToFile(s._1)}
         ()
       }
@@ -270,7 +270,7 @@ class ImpCPSLLSC extends LLSC {
         val k: Rep[Cont] = fun { case sv =>
           checkPCToFile(sv._1); ()
         }
-        exec(fname, args, false, 4, k)
+        exec(fname, args, true, 0, k)
       }
     }
 }
