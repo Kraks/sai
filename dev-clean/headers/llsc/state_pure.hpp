@@ -104,10 +104,10 @@ public:
     ASSERT(!std::dynamic_pointer_cast<ShadowV>(old_val), "Updating a shadowed value");
     ASSERT(val->get_bw() == 1 || val->get_bw() == byte_size * 8, "Mismatched value and size to write");
     size_t end = idx + byte_size - 1;
-    auto raw_vals = val->unfold();
-    ASSERT(raw_vals.size() == byte_size, "Value raw representation not equal to byte_size");
+    auto bytes = val->to_bytes();
+    ASSERT(bytes.size() == byte_size, "Size of byte-representation of value not equal to argument byte_size");
     auto mem = this->mem.transient();
-    for (size_t i = 0; i < byte_size; i++) { mem.set(idx+i, raw_vals.at(i)); }
+    for (size_t i = 0; i < byte_size; i++) { mem.set(idx+i, bytes.at(i)); }
     return Mem0(mem.persistent());
   }
 };
