@@ -43,34 +43,38 @@ class PreMem: public Printable {
     List<V> getMem() { return mem; }
 };
 
-/* Mem0 is the base memory model that assumes integer values are stored as
- * sequences of bytes (following little endian), i.e. every IntV in an instance
- * of Mem0 has `bw` of 8.
+/* Mem0 is the base memory model that assumes integer/symbolic values are
+ * stored as sequences of bytes (following little endian), i.e. every IntV/SymV
+ * in an instance of Mem0 has `bw` of 8.
  * LocV/FunV values are stored with additional ``shadow'' values, which don't
  * store information but simply serve as placeholders, prohibiting reading or
  * updating a fragment of a location/function value.
+ * This version also disallows reading uninitialized values (represented by nullptr),
+ * which might be overly constrained.
  */
 class Mem0 : public PreMem<PtrVal, Mem0> {
 private:
-  // TODO: move helper functions to the right place and generalize them
-  static List<PtrVal> slice(List<PtrVal> xs, size_t beg, size_t size) {
-    return xs.drop(beg).take(size);
-  }
   bool is_well_formed() const {
     size_t i = 0;
     while (i < mem.size()) {
       auto v = mem.at(i);
-      if (auto int_v = std::dynamic_pointer_cast<IntV>(v)) {
-        ASSERT(int_v->bw <= 8, "Bitwidth too large");
+      if (std::dynamic_pointer_cast<IntV>(v) ||
+          std::dynamic_pointer_cast<SymV>(v)) {
+        ASSERT(v->get_bw() <= 8, "Bitwidth too large");
         i += 1;
-      } else if (auto loc_v = std::dynamic_pointer_cast<LocV>(v)) {
-        // TODO
+      } else if (std::dynamic_pointer_cast<LocV>(v)) {
+      // FIXME: function value
+      //std::dynamic_pointer_cast<FunV<>(v)) {
+        for (int j = i+1; j <= i + 7; j++) {
+          ASSERT(std::dynamic_pointer_cast<ShadowV>(mem.at(j)),
+                 "Loc/Fun value does not properly shadow its region");
+        }
         i += 7;
-      //} else if (auto fun_v = std::dynamic_pointer_cast<FunV>(v)) {
-        // TODO
-      //  i += 7;
       } else if (auto fun_v = std::dynamic_pointer_cast<FloatV>(v)) {
-        // TODO
+        for (int j = i+1; j <= i + 3; j++) {
+          ASSERT(std::dynamic_pointer_cast<ShadowV>(mem.at(j)),
+                 "Float value does not properly shadow its region");
+        }
         i += 3;
       } else if (v == nullptr) {
         std::cout << "Warning: nullptr at " << i << " of an Mem0\n";
@@ -86,7 +90,7 @@ public:
   PtrVal at(size_t idx, size_t byte_size) {
     auto val = mem.at(idx);
     if (std::dynamic_pointer_cast<IntV>(val) || std::dynamic_pointer_cast<SymV>(val)) {
-      auto span = slice(mem, idx, byte_size);
+      auto span = Vec::slice(mem, idx, byte_size);
       return Vec::foldRight(span.take(span.size()-1), span.back(), [](auto x, auto acc) {
         return bv_concat(acc, x);
       });
@@ -103,8 +107,8 @@ public:
     auto raw_vals = val->unfold();
     ASSERT(raw_vals.size() == byte_size, "Value raw representation not equal to byte_size");
     auto mem = this->mem.transient();
-    for (size_t i = 0; i < byte_size; i++) { mem.set(i, raw_vals.at(i)); }
-    Mem0(mem.persistent());
+    for (size_t i = 0; i < byte_size; i++) { mem.set(idx+i, raw_vals.at(i)); }
+    return Mem0(mem.persistent());
   }
 };
 
