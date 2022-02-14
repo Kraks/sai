@@ -290,6 +290,11 @@ namespace Vec {
       f(vec.at(i));
     }
   }
+
+  template<typename T>
+  inline immer::flex_vector<T> slice(immer::flex_vector<T> xs, size_t beg, size_t size) {
+    return xs.drop(beg).take(size);
+  }
 }
 
 namespace Tuple {
