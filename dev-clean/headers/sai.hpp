@@ -239,7 +239,7 @@ namespace Vec {
   template<typename T, typename U, typename Fn>
   inline U foldRight(immer::flex_vector<T> vec, U acc, Fn f) {
     static_assert(std::is_convertible<Fn, std::function<U(T, U)>>::value,
-      "Vec::foldLeft requires a function of type U(T, U)");
+      "Vec::foldRight requires a function of type U(T, U)");
     for (int i = vec.size()-1; i >= 0; i--) {
       acc = f(vec.at(i), acc);
     }

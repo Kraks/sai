@@ -43,6 +43,74 @@ class PreMem: public Printable {
     List<V> getMem() { return mem; }
 };
 
+/* Mem0 is the base memory model that assumes integer values are stored as
+ * sequences of bytes (following little endian), i.e. every IntV in an instance
+ * of Mem0 has `bw` of 8.
+ * LocV/FunV values are stored with additional ``shadow'' values, which don't
+ * store information but simply serve as placeholders, prohibiting reading or
+ * updating a fragment of a location/function value.
+ */
+class Mem0 : public PreMem<PtrVal, Mem0> {
+private:
+  // TODO: move helper functions to the right place and generalize them
+  static List<PtrVal> slice(List<PtrVal> xs, size_t beg, size_t size) {
+    return xs.drop(beg).take(size);
+  }
+  bool is_well_formed() const {
+    size_t i = 0;
+    while (i < mem.size()) {
+      auto v = mem.at(i);
+      if (auto int_v = std::dynamic_pointer_cast<IntV>(v)) {
+        ASSERT(int_v->bw <= 8, "Bitwidth too large");
+        i += 1;
+      } else if (auto loc_v = std::dynamic_pointer_cast<LocV>(v)) {
+        // TODO
+        i += 7;
+      //} else if (auto fun_v = std::dynamic_pointer_cast<FunV>(v)) {
+        // TODO
+      //  i += 7;
+      } else if (auto fun_v = std::dynamic_pointer_cast<FloatV>(v)) {
+        // TODO
+        i += 3;
+      } else if (v == nullptr) {
+        std::cout << "Warning: nullptr at " << i << " of an Mem0\n";
+        i += 1;
+      } else {
+        ABORT("Unknown value");
+      }
+    }
+    return true;
+  }
+public:
+  Mem0(List<PtrVal> mem) : PreMem(mem) {}
+  PtrVal at(size_t idx, size_t bit_size) {
+    ASSERT(bit_size == 1 || bit_size % 8 == 0, "Reading an invalid number of bits");
+    size_t byte_size = (bit_size == 1) ? 1 : bit_size / 8;
+    auto val = mem.at(idx);
+    if (std::dynamic_pointer_cast<IntV>(val) || std::dynamic_pointer_cast<SymV>(val)) {
+      auto span = slice(mem, idx, byte_size);
+      return Vec::foldRight(span.take(span.size()-1), span.back(), [](auto x, auto acc) {
+        return bv_concat(acc, x);
+      });
+    }
+    ASSERT(val != nullptr, "Reading an uninitialized (nullptr) value");
+    ASSERT(!std::dynamic_pointer_cast<ShadowV>(val), "Reading a shadowed value");
+    return val;
+  }
+  Mem0 update(size_t idx, PtrVal val, size_t bit_size) {
+    auto old_val = mem.at(idx);
+    ASSERT(!std::dynamic_pointer_cast<ShadowV>(old_val), "Updating a shadowed value");
+    size_t byte_size = (bit_size == 1) ? 1 : bit_size / 8;
+    ASSERT(val->get_bw() == bit_size, "Mismatched value and size to write");
+    size_t end = idx + byte_size - 1;
+    auto raw_vals = val->unfold();
+    ASSERT(raw_vals.size() == byte_size, "Value raw representation not equal to byte_size");
+    auto mem = this->mem.transient();
+    for (size_t i = 0; i < byte_size; i++) { mem.set(i, raw_vals.at(i)); }
+    Mem0(mem.persistent());
+  }
+};
+
 class Mem: public PreMem<PtrVal, Mem> {
   // endian-ness: https://stackoverflow.com/questions/46289636/z3-endian-ness-mixup-between-extract-and-concat
   static PtrVal q_extract(PtrVal v0, size_t b0, size_t b, size_t e, size_t e0) {

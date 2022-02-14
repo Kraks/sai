@@ -6,6 +6,7 @@ struct IntV;
 struct SS;
 
 using PtrVal = std::shared_ptr<Value>;
+inline PtrVal bv_extract(PtrVal v1, int hi, int lo);
 
 /* Value representations */
 
@@ -13,6 +14,11 @@ struct Value : public std::enable_shared_from_this<Value>, public Printable {
   virtual bool is_conc() const = 0;
   virtual int get_bw() const = 0;
   virtual bool compare(const Value *v) const = 0;
+
+  /* `unfold` produces the memory representation of this value
+   * following 64-bit little-endian data layout.
+   */
+  virtual List<PtrVal> unfold() = 0;
 
   virtual PtrVal to_SMT() = 0;
   virtual std::shared_ptr<IntV> to_IntV() = 0;
@@ -57,6 +63,7 @@ struct ShadowV : public Value {
   virtual PtrVal to_SMT() { return nullptr; }
   virtual std::shared_ptr<IntV> to_IntV() { return nullptr; }
   virtual std::string toString() const { return "ShadowV"; }
+  virtual List<PtrVal> unfold() { return List<PtrVal>{shared_from_this()}; }
 };
 
 inline PtrVal make_ShadowV() {
@@ -94,6 +101,9 @@ struct FunV : Value {
     auto that = static_cast<decltype(this)>(v);
     return this->f == that->f;
   }
+  virtual List<PtrVal> unfold() {
+    return List<PtrVal>{shared_from_this()} + List<PtrVal>(7, make_ShadowV());
+  }
 };
 
 struct IntV : Value {
@@ -127,6 +137,16 @@ struct IntV : Value {
   }
 
   int64_t as_signed() const { return int64_t(i) >> (addr_bw - bw); }
+
+  virtual List<PtrVal> unfold() {
+    if (bw <= 8) return List<PtrVal>{shared_from_this()};
+    size_t byte_sz = bw / 8;
+    auto res = List<PtrVal>{}.transient();
+    for (size_t i = byte_sz; i < 0; i--) {
+      res.push_back(bv_extract(shared_from_this(), i*8-1, (i-1)*8));
+    }
+    return res.persistent();
+  }
 };
 
 inline PtrVal make_IntV(IntData i, int bw=bitwidth, bool toMSB=true) {
@@ -161,11 +181,14 @@ struct FloatV : Value {
   }
   virtual bool is_conc() const override { return true; }
   virtual std::shared_ptr<IntV> to_IntV() override { return nullptr; }
-  virtual int get_bw() const override { return 32; }
+  virtual int get_bw() const override { return 32; } //TODO: support bw other than 32
 
   virtual bool compare(const Value *v) const override {
     auto that = static_cast<decltype(this)>(v);
     return this->f == that->f;
+  }
+  virtual List<PtrVal> unfold() {
+    return List<PtrVal>{shared_from_this()} + List<PtrVal>(3, make_ShadowV()); // TODO: support bw other than 32
   }
 };
 
@@ -210,6 +233,9 @@ struct LocV : Value {
     auto that = static_cast<decltype(this)>(v);
     if (this->l != that->l) return false;
     return this->k == that->k;
+  }
+  virtual List<PtrVal> unfold() {
+    return List<PtrVal>{shared_from_this()} + List<PtrVal>(7, make_ShadowV());
   }
 };
 
@@ -301,6 +327,15 @@ struct SymV : Value {
     if (this->rator != that->rator) return false;
     return std::equal_to<decltype(rands)>{}(this->rands, that->rands);
   }
+  virtual List<PtrVal> unfold() {
+    if (bw <= 8) return List<PtrVal>{shared_from_this()};
+    size_t byte_sz = bw / 8;
+    auto res = List<PtrVal>{}.transient();
+    for (size_t i = 0; i < byte_sz; i++) {
+      res.push_back(bv_extract(shared_from_this(), (i+1)*8-1, i*8));
+    }
+    return res.persistent();
+  }
 };
 
 inline PtrVal make_SymV(String n) {
@@ -342,12 +377,16 @@ struct StructV : Value {
     auto that = static_cast<decltype(this)>(v);
     return std::equal_to<decltype(fs)>{}(this->fs, that->fs);
   }
+
+  virtual List<PtrVal> unfold() {
+    ABORT("???");
+  }
 };
 
 inline PtrVal structV_at(PtrVal v, int idx) {
   auto sv = std::dynamic_pointer_cast<StructV>(v);
   if (sv) return (sv->fs).at(idx);
-  else ABORT("StructV_at: non StructV value");
+  ABORT("StructV_at: non StructV value");
 }
 
 // assume all values are signed, convert to unsigned if necessary
