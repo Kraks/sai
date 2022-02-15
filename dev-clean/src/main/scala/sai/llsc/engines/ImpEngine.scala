@@ -147,31 +147,29 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
 
       // Conversion Operations
       /* Backend Work Needed */
-      // TODO zext to type
-      case ZExtInst(from, value, to) =>
-        k(ss, eval(value, from, ss).bv_zext(to.asInstanceOf[IntType].size))
-      case SExtInst(from, value, to) =>
-        k(ss, eval(value, from, ss).bv_sext(to.asInstanceOf[IntType].size))
-      case TruncInst(from, value, to) =>
-        k(ss, eval(value, from, ss).trunc(from.asInstanceOf[IntType].size, to.asInstanceOf[IntType].size))
+      case ZExtInst(from, value, IntType(size)) =>
+        k(ss, eval(value, from, ss).zExt(size))
+      case SExtInst(from, value, IntType(size)) =>
+        k(ss, eval(value, from, ss).sExt(size))
+      case TruncInst(from@IntType(fromSz), value, IntType(toSz)) =>
+        k(ss, eval(value, from, ss).trunc(fromSz, toSz))
       case FpExtInst(from, value, to) =>
         // XXX: is it the right semantics?
         k(ss, eval(value, from, ss))
-      case FpToUIInst(from, value, to) =>
-        k(ss, eval(value, from, ss).fp_toui(to.asInstanceOf[IntType].size))
-      case FpToSIInst(from, value, to) =>
-        k(ss, eval(value, from, ss).fp_tosi(to.asInstanceOf[IntType].size))
+      case FpToUIInst(from, value, IntType(size)) =>
+        k(ss, eval(value, from, ss).fromFloatToUInt(size))
+      case FpToSIInst(from, value, IntType(size)) =>
+        k(ss, eval(value, from, ss).fromFloatToSInt(size))
       case UiToFPInst(from, value, to) =>
-        k(ss, eval(value, from, ss).ui_tofp)
+        k(ss, eval(value, from, ss).fromUIntToFloat)
       case SiToFPInst(from, value, to) =>
-        k(ss, eval(value, from, ss).si_tofp)
-      case PtrToIntInst(from, value, to) =>
+        k(ss, eval(value, from, ss).fromSIntToFloat)
+      case PtrToIntInst(from, value, IntType(toSize)) =>
         import sai.llsc.Constants._
-        val v = eval(value, from, ss).to_IntV
-        val toSize = to.asInstanceOf[IntType].size
+        val v = eval(value, from, ss).toIntV
         k(ss, if (ARCH_WORD_SIZE == toSize) v else v.trunc(ARCH_WORD_SIZE, toSize))
       case IntToPtrInst(from, value, to) =>
-        k(ss, eval(value, from, ss).to_LocV)
+        k(ss, eval(value, from, ss).toLocV)
       case BitCastInst(from, value, to) =>
         k(ss, eval(value, to, ss))
 

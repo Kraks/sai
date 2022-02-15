@@ -173,35 +173,31 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
 
       // Conversion Operations
       /* Backend Work Needed */
-      case ZExtInst(from, value, to) =>
-        for {
-          v <- eval(value, from)
-        } yield v.bv_zext(to.asInstanceOf[IntType].size)
-      case SExtInst(from, value, to) =>
-        for {
-          v <- eval(value, from)
-        } yield v.bv_sext(to.asInstanceOf[IntType].size)
-      case TruncInst(from, value, to) =>
-        for { v <- eval(value, from) } yield v.trunc(from.asInstanceOf[IntType].size, to.asInstanceOf[IntType].size)
+      case ZExtInst(from, value, IntType(size)) =>
+        for { v <- eval(value, from) } yield v.zExt(size)
+      case SExtInst(from, value, IntType(size)) =>
+        for { v <- eval(value, from) } yield v.sExt(size)
+      case TruncInst(from@IntType(fromSz), value, IntType(toSz)) =>
+        for { v <- eval(value, from) } yield v.trunc(fromSz, toSz)
       case FpExtInst(from, value, to) =>
         for { v <- eval(value, from) } yield v
-      case FpToUIInst(from, value, to) =>
-        for { v <- eval(value, from) } yield v.fp_toui(to.asInstanceOf[IntType].size)
-      case FpToSIInst(from, value, to) =>
-        for { v <- eval(value, from) } yield v.fp_tosi(to.asInstanceOf[IntType].size)
+      case FpToUIInst(from, value, IntType(size)) =>
+        for { v <- eval(value, from) } yield v.fromFloatToUInt(size)
+      case FpToSIInst(from, value, IntType(size)) =>
+        for { v <- eval(value, from) } yield v.fromFloatToSInt(size)
       case UiToFPInst(from, value, to) =>
-        for { v <- eval(value, from) } yield v.ui_tofp
+        for { v <- eval(value, from) } yield v.fromUIntToFloat
       case SiToFPInst(from, value, to) =>
-        for { v <- eval(value, from) } yield v.si_tofp
+        for { v <- eval(value, from) } yield v.fromSIntToFloat
       case PtrToIntInst(from, value, to) =>
         import Constants._
         for { v <- eval(value, from) } yield
           if (ARCH_WORD_SIZE == to.asInstanceOf[IntType].size) 
-            v.to_IntV
+            v.toIntV
           else
-            v.to_IntV.trunc(ARCH_WORD_SIZE, to.asInstanceOf[IntType].size)
+            v.toIntV.trunc(ARCH_WORD_SIZE, to.asInstanceOf[IntType].size)
       case IntToPtrInst(from, value, to) =>
-        for { v <- eval(value, from) } yield v.to_LocV
+        for { v <- eval(value, from) } yield v.toLocV
       case BitCastInst(from, value, to) => eval(value, to)
 
       // Aggregate Operations

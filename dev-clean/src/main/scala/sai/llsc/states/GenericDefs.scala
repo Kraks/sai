@@ -260,8 +260,8 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
     
     def deref: Rep[Any] = "ValPtr-deref".reflectWith[Any](v)
 
-    def bv_sext(bw: Rep[Int]): Rep[Value] =  "bv_sext".reflectWith[Value](v, bw)
-    def bv_zext(bw: Rep[Int]): Rep[Value] =  "bv_zext".reflectWith[Value](v, bw)
+    def sExt(bw: Rep[Int]): Rep[Value] =  "bv_sext".reflectWith[Value](v, bw)
+    def zExt(bw: Rep[Int]): Rep[Value] =  "bv_zext".reflectWith[Value](v, bw)
 
     def isConc: Rep[Boolean] = v match {
       case IntV(_, _) => unit(true)
@@ -271,14 +271,13 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
     def toSMTBoolNeg: Rep[SMTBool] = "to-SMTNeg".reflectWith[SMTBool](v)
 
     def notNull: Rep[Boolean] = "not-null".reflectWith[Boolean](v)
-
-    def fp_toui(to: Int): Rep[Value] = "fp_toui".reflectWith[Value](v, to)
-    def fp_tosi(to: Int): Rep[Value] = "fp_tosi".reflectWith[Value](v, to)
-    def ui_tofp: Rep[Value] = "ui_tofp".reflectWith[Value](v)
-    def si_tofp: Rep[Value] = "si_tofp".reflectWith[Value](v)
+    def fromFloatToUInt(toSize: Int): Rep[Value] = "fp_toui".reflectWith[Value](v, toSize)
+    def fromFloatToSInt(toSize: Int): Rep[Value] = "fp_tosi".reflectWith[Value](v, toSize)
+    def fromUIntToFloat: Rep[Value] = "ui_tofp".reflectWith[Value](v)
+    def fromSIntToFloat: Rep[Value] = "si_tofp".reflectWith[Value](v)
     def trunc(from: Rep[Int], to: Rep[Int]): Rep[Value] =
       "trunc".reflectWith[Value](v, from, to)
-    def to_IntV: Rep[Value] = "to-IntV".reflectWith[Value](v)
-    def to_LocV: Rep[Value] = "to-LocV".reflectWith[Value](v)
+    def toIntV: Rep[Value] = "to-IntV".reflectWith[Value](v)
+    def toLocV: Rep[Value] = "to-LocV".reflectWith[Value](v)
   }
 }
