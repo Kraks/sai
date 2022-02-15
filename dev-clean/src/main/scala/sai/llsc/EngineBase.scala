@@ -183,44 +183,49 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     }
   }
 
+  def makeShadowSeq(size: Int): StaticList[Rep[Value]] = StaticList.fill(size - 1)(ShadowV())
+
   // FIXME: Alignment: CharArrayConst, ArrayConst
   // Float Type
-  // TODO: refactor
-  //     1. using flat recursion
-  //     2. code reuse with Engine-level eval?
+  // TODO: don't add padding here; Value should generate its raw data layout
   def evalHeapConstWithAlign(v: Constant, ty: LLVMType): (List[Rep[Value]], Int) = {
-    def evalAddr(v: Constant, ty: LLVMType): Rep[Addr] = v match {
-      case GetElemPtrExpr(inBounds, baseType, ptrType, const, typedConsts) => {
-        val indexLLVMValue = typedConsts.map(tv => tv.const.asInstanceOf[IntConst].n)
-        val addr = evalAddr(const, getRealType(ptrType))
-        addr + calculateOffsetStatic(ptrType, indexLLVMValue)
-      }
-      case GlobalId(id) => heapEnv(id)
-    }
-    def evalValue(v: Constant, ty: LLVMType): Rep[Value] = v match {
-      case BoolConst(b) => IntV(if (b) 1 else 0, 1)
-      case IntConst(n) => IntV(n, ty.asInstanceOf[IntType].size)
-      case FloatConst(f) => FloatV(f)
-      case NullConst => LocV(0, LocV.kHeap)
+    val real_ty = getRealType(ty)
+    val (size, align) = getTySizeAlign(real_ty)
+    v match {
+      case BoolConst(b) => (IntV(if (b) 1 else 0, 1)::makeShadowSeq(size), align)
+      case IntConst(n) => (IntV(n, real_ty.asInstanceOf[IntType].size)::makeShadowSeq(size), align)
+      case FloatConst(f) => (FloatV(f)::makeShadowSeq(size), align)
+      case NullConst => (LocV(0, LocV.kHeap)::makeShadowSeq(size), align)
       case PtrToIntExpr(from, const, to) =>
-        IntV(evalAddr(const, from), to.asInstanceOf[IntType].size)
+        //(IntV(evalAddr(const, from), to.asInstanceOf[IntType].size)::makeShadowSeq(size), align)
+        Predef.assert(evalHeapConstWithAlign(const, from)._1.size == size)
+        (evalHeapConstWithAlign(const, from)._1, align) // Hacky
+      case BitCastExpr(from, const, to) =>
+        //(evalValue(const, to)::makeShadowSeq(size), align)
+        Predef.assert(evalHeapConstWithAlign(const, to)._1.size == size)
+        (evalHeapConstWithAlign(const, to)._1, align) // Hacky
       case GlobalId(id) if funMap.contains(id) =>
         if (!FunFuns.contains(id)) compile(funMap(id))
-        wrapFunV(FunFuns(id)) //XXX: padding?
-      case BitCastExpr(from, const, to) => evalValue(const, to)
-      case _ => LocV(evalAddr(v, ty), LocV.kHeap)
-    }
-    val real_ty = getRealType(ty)
-    v match {
+        (wrapFunV(FunFuns(id))::makeShadowSeq(size), align)
+
+      case GetElemPtrExpr(inBounds, baseType, ptrType, const, typedConsts) =>
+        val indexLLVMValue = typedConsts.map(tv => tv.const.asInstanceOf[IntConst].n)
+        // val base = evalAddr(const, getRealType(ptrType))
+        val base = evalHeapConstWithAlign(const, getRealType(ptrType))._1.head.int // XXX this is so hacky
+        val addr = base + calculateOffsetStatic(ptrType, indexLLVMValue)
+        (StaticList(LocV(addr, LocV.kHeap)), align)
+      case GlobalId(id) =>
+        (StaticList(LocV(heapEnv(id), LocV.kHeap)), align)
+
       case StructConst(cs) =>
         StructCalc.concat(cs) { c => evalHeapConstWithAlign(c.const, c.ty) }
       case ArrayConst(cs) =>
-        cs.foldLeft((StaticList[Rep[Value]](), 0)) { case ((l0, a0), c) => 
+        cs.foldLeft((StaticList[Rep[Value]](), 0)) { case ((l0, a0), c) =>
           val va = evalHeapConstWithAlign(c.const, c.ty)
           (l0 ++ va._1, va._2)
         }
       case CharArrayConst(s) =>
-        val (size, align) = getTySizeAlign(real_ty)
+        //val (size, align) = getTySizeAlign(real_ty)
         (s.map(c => IntV(c.toInt, 8)).toList ++ StaticList.fill(size - s.length)(NullV()), align)
       case ZeroInitializerConst => real_ty match {
         case ArrayType(size, ety) =>
@@ -230,12 +235,10 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
           StructCalc.concat(types) { evalHeapConstWithAlign(ZeroInitializerConst, _) }
         // TODO: fallback case is not typed
         case _ =>
-          val (size, align) = getTySizeAlign(real_ty)
+          //val (size, align) = getTySizeAlign(real_ty)
           (IntV(0, 8 * size) :: StaticList.fill(size - 1)(ShadowV()), align)
       }
-      case _ =>
-        val (size, align) = getTySizeAlign(real_ty)
-        (evalValue(v, real_ty) :: StaticList.fill(size - 1)(ShadowV()), align)
+      case _ => ???
     }
   }
 
