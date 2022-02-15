@@ -135,7 +135,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
         case FK_Double => 64
         case FK_X86_FP80 => 80
         case FK_FP128 => 128
-        case FK_PPC_FP1289 => 128
+        case FK_PPC_FP128 => 128
       }
       val elemSize = (rawSize + BYTE_SIZE - 1) / BYTE_SIZE
       (elemSize, elemSize)
@@ -192,26 +192,26 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     val real_ty = getRealType(ty)
     val (size, align) = getTySizeAlign(real_ty)
     v match {
-      case BoolConst(b) => (IntV(if (b) 1 else 0, 1)::makeShadowSeq(size), align)
-      case IntConst(n) => (IntV(n, real_ty.asInstanceOf[IntType].size)::makeShadowSeq(size), align)
-      case FloatConst(f) => (FloatV(f)::makeShadowSeq(size), align)
-      case NullConst => (LocV(0, LocV.kHeap)::makeShadowSeq(size), align)
+      case BoolConst(b) =>
+        (IntV(if (b) 1 else 0, 1)::makeShadowSeq(size), align)
+      case IntConst(n) =>
+        // Note: using size*8 would round an actual i1 to i8 if there is such i1
+        (IntV(n, size*8)::makeShadowSeq(size), align)
+      case FloatConst(f) =>
+        (FloatV(f)::makeShadowSeq(size), align)
+      case NullConst =>
+        (LocV(0, LocV.kHeap)::makeShadowSeq(size), align)
       case PtrToIntExpr(from, const, to) =>
-        //(IntV(evalAddr(const, from), to.asInstanceOf[IntType].size)::makeShadowSeq(size), align)
-        Predef.assert(evalHeapConstWithAlign(const, from)._1.size == size)
-        (evalHeapConstWithAlign(const, from)._1, align) // Hacky
+        (evalHeapConst(const, from), align)
       case BitCastExpr(from, const, to) =>
-        //(evalValue(const, to)::makeShadowSeq(size), align)
-        Predef.assert(evalHeapConstWithAlign(const, to)._1.size == size)
-        (evalHeapConstWithAlign(const, to)._1, align) // Hacky
+        (evalHeapConst(const, to), align)
       case GlobalId(id) if funMap.contains(id) =>
         if (!FunFuns.contains(id)) compile(funMap(id))
         (wrapFunV(FunFuns(id))::makeShadowSeq(size), align)
 
       case GetElemPtrExpr(inBounds, baseType, ptrType, const, typedConsts) =>
         val indexLLVMValue = typedConsts.map(tv => tv.const.asInstanceOf[IntConst].n)
-        // val base = evalAddr(const, getRealType(ptrType))
-        val base = evalHeapConstWithAlign(const, getRealType(ptrType))._1.head.int // XXX this is so hacky
+        val base = evalHeapConst(const, getRealType(ptrType)).head.int
         val addr = base + calculateOffsetStatic(ptrType, indexLLVMValue)
         (StaticList(LocV(addr, LocV.kHeap)), align)
       case GlobalId(id) =>
@@ -225,7 +225,6 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
           (l0 ++ va._1, va._2)
         }
       case CharArrayConst(s) =>
-        //val (size, align) = getTySizeAlign(real_ty)
         (s.map(c => IntV(c.toInt, 8)).toList ++ StaticList.fill(size - s.length)(NullV()), align)
       case ZeroInitializerConst => real_ty match {
         case ArrayType(size, ety) =>
@@ -235,7 +234,6 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
           StructCalc.concat(types) { evalHeapConstWithAlign(ZeroInitializerConst, _) }
         // TODO: fallback case is not typed
         case _ =>
-          //val (size, align) = getTySizeAlign(real_ty)
           (IntV(0, 8 * size) :: StaticList.fill(size - 1)(ShadowV()), align)
       }
       case _ => ???
