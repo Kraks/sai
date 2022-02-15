@@ -104,7 +104,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
       fields(types.take(idx+1))._1
     
     def concat[E](cs: List[E])(feval: E => (List[Rep[Value]], Int)): (List[Rep[Value]], Int) = {
-      val fill: Int => List[Rep[Value]] = (StaticList.fill(_)(NullV()))
+      val fill: Int => List[Rep[Value]] = (StaticList.fill(_)(NullPtr()))
       val (list, align) = cs.foldLeft((StaticList[Rep[Value]](), 0)) { case ((list, maxalign), c) =>
         val (value, align) = feval(c)
         (list ++ fill(padding(list.size, align)) ++ value, align max maxalign)
@@ -225,7 +225,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
           (l0 ++ va._1, va._2)
         }
       case CharArrayConst(s) =>
-        (s.map(c => IntV(c.toInt, 8)).toList ++ StaticList.fill(size - s.length)(NullV()), align)
+        (s.map(c => IntV(c.toInt, 8)).toList ++ StaticList.fill(size - s.length)(NullPtr()), align)
       case ZeroInitializerConst => real_ty match {
         case ArrayType(size, ety) =>
           val (value, align) = evalHeapConstWithAlign(ZeroInitializerConst, ety)
@@ -244,7 +244,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
 
   def precompileHeapLists(modules: StaticList[Module]): StaticList[Rep[Value]] = {
     var heapSize = 8
-    var heapTmp: StaticList[Rep[Value]] = StaticList.fill(heapSize)(NullV())
+    var heapTmp: StaticList[Rep[Value]] = StaticList.fill(heapSize)(NullPtr())
     for (module <- modules) {
       // module.funcDeclMap.foreach { case (k, v) =>
       //   heapEnv += k -> unit(heapSize)
@@ -257,7 +257,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
       //     heapSize += 8;
       //   }
       // }
-      // heapTmp ++= StaticList.fill(heapSize)(NullV())
+      // heapTmp ++= StaticList.fill(heapSize)(NullPtr())
       module.globalDeclMap.foreach { case (k, v) =>
         val realname = module.mname + "_" + v.id
         heapEnv += realname -> unit(heapSize);

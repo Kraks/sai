@@ -76,7 +76,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
         ret(LocV(heapEnv(id), LocV.kHeap))
       case GlobalId(id) if globalDeclMap.contains(id) =>
         System.out.println(s"Warning: globalDecl $id is ignored")
-        ret(NullV())
+        ret(NullPtr())
       case GetElemPtrExpr(_, baseType, ptrType, const, typedConsts) =>
         // typedConst are not all int, could be local id
         val indexLLVMValue = typedConsts.map(tv => tv.const)
@@ -93,9 +93,9 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
         }
       case ZeroInitializerConst =>
         System.out.println("Warning: Evaluate zeroinitialize in body")
-        ret(NullV())
+        ret(NullPtr())
       case NullConst => ret(LocV.nullloc)
-      case NoneConst => ret(NullV())
+      case NoneConst => ret(NullPtr())
     }
   }
 
@@ -291,7 +291,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
       case RetTerm(ty, v) =>
         v match {
           case Some(value) => eval(value, ty)
-          case None => ret(NullV())
+          case None => ret(NullPtr())
         }
       case BrTerm(lab) =>
         for {

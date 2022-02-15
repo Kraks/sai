@@ -62,7 +62,7 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
         LocV(heapEnv(id), LocV.kHeap)
       case GlobalId(id) if globalDeclMap.contains(id) =>
         System.out.println(s"Warning: globalDecl $id is ignored")
-        NullV()
+        NullPtr()
       case GetElemPtrExpr(_, baseType, ptrType, const, typedConsts) =>
         // typedConst are not all int, could be local id
         val indexLLVMValue = typedConsts.map(tv => tv.const)
@@ -76,9 +76,9 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
         }
       case ZeroInitializerConst =>
         System.out.println("Warning: Evaluate zeroinitialize in body")
-        NullV()
+        NullPtr()
       case NullConst => LocV.nullloc
-      case NoneConst => NullV()
+      case NoneConst => NullPtr()
     }
 
   def evalIntOp2(op: String, lhs: LLVMValue, rhs: LLVMValue, ty: LLVMType, ss: Rep[SS])(implicit funName: String): Rep[Value] =
@@ -241,7 +241,7 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
       case RetTerm(ty, v) =>
         v match {
           case Some(value) => eval(value, ty, ss)
-          case None => NullV()
+          case None => NullPtr()
         }
       case BrTerm(lab) =>
         ss.addIncomingBlock(incomingBlock)

@@ -135,8 +135,12 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
     }
   }
   object FloatV {
-    // TODO: shall we keep float kinds?
+    // TODO: shall we keep float kinds? yes
     def apply(f: Rep[Float]): Rep[Value] = "make_FloatV".reflectWriteWith[Value](f)(Adapter.CTRL)
+    def unapply(v: Rep[Value]): Option[(Float, Int)] = Unwrap(v) match {
+      case gNode("make_FloatV", bConst(f: Float)::_) => Some((f, 32))
+      case _ => None
+    }
   }
   object LocV {
     trait Kind
@@ -177,18 +181,30 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
   }
 
   object SymV {
-    def apply(s: Rep[String]): Rep[Value] = apply(s, DEFAULT_INT_BW)
-    def apply(s: Rep[String], bw: Int): Rep[Value] =
-      "make_SymV".reflectWriteWith[Value](s, bw)(Adapter.CTRL)  //XXX: reflectMutable?
+    def apply(s: String): Rep[Value] = apply(s, DEFAULT_INT_BW)
+    def apply(s: String, bw: Int): Rep[Value] =
+      "make_SymV".reflectWriteWith[Value](unit(s), bw)(Adapter.CTRL)  //XXX: reflectMutable?
     def makeSymVList(i: Int): Rep[List[Value]] =
       List[Value](Range(0, i).map(x => apply("x" + x.toString)):_*)
+    def unapply(v: Rep[Value]): Option[(String, Int)] = Unwrap(v) match {
+      case gNode("make_SymV", bConst(x: String)::bConst(bw: Int)::_) => Some((x, bw))
+      case _ => None
+    }
   }
   object ShadowV {
-    def apply(): Rep[Value] = "shadow-v".reflectMutableWith[Value]()
+    def apply(): Rep[Value] = "make_ShadowV".reflectMutableWith[Value]()
+    def unapply(v: Rep[Value]): Boolean = Unwrap(v) match {
+      case gNode("make_ShadowV", _) => true
+      case _ => false
+    }
   }
 
-  object NullV {
-    def apply(): Rep[Value] = "null-v".reflectMutableWith[Value]()
+  object NullPtr {
+    def apply(): Rep[Value] = "nullptr".reflectMutableWith[Value]()
+    def unapply(v: Rep[Value]): Boolean = Unwrap(v) match {
+      case gNode("nullptr", _) => true
+      case _ => false
+    }
   }
 
   object IntOp2 {
