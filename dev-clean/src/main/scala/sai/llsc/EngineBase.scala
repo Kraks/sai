@@ -183,8 +183,6 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     }
   }
 
-  def makeShadowSeq(size: Int): StaticList[Rep[Value]] = StaticList.fill(size - 1)(ShadowV())
-
   // FIXME: Alignment: CharArrayConst, ArrayConst
   // Float Type
   // TODO: don't add padding here; Value should generate its raw data layout
@@ -193,21 +191,21 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     val (size, align) = getTySizeAlign(real_ty)
     v match {
       case BoolConst(b) =>
-        (IntV(if (b) 1 else 0, 1)::makeShadowSeq(size), align)
+        (IntV(if (b) 1 else 0, size).toShadowBytes.toStatic, align)
       case IntConst(n) =>
         // Note: using size*8 would round an actual i1 to i8 if there is such i1
-        (IntV(n, size*8)::makeShadowSeq(size), align)
+        (IntV(n, size*8).toShadowBytes.toStatic, align)
       case FloatConst(f) =>
-        (FloatV(f)::makeShadowSeq(size), align)
+        (FloatV(f, size).toShadowBytes.toStatic, align)
       case NullConst =>
-        (LocV(0, LocV.kHeap)::makeShadowSeq(size), align)
+        (LocV(0, LocV.kHeap).toShadowBytes.toStatic, align)
       case PtrToIntExpr(from, const, to) =>
         (evalHeapConst(const, from), align)
       case BitCastExpr(from, const, to) =>
         (evalHeapConst(const, to), align)
       case GlobalId(id) if funMap.contains(id) =>
         if (!FunFuns.contains(id)) compile(funMap(id))
-        (wrapFunV(FunFuns(id))::makeShadowSeq(size), align)
+        (wrapFunV(FunFuns(id)).toShadowBytes.toStatic, align)
 
       case GetElemPtrExpr(inBounds, baseType, ptrType, const, typedConsts) =>
         val indexLLVMValue = typedConsts.map(tv => tv.const.asInstanceOf[IntConst].n)
@@ -225,7 +223,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
           (l0 ++ va._1, va._2)
         }
       case CharArrayConst(s) =>
-        (s.map(c => IntV(c.toInt, 8)).toList ++ StaticList.fill(size - s.length)(NullPtr()), align)
+        (s.map(c => IntV(c.toInt, 8)).toList ++ NullPtr.seq(size - s.length), align)
       case ZeroInitializerConst => real_ty match {
         case ArrayType(size, ety) =>
           val (value, align) = evalHeapConstWithAlign(ZeroInitializerConst, ety)
@@ -234,7 +232,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
           StructCalc.concat(types) { evalHeapConstWithAlign(ZeroInitializerConst, _) }
         // TODO: fallback case is not typed
         case _ =>
-          (IntV(0, 8 * size) :: StaticList.fill(size - 1)(ShadowV()), align)
+          (IntV(0, 8 * size).toShadowBytes.toStatic, align)
       }
       case _ => ???
     }

@@ -19,7 +19,7 @@ import lms.core.stub.{While => _, _}
 import sai.lmsx._
 import sai.lmsx.smt.SMTBool
 
-import scala.collection.immutable.{List => StaticList, Map => StaticMap, Set => StaticSet}
+import scala.collection.immutable.{List => StaticList, Map => StaticMap, Set => StaticSet, Range => StaticRange}
 import scala.collection.mutable.{Map => MutableMap, Set => MutableSet}
 
 trait BasicDefs { self: SAIOps =>
@@ -135,10 +135,10 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
     }
   }
   object FloatV {
-    // TODO: shall we keep float kinds? yes
-    def apply(f: Rep[Float]): Rep[Value] = "make_FloatV".reflectWriteWith[Value](f)(Adapter.CTRL)
+    def apply(f: Rep[Float]): Rep[Value] = apply(f, 32)
+    def apply(f: Rep[Float], bw: Int): Rep[Value] = "make_FloatV".reflectWriteWith[Value](f, bw)(Adapter.CTRL)
     def unapply(v: Rep[Value]): Option[(Float, Int)] = Unwrap(v) match {
-      case gNode("make_FloatV", bConst(f: Float)::_) => Some((f, 32))
+      case gNode("make_FloatV", bConst(f: Float)::bConst(bw: Int)::_) => Some((f, bw))
       case _ => None
     }
   }
@@ -193,9 +193,18 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
   }
   object ShadowV {
     def apply(): Rep[Value] = "make_ShadowV".reflectMutableWith[Value]()
+    def apply(i: Int): Rep[Value] = "make_ShadowV".reflectMutableWith[Value](unit(i))
     def unapply(v: Rep[Value]): Boolean = Unwrap(v) match {
       case gNode("make_ShadowV", _) => true
       case _ => false
+    }
+    def seq(size: Int): StaticList[Rep[Value]] = {
+      val s = ShadowV()
+      StaticList.fill(size)(s)
+    }
+    def indexSeq(size: Int): StaticList[Rep[Value]] = {
+      require(size > 0)
+      StaticRange(-size, 0).reverse.map(ShadowV(_)).toList
     }
   }
 
@@ -204,6 +213,10 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
     def unapply(v: Rep[Value]): Boolean = Unwrap(v) match {
       case gNode("nullptr", _) => true
       case _ => false
+    }
+    def seq(size: Int): StaticList[Rep[Value]] = {
+      val s = NullPtr()
+      StaticList.fill(size)(s)
     }
   }
 
@@ -214,6 +227,7 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
   object FloatOp2 {
     def apply(op: String, o1: Rep[Value], o2: Rep[Value]) = "float_op_2".reflectWith[Value](op, o1, o2)
   }
+
 
   implicit class ValueOps(v: Rep[Value]) {
     def loc: Rep[Addr] = v match {
@@ -279,5 +293,16 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
       "trunc".reflectWith[Value](v, from, to)
     def toIntV: Rep[Value] = "to-IntV".reflectWith[Value](v)
     def toLocV: Rep[Value] = "to-LocV".reflectWith[Value](v)
+
+    def toBytes: Rep[List[Value]] = ???
+    def toShadowBytes: Rep[List[Value]] = v match {
+      case ShadowV() => List[Value](v)
+      case IntV(n, bw) => List[Value](v::ShadowV.indexSeq((bw+BYTE_SIZE-1)/BYTE_SIZE):_*)
+      case FloatV(f, bw) => List[Value](v::ShadowV.indexSeq((bw+BYTE_SIZE-1)/BYTE_SIZE):_*)
+      case LocV(_, _, _) | FunV(_) | CPSFunV(_) =>
+        List[Value](v::ShadowV.indexSeq(7):_*)
+      case _ => "to-bytes".reflectWith[List[Value]](v)
+    }
+
   }
 }
