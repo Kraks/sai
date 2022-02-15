@@ -33,6 +33,34 @@ struct Value : public std::enable_shared_from_this<Value>, public Printable {
   size_t hashval;
   Value() : hashval(0) {}
   size_t& hash() { return hashval; }
+
+  /* Since from_bytes/from_bytes_shadow only concate ``bit-vectors'' (either concrete or symbolic),
+   * and they do not work with location/function values, at some point, we may find that
+   * it doesn't make much sense to distinguish Int and Float as variants of Value...
+   */
+  static PtrVal from_bytes(List<PtrVal>&& xs) {
+    // Note: it should work for SymV/IntV _without_ shadow values, not LocV/FunV
+    // XXX what if v is nullptr/padding
+    return Vec::foldRight(xs.take(xs.size()-1), xs.back(), [](auto&& x, auto&& acc) { return bv_concat(acc, x); });
+  }
+  static PtrVal from_bytes_shadow(List<PtrVal>&& xs) {
+    // Note: the head of xs should not be a Shadow V, if so, it means
+    // the bytes sequence is incomplete.
+    auto reified = List<PtrVal>{}.transient();
+    for (auto i = 0; i < xs.size(); ) {
+      auto v = xs.at(i);
+      // XXX what if v is nullptr/padding
+      int bw = v->get_bw();
+      if (bw <= 8) {
+        reified.push_back(std::move(v));
+        i++;
+      } else {
+        reified.append(v->to_bytes().transient());
+        i += (bw/8);
+      }
+    }
+    return from_bytes(reified.persistent().take(xs.size()));
+  }
 };
 
 template<>
@@ -72,7 +100,7 @@ struct ShadowV : public Value {
   virtual bool compare(const Value *v) const { return false; }
   virtual PtrVal to_SMT() { return nullptr; }
   virtual std::shared_ptr<IntV> to_IntV() { return nullptr; }
-  virtual std::string toString() const { return "ShadowV"; }
+  virtual std::string toString() const { return "❏"; }
   virtual List<PtrVal> to_bytes() { return List<PtrVal>{shared_from_this()}; }
   virtual List<PtrVal> to_bytes_shadow() { return to_bytes(); }
 };
@@ -230,6 +258,10 @@ struct FloatV : Value {
 };
 
 inline PtrVal make_FloatV(float f) {
+  return std::make_shared<FloatV>(f);
+}
+
+inline PtrVal make_FloatV(float f, size_t bw) {
   return std::make_shared<FloatV>(f);
 }
 

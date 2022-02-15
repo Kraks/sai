@@ -203,7 +203,7 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
       StaticList.fill(size)(s)
     }
     def indexSeq(size: Int): StaticList[Rep[Value]] = {
-      require(size > 0)
+      require(size >= 0)
       StaticRange(-size, 0).reverse.map(ShadowV(_)).toList
     }
   }
@@ -297,8 +297,8 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
     def toBytes: Rep[List[Value]] = ???
     def toShadowBytes: Rep[List[Value]] = v match {
       case ShadowV() => List[Value](v)
-      case IntV(n, bw) => List[Value](v::ShadowV.indexSeq((bw+BYTE_SIZE-1)/BYTE_SIZE):_*)
-      case FloatV(f, bw) => List[Value](v::ShadowV.indexSeq((bw+BYTE_SIZE-1)/BYTE_SIZE):_*)
+      case IntV(n, bw) => List[Value](v::ShadowV.indexSeq((bw+BYTE_SIZE-1)/BYTE_SIZE - 1):_*)
+      case FloatV(f, bw) => List[Value](v::ShadowV.indexSeq((bw+BYTE_SIZE-1)/BYTE_SIZE - 1):_*)
       case LocV(_, _, _) | FunV(_) | CPSFunV(_) =>
         List[Value](v::ShadowV.indexSeq(7):_*)
       case _ => "to-bytes".reflectWith[List[Value]](v)

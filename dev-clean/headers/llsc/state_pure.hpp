@@ -89,26 +89,65 @@ public:
   Mem0(List<PtrVal> mem) : PreMem(mem) {}
   PtrVal at(size_t idx, size_t byte_size) {
     auto val = mem.at(idx);
-    if (std::dynamic_pointer_cast<IntV>(val) || std::dynamic_pointer_cast<SymV>(val)) {
-      auto span = Vec::slice(mem, idx, byte_size);
-      return Vec::foldRight(span.take(span.size()-1), span.back(), [](auto x, auto acc) {
-        return bv_concat(acc, x);
-      });
-    }
+    if (std::dynamic_pointer_cast<IntV>(val) || std::dynamic_pointer_cast<SymV>(val))
+      return Value::from_bytes(Vec::slice(mem, idx, byte_size));
     ASSERT(val != nullptr, "Reading an uninitialized (nullptr) value");
     ASSERT(!std::dynamic_pointer_cast<ShadowV>(val), "Reading a shadowed value");
     return val;
   }
   Mem0 update(size_t idx, PtrVal val, size_t byte_size) {
-    auto old_val = mem.at(idx);
-    ASSERT(!std::dynamic_pointer_cast<ShadowV>(old_val), "Updating a shadowed value");
+    ASSERT(!std::dynamic_pointer_cast<ShadowV>(mem.at(idx)), "Updating a shadowed value");
     ASSERT(val->get_bw() == 1 || val->get_bw() == byte_size * 8, "Mismatched value and size to write");
-    size_t end = idx + byte_size - 1;
     auto bytes = val->to_bytes();
     ASSERT(bytes.size() == byte_size, "Size of byte-representation of value not equal to argument byte_size");
     auto mem = this->mem.transient();
     for (size_t i = 0; i < byte_size; i++) { mem.set(idx+i, bytes.at(i)); }
     return Mem0(mem.persistent());
+  }
+};
+
+/* Mem1 only works with _indexed_ shadow values.
+ */
+class Mem1 : public PreMem<PtrVal, Mem1> {
+public:
+  Mem1(List<PtrVal> mem) : PreMem(mem) {}
+  PtrVal at(size_t idx, size_t byte_size) {
+    auto val = mem.at(idx);
+    if (std::dynamic_pointer_cast<IntV>(val) || std::dynamic_pointer_cast<SymV>(val)) {
+      auto bw = val->get_bw();
+      if (bw == 1 || bw == byte_size * 8) return val;
+      if (bw > byte_size*8) return Value::from_bytes(val->to_bytes().take(byte_size));
+      if (bw < byte_size*8) return Value::from_bytes_shadow(Vec::slice(mem, idx, byte_size));
+    }
+    if (auto sv = std::dynamic_pointer_cast<ShadowV>(val)) {
+      auto src = mem.at(idx + sv->offset);
+      ASSERT(!std::dynamic_pointer_cast<LocV>(src), "Reading shadow of a LocV"); // XXX function too
+      auto src_bytes = src->to_bytes().drop(-sv->offset);
+      if (src_bytes.size() == byte_size) return Value::from_bytes(std::move(src_bytes));
+      if (src_bytes.size() >  byte_size) return Value::from_bytes(src_bytes.take(byte_size));
+      if (src_bytes.size() <  byte_size)
+        return Value::from_bytes_shadow(src_bytes + Vec::slice(mem, idx+src_bytes.size(), byte_size-src_bytes.size()));
+    }
+    ASSERT(val != nullptr, "Reading an uninitialized (nullptr) value"); //XXX maybe return 0?
+    return val;
+  }
+  Mem1 update(size_t idx, PtrVal val, size_t byte_size) {
+    ASSERT(val->get_bw() == 1 || val->get_bw() == byte_size * 8, "Mismatched value and size to write");
+    auto old_val = mem.at(idx);
+    auto mem = this->mem.transient();
+    if (auto sv = std::dynamic_pointer_cast<ShadowV>(old_val)) {
+      auto src_idx = idx + sv->offset;
+      auto src = mem.at(src_idx);
+      auto src_bytes = src->to_bytes();
+      // Break down its orignal val
+      // TODO: we don't need to write the whole byte seq, since part of it will be overwritten anyway
+      for (size_t i = 0; i < src_bytes.size(); i++) { mem.set(src_idx+i, src_bytes.at(i)); }
+    }
+    auto bytes = val->to_bytes_shadow();
+    // TODO: break down values to the right if it is going to overwrite
+    ASSERT(bytes.size() == byte_size, "Size of byte-representation of value not equal to argument byte_size");
+    for (size_t i = 0; i < byte_size; i++) { mem.set(idx+i, bytes.at(i)); }
+    return Mem1(mem.persistent());
   }
 };
 
