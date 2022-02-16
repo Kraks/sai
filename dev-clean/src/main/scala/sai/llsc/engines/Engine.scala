@@ -93,7 +93,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
         }
       case ZeroInitializerConst =>
         System.out.println("Warning: Evaluate zeroinitialize in body")
-        ret(NullPtr())
+        ret(NullPtr()) // FIXME: use uninitValue
       case NullConst => ret(LocV.nullloc)
       case NoneConst => ret(NullPtr())
     }

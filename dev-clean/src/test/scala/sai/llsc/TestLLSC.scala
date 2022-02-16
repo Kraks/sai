@@ -237,7 +237,7 @@ class TestImpCPSLLSC extends TestLLSC {
 
 class Playground extends TestLLSC {
   //testLLSC(new PureCPSLLSC_Z3, TestPrg(mergesort, "mergeSortTest", "@main", 0, None, nPath(720)))
-  //testLLSC(new PureCPSLLSC, memModel)
+  testLLSC(new PureCPSLLSC, memModel)
   //testLLSC(new PureCPSLLSC_Z3, TestPrg(aliasing, "aliasingTest", "@main", 0, None, nPath(1)))
   //testLLSC(new PureCPSLLSC, TestPrg(nqueen, "nQueens", "@main", 0, None, nPath(1363)))
   //testLLSC(new PureCPSLLSC_Z3, TestPrg(nqueen, "nQueensZ3", "@main", 0, None, nPath(1363)))

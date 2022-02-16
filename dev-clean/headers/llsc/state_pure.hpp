@@ -97,7 +97,7 @@ public:
   }
   Mem0 update(size_t idx, PtrVal val, size_t byte_size) {
     ASSERT(!std::dynamic_pointer_cast<ShadowV>(mem.at(idx)), "Updating a shadowed value");
-    ASSERT(val->get_bw() == 1 || val->get_bw() == byte_size * 8, "Mismatched value and size to write");
+    ASSERT(val->get_byte_size() == byte_size, "Mismatched value and size to write");
     auto bytes = val->to_bytes();
     ASSERT(bytes.size() == byte_size, "Size of byte-representation of value not equal to argument byte_size");
     auto mem = this->mem.transient();
@@ -106,18 +106,20 @@ public:
   }
 };
 
-/* Mem1 only works with _indexed_ shadow values.
+/* MemIdxShadow only works with _indexed_ shadow values.
  */
-class Mem1 : public PreMem<PtrVal, Mem1> {
+class MemIdxShadow : public PreMem<PtrVal, MemIdxShadow> {
 public:
-  Mem1(List<PtrVal> mem) : PreMem(mem) {}
+  using PreMem::at;
+  using PreMem::update;
+  MemIdxShadow(List<PtrVal> mem) : PreMem(mem) {}
   PtrVal at(size_t idx, size_t byte_size) {
     auto val = mem.at(idx);
     if (std::dynamic_pointer_cast<IntV>(val) || std::dynamic_pointer_cast<SymV>(val)) {
-      auto bw = val->get_bw();
-      if (bw == 1 || bw == byte_size * 8) return val;
-      if (bw > byte_size*8) return Value::from_bytes(val->to_bytes().take(byte_size));
-      if (bw < byte_size*8) return Value::from_bytes_shadow(Vec::slice(mem, idx, byte_size));
+      auto val_size = val->get_byte_size();
+      if (val_size == byte_size) return val;
+      if (val_size >  byte_size) return Value::from_bytes(val->to_bytes().take(byte_size));
+      if (val_size <  byte_size) return Value::from_bytes_shadow(Vec::slice(mem, idx, byte_size));
     }
     if (auto sv = std::dynamic_pointer_cast<ShadowV>(val)) {
       auto src = mem.at(idx + sv->offset);
@@ -128,30 +130,38 @@ public:
       if (src_bytes.size() <  byte_size)
         return Value::from_bytes_shadow(src_bytes + Vec::slice(mem, idx+src_bytes.size(), byte_size-src_bytes.size()));
     }
-    ASSERT(val != nullptr, "Reading an uninitialized (nullptr) value"); //XXX maybe return 0?
+    ASSERT(val != nullptr, "Reading a nullptr value");
     return val;
   }
-  Mem1 update(size_t idx, PtrVal val, size_t byte_size) {
-    ASSERT(val->get_bw() == 1 || val->get_bw() == byte_size * 8, "Mismatched value and size to write");
+  MemIdxShadow update(size_t idx, PtrVal val, size_t byte_size) {
+    ASSERT(val->get_byte_size() == byte_size, "Mismatched value and size to write: " << val->get_byte_size() << " vs " << byte_size);
     auto old_val = mem.at(idx);
     auto mem = this->mem.transient();
     if (auto sv = std::dynamic_pointer_cast<ShadowV>(old_val)) {
       auto src_idx = idx + sv->offset;
       auto src = mem.at(src_idx);
       auto src_bytes = src->to_bytes();
-      // Break down its orignal val
-      // TODO: we don't need to write the whole byte seq, since part of it will be overwritten anyway
+      // TODO: We don't need to write the whole byte seq of src, since the right-hand side part of it will be overwritten anyway
       for (size_t i = 0; i < src_bytes.size(); i++) { mem.set(src_idx+i, src_bytes.at(i)); }
     }
     auto bytes = val->to_bytes_shadow();
-    // TODO: break down values to the right if it is going to overwrite
     ASSERT(bytes.size() == byte_size, "Size of byte-representation of value not equal to argument byte_size");
-    for (size_t i = 0; i < byte_size; i++) { mem.set(idx+i, bytes.at(i)); }
-    return Mem1(mem.persistent());
+    for (size_t i = 0; i < byte_size; i++) {
+      auto w = mem.at(idx + i);
+      if (w && byte_size-i < w->get_byte_size()) {
+        ASSERT(std::dynamic_pointer_cast<IntV>(w) || std::dynamic_pointer_cast<SymV>(w), "Overwriting a LocV or FunV");
+        // Some value to be overwritten is extended beyond byte_size, needs to reify its shadowed value
+        auto w_bytes = w->to_bytes();
+        // We don't need to write the whole byte seq of w, since the left-hand side part of it will be overwritten anyway
+        for (size_t j = byte_size-i; j < w_bytes.size(); j++) { mem.set(idx + i + j, w_bytes.at(j)); }
+      }
+      mem.set(idx + i, bytes.at(i));
+    }
+    return MemIdxShadow(mem.persistent());
   }
 };
 
-class Mem: public PreMem<PtrVal, Mem> {
+class MemShadow: public PreMem<PtrVal, MemShadow> {
   // endian-ness: https://stackoverflow.com/questions/46289636/z3-endian-ness-mixup-between-extract-and-concat
   static PtrVal q_extract(PtrVal v0, size_t b0, size_t b, size_t e, size_t e0) {
     return bv_extract(v0, (e - b0) * 8 - 1, (b - b0) * 8);
@@ -214,7 +224,7 @@ class Mem: public PreMem<PtrVal, Mem> {
   }
 
 public:
-  Mem(List<PtrVal> mem) : PreMem(mem) { }
+  MemShadow(List<PtrVal> mem) : PreMem(mem) { }
   using PreMem::at;
   using PreMem::update;
 
@@ -231,7 +241,7 @@ public:
     return cur;
   }
 
-  Mem update(size_t idx, PtrVal val, int size) {
+  MemShadow update(size_t idx, PtrVal val, int size) {
     auto mem = this->mem.transient();
     Segment newval {val, idx, size_t(size)};
     if (is_intact(newval)) {
@@ -257,11 +267,11 @@ public:
         idx = curval.end;
       }
     }
-    return Mem(mem.persistent());
+    return MemShadow(mem.persistent());
   }
 };
 
-template class PreMem<PtrVal, Mem>; // instantiate the class
+using Mem = MemIdxShadow;
 
 class Frame: public Printable {
   public:

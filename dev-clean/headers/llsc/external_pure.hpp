@@ -158,9 +158,10 @@ inline T __llvm_memset(SS& state, List<PtrVal>& args, __Cont<T> k) {
   PtrVal dest = args.at(0);
   IntData bytes_int = proj_IntV(args.at(2));
   ASSERT(std::dynamic_pointer_cast<LocV>(dest) != nullptr, "Non-location value");
+  auto v = make_IntV(0, 8);
   SS res = state;
   for (int i = 0; i < bytes_int; i++) {
-    res = res.update(dest + i, IntV0);
+    res = res.update(dest + i, v);
   }
   return k(res, IntV0);
 }

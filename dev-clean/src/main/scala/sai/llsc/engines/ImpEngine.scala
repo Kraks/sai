@@ -76,7 +76,7 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
         }
       case ZeroInitializerConst =>
         System.out.println("Warning: Evaluate zeroinitialize in body")
-        NullPtr()
+        NullPtr() // FIXME: use uninitValue
       case NullConst => LocV.nullloc
       case NoneConst => NullPtr()
     }

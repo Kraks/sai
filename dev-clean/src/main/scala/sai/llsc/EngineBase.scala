@@ -104,7 +104,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
       fields(types.take(idx+1))._1
     
     def concat[E](cs: List[E])(feval: E => (List[Rep[Value]], Int)): (List[Rep[Value]], Int) = {
-      val fill: Int => List[Rep[Value]] = (StaticList.fill(_)(NullPtr()))
+      val fill: Int => List[Rep[Value]] = (StaticList.fill(_)(uninitValue))
       val (list, align) = cs.foldLeft((StaticList[Rep[Value]](), 0)) { case ((list, maxalign), c) =>
         val (value, align) = feval(c)
         (list ++ fill(padding(list.size, align)) ++ value, align max maxalign)
@@ -183,6 +183,8 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     }
   }
 
+  def uninitValue: Rep[Value] = IntV(0, 8) //NullPtr()
+
   def isAtomicConst(c: Constant): Boolean = c match {
     case BoolConst(_) | IntConst(_) | FloatConst(_)
        | NullConst | PtrToIntExpr(_, _, _) | GlobalId(_)
@@ -191,6 +193,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     case _ => false
   }
 
+  // Float Type
   def evalHeapAtomicConst(v: Constant, ty: LLVMType): Rep[Value] = v match {
     case BoolConst(b) => IntV(if (b) 1 else 0, 1)
     case IntConst(n) => IntV(n, ty.asInstanceOf[IntType].size)
@@ -222,7 +225,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
         }
       case CharArrayConst(s) =>
         val (size, align) = getTySizeAlign(real_ty)
-        (s.map(c => IntV(c.toInt, 8)).toList ++ NullPtr.seq(size - s.length), align)
+        (s.map(c => IntV(c.toInt, 8)).toList ++ StaticList.fill(size-s.length)(uninitValue), align)
       case ZeroInitializerConst => real_ty match {
         case ArrayType(size, ety) =>
           val (value, align) = evalHeapConstWithAlign(ZeroInitializerConst, ety)
@@ -239,7 +242,6 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
   }
 
   // FIXME: Alignment: CharArrayConst, ArrayConst
-  // Float Type
   def evalHeapConstWithAlign(v: Constant, ty: LLVMType): (List[Rep[Value]], Int) =
     v match {
       case v if isAtomicConst(v) =>
@@ -248,60 +250,6 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
         (evalHeapAtomicConst(v, real_ty).toShadowBytes.toStatic, align)
       case _ => evalHeapComplexConst(v, getRealType(ty))
     }
-
-  /*
-  def evalHeapConstWithAlign(v: Constant, ty: LLVMType): (List[Rep[Value]], Int) = {
-    val real_ty = getRealType(ty)
-    val (size, align) = getTySizeAlign(real_ty)
-    v match {
-      case BoolConst(b) =>
-        (IntV(if (b) 1 else 0, size).toShadowBytes.toStatic, align)
-      case IntConst(n) =>
-        // Note: using size*8 would round an actual i1 to i8 if there is such i1
-        (IntV(n, size*8).toShadowBytes.toStatic, align)
-      case FloatConst(f) =>
-        (FloatV(f, size).toShadowBytes.toStatic, align)
-      case NullConst =>
-        (LocV(0, LocV.kHeap).toShadowBytes.toStatic, align)
-      case PtrToIntExpr(from, const, to) =>
-        (evalHeapConst(const, from), align)
-      case BitCastExpr(from, const, to) =>
-        (evalHeapConst(const, to), align)
-      case GlobalId(id) if funMap.contains(id) =>
-        if (!FunFuns.contains(id)) compile(funMap(id))
-        (wrapFunV(FunFuns(id)).toShadowBytes.toStatic, align)
-
-      case GetElemPtrExpr(inBounds, baseType, ptrType, const, typedConsts) =>
-        val indexLLVMValue = typedConsts.map(tv => tv.const.asInstanceOf[IntConst].n)
-        val base = evalHeapConst(const, getRealType(ptrType)).head.int
-        val addr = base + calculateOffsetStatic(ptrType, indexLLVMValue)
-        (StaticList(LocV(addr, LocV.kHeap)), align)
-      case GlobalId(id) =>
-        (StaticList(LocV(heapEnv(id), LocV.kHeap)), align)
-
-      case StructConst(cs) =>
-        StructCalc.concat(cs) { c => evalHeapConstWithAlign(c.const, c.ty) }
-      case ArrayConst(cs) =>
-        cs.foldLeft((StaticList[Rep[Value]](), 0)) { case ((l0, a0), c) =>
-          val va = evalHeapConstWithAlign(c.const, c.ty)
-          (l0 ++ va._1, va._2)
-        }
-      case CharArrayConst(s) =>
-        (s.map(c => IntV(c.toInt, 8)).toList ++ NullPtr.seq(size - s.length), align)
-      case ZeroInitializerConst => real_ty match {
-        case ArrayType(size, ety) =>
-          val (value, align) = evalHeapConstWithAlign(ZeroInitializerConst, ety)
-          (StaticList.fill(size)(value).flatten, align)
-        case Struct(types) =>
-          StructCalc.concat(types) { evalHeapConstWithAlign(ZeroInitializerConst, _) }
-        // TODO: fallback case is not typed
-        case _ =>
-          (IntV(0, 8 * size).toShadowBytes.toStatic, align)
-      }
-      case _ => ???
-    }
-  }
-   */
 
   def evalHeapConst(v: Constant, ty: LLVMType): List[Rep[Value]] = evalHeapConstWithAlign(v, ty)._1
 

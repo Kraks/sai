@@ -13,6 +13,7 @@ inline PtrVal bv_extract(PtrVal v1, int hi, int lo);
 struct Value : public std::enable_shared_from_this<Value>, public Printable {
   virtual bool is_conc() const = 0;
   virtual int get_bw() const = 0;
+  size_t get_byte_size() const { return (get_bw() + 7) / 8; }
   virtual bool compare(const Value *v) const = 0;
 
   /* `to_bytes` produces the memory representation of this value
@@ -55,8 +56,9 @@ struct Value : public std::enable_shared_from_this<Value>, public Printable {
         reified.push_back(std::move(v));
         i++;
       } else {
+        // Note: sometimes we don't really have to reify every things down to bytes
         reified.append(v->to_bytes().transient());
-        i += (bw/8);
+        i += v->get_byte_size();
       }
     }
     return from_bytes(reified.persistent().take(xs.size()));
@@ -608,13 +610,11 @@ inline PtrVal bv_concat(PtrVal v1, PtrVal v2) {
   int bw1 = v1->get_bw();
   int bw2 = v2->get_bw();
   assert(bw1 + bw2 <= addr_bw);
-  if (i1 && i2) {
-    return make_IntV(i1->i | (uint64_t(i2->i) >> bw1), bw1 + bw2, false);
-  }
-  else {
-    return std::make_shared<SymV>(op_concat, immer::flex_vector<PtrVal> { v1, v2 }, bw1 + bw2);
-  }
-  ABORT("Concat on invalid value, exit");
+  if (i1 && i2) return make_IntV(i1->i | (uint64_t(i2->i) >> bw1), bw1 + bw2, false);
+  ASSERT(!std::dynamic_pointer_cast<ShadowV>(v1) && !std::dynamic_pointer_cast<ShadowV>(v2),
+         "Cannot concat ShadowV values");
+  // XXX: also check LocV and FunV?
+  return std::make_shared<SymV>(op_concat, immer::flex_vector<PtrVal> { v1, v2 }, bw1 + bw2);
 }
 
 inline const PtrVal IntV0 = make_IntV(0);
