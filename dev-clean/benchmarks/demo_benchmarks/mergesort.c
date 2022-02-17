@@ -81,7 +81,7 @@ int main()
 #else
 	//make_symbolic(d, sizeof(int) * SIZE);
   for (int i = 0; i < SIZE; i++) {
-    make_symbolic_whole(d+i, sizeof(int)*8);
+    make_symbolic_whole(d+i, sizeof(int));
   }
 #endif
   mergeSort(d, 0, SIZE - 1);

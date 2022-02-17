@@ -56,7 +56,7 @@ inline T __make_symbolic_whole(SS& state, List<PtrVal>& args, __Cont<T> k) {
   PtrVal loc = args.at(0);
   ASSERT(std::dynamic_pointer_cast<LocV>(loc) != nullptr, "Non-location value");
   IntData sz = proj_IntV(args.at(1));
-  SS res = state.update(loc, make_SymV(fresh(), sz));
+  SS res = state.update(loc, make_SymV(fresh(), sz*8));
   return k(res, make_IntV(0));
 }
 
