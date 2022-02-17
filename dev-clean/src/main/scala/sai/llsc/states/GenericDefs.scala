@@ -77,7 +77,7 @@ trait Opaques { self: SAIOps with BasicDefs =>
     val warned = MutableSet[String]()
     // TODO: specify the signature of those functions (both in C and Scala)
     val modeled = MutableSet[String](
-      "sym_print", "print_string", "malloc", "realloc", "llsc_assert", "make_symbolic",
+      "sym_print", "print_string", "malloc", "realloc", "llsc_assert", "make_symbolic", "make_symbolic_whole",
       "open", "close", "read", "write", "stat", "sym_exit", "llsc_assert_eager",
       "__assert_fail"
     )

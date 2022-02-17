@@ -53,7 +53,7 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
         else if (id.startsWith("@llvm")) Intrinsics.get(id)
         else {
           if (!External.warned.contains(id)) {
-            System.out.println(s"Warning: function $id is ignored")
+            System.out.println(s"Warning: function $id is treated as noop")
             External.warned.add(id)
           }
           External.noop

@@ -34,7 +34,7 @@ inline T __make_symbolic(SS& state, List<PtrVal>& args, __Cont<T> k) {
   IntData len = proj_IntV(args.at(1));
   //std::cout << "sym array size: " << proj_LocV_size(loc) << "\n";
   for (int i = 0; i < len; i++) {
-    state.update(loc + i, make_SymV("x" + std::to_string(var_name++), 8));
+    state.update(loc + i, make_SymV(fresh(), 8));
   }
   return k(state, make_IntV(0));
 }
@@ -46,6 +46,24 @@ inline List<SSVal> make_symbolic(SS& state, List<PtrVal> args) {
 inline std::monostate make_symbolic(SS& state, List<PtrVal> args, Cont k) {
   return __make_symbolic<std::monostate>(state, args, [&k](auto s, auto v) { return k(s, v); });
 }
+
+template<typename T>
+inline T __make_symbolic_whole(SS& state, List<PtrVal>& args, __Cont<T> k) {
+  PtrVal loc = args.at(0);
+  ASSERT(std::dynamic_pointer_cast<LocV>(loc) != nullptr, "Non-location value");
+  IntData sz = proj_IntV(args.at(1));
+  state.update(loc, make_SymV(fresh(), sz));
+  return k(state, make_IntV(0));
+}
+
+inline List<SSVal> make_symbolic_whole(SS& state, List<PtrVal> args) {
+  return __make_symbolic_whole<List<SSVal>>(state, args, [](auto s, auto v) { return List<SSVal>{{s, v}}; });
+}
+
+inline std::monostate make_symbolic_whole(SS& state, List<PtrVal> args, Cont k) {
+  return __make_symbolic_whole<std::monostate>(state, args, [&k](auto s, auto v) { return k(s, v); });
+}
+
 
 /******************************************************************************/
 
