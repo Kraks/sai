@@ -272,6 +272,7 @@ public:
 };
 
 using Mem = MemIdxShadow;
+//using Mem = MemShadow;
 
 class Frame: public Printable {
   public:

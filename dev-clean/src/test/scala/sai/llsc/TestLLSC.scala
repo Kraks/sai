@@ -100,7 +100,7 @@ object TestCases {
     TestPrg(knapsack, "knapsackTest", "@main", 0, None, nPath(1666)),
     TestPrg(nqueen, "nQueens", "@main", 0, None, nPath(1363)),
     // The oopsla20 version of maze
-    TestPrg(maze, "mazeTest", "@main", 2, None, nPath(309)),
+    TestPrg(maze, "mazeTest", "@main", 0, None, nPath(309)),
     TestPrg(mp1024, "mp1024Test", "@f", 10, None, nPath(1024)),
   )
 
@@ -237,9 +237,4 @@ class TestImpCPSLLSC extends TestLLSC {
 
 class Playground extends TestLLSC {
   //testLLSC(new PureCPSLLSC_Z3, TestPrg(mergesort, "mergeSortTest", "@main", 0, None, nPath(720)))
-  testLLSC(new PureCPSLLSC, memModel)
-  //testLLSC(new PureCPSLLSC_Z3, TestPrg(aliasing, "aliasingTest", "@main", 0, None, nPath(1)))
-  //testLLSC(new PureCPSLLSC, TestPrg(nqueen, "nQueens", "@main", 0, None, nPath(1363)))
-  //testLLSC(new PureCPSLLSC_Z3, TestPrg(nqueen, "nQueensZ3", "@main", 0, None, nPath(1363)))
-  //testLLSC(new PureLLSC, TestPrg(openTest, "openTestSucc", "@main", 0, "--add-sym-file A", nPath(1)++status(0)))
 }
