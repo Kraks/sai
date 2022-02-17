@@ -45,21 +45,29 @@ struct Value : public std::enable_shared_from_this<Value>, public Printable {
     return Vec::foldRight(xs.take(xs.size()-1), xs.back(), [](auto&& x, auto&& acc) { return bv_concat(acc, x); });
   }
   static PtrVal from_bytes_shadow(List<PtrVal>&& xs) {
-    // Note: the head of xs should not be a Shadow V, if so, it means
-    // the bytes sequence is incomplete.
+    // Note: the head of xs should not be a Shadow V, if so the bytes sequence is incomplete.
     auto reified = List<PtrVal>{}.transient();
     for (auto i = 0; i < xs.size(); ) {
       auto v = xs.at(i);
       // XXX what if v is nullptr/padding
-      int bw = v->get_bw();
-      if (bw <= 8) {
+      int sz = v->get_byte_size();
+      if (i + sz > xs.size()) {
+        reified.append(v->to_bytes().take(xs.size()-i).transient());
+        break;
+      } else {
+        reified.push_back(std::move(v));
+        i += sz;
+      }
+      /*
+      if (sz <= 1) {
         reified.push_back(std::move(v));
         i++;
       } else {
         // Note: sometimes we don't really have to reify every things down to bytes
         reified.append(v->to_bytes().transient());
-        i += v->get_byte_size();
+        i += sz;
       }
+      */
     }
     return from_bytes(reified.persistent().take(xs.size()));
   }

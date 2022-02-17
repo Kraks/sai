@@ -141,11 +141,11 @@ public:
       auto src_idx = idx + sv->offset;
       auto src = mem.at(src_idx);
       auto src_bytes = src->to_bytes();
-      // TODO: We don't need to write the whole byte seq of src, since the right-hand side part of it will be overwritten anyway
-      for (size_t i = 0; i < src_bytes.size(); i++) { mem.set(src_idx+i, src_bytes.at(i)); }
+      // We don't need to write the whole byte seq of src, since the part of it will be overwritten anyway
+      for (size_t i = 0; i < abs(sv->offset); i++) { mem.set(src_idx+i, src_bytes.at(i)); }
+      for (size_t i = abs(sv->offset)+byte_size; i < src_bytes.size(); i++) { mem.set(src_idx+i, src_bytes.at(i)); }
     }
     auto bytes = val->to_bytes_shadow();
-    ASSERT(bytes.size() == byte_size, "Size of byte-representation of value not equal to argument byte_size");
     for (size_t i = 0; i < byte_size; i++) {
       auto w = mem.at(idx + i);
       if (w && byte_size-i < w->get_byte_size()) {
