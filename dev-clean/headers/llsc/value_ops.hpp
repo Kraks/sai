@@ -40,12 +40,13 @@ struct Value : public std::enable_shared_from_this<Value>, public Printable {
    * it doesn't make much sense to distinguish Int and Float as variants of Value...
    */
   static PtrVal from_bytes(List<PtrVal>&& xs) {
-    // Note: it should work for SymV/IntV _without_ shadow values, not LocV/FunV
+    // Note: it should work with a List of SymV/IntV, containing _no_ ShadowV/LocV/FunV
     // XXX what if v is nullptr/padding
     return Vec::foldRight(xs.take(xs.size()-1), xs.back(), [](auto&& x, auto&& acc) { return bv_concat(acc, x); });
   }
   static PtrVal from_bytes_shadow(List<PtrVal>&& xs) {
-    // Note: the head of xs should not be a Shadow V, if so the bytes sequence is incomplete.
+    // Note: it should work with a List of SymV/IntV/ShadowV, containing _no_ LocV/FunV.
+    //       However, the head of xs should not be a Shadow V, if so the List is "incomplete".
     auto reified = List<PtrVal>{}.transient();
     for (auto i = 0; i < xs.size(); ) {
       auto v = xs.at(i);
@@ -58,16 +59,6 @@ struct Value : public std::enable_shared_from_this<Value>, public Printable {
         reified.push_back(std::move(v));
         i += sz;
       }
-      /*
-      if (sz <= 1) {
-        reified.push_back(std::move(v));
-        i++;
-      } else {
-        // Note: sometimes we don't really have to reify every things down to bytes
-        reified.append(v->to_bytes().transient());
-        i += sz;
-      }
-      */
     }
     return from_bytes(reified.persistent().take(xs.size()));
   }
