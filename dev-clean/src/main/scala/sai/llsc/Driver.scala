@@ -196,6 +196,13 @@ trait LLSC {
   }
 }
 
+case class Config(nSym: Int, argv: Boolean /* potentially other compile-time configuration*/) {
+  def args(implicit vdefs: ValueDefs) = {
+    // Deal with arguments generation logic here
+    vdefs.SymV.makeSymVList(nSym) //TODO or generate argc/argv
+  }
+}
+
 class PureLLSC extends LLSC {
   val insName = "PureLLSC"
   def newInstance(m: Module, name: String, fname: String, nSym: Int) =
@@ -206,6 +213,16 @@ class PureLLSC extends LLSC {
         val res = exec(fname, args, true, 0)
         // FIXME: pass isCommandLine, symarg=4 seems doesn't work on mp1p?
         res.foreach { s => checkPCToFile(s._1) }
+        ()
+      }
+    }
+  // this should replace the old one
+  def newInstance(m: Module, name: String, fname: String, config: Config) =
+    new PureLLSCDriver[Int, Unit](m, name, "./llsc_gen") {
+      implicit val me: this.type = this
+      @virtualize
+      def snippet(u: Rep[Int]) = {
+        exec(fname, config.args, true, 0 /* TODO remove true/0 */).foreach { s => checkPCToFile(s._1) }
         ()
       }
     }
@@ -277,6 +294,12 @@ class ImpCPSLLSC extends LLSC {
 
 object RunLLSC {
   def main(args: Array[String]): Unit = {
+    // TODO: we also need to refactor the command-line arguments of the front-end compiler
+    //   --use-argv, generate code for main entrance
+    //   --symint="...", specify symbolic integers with width
+    // and in the near future:
+    //   --mem="...", specify memory models to use
+    //   --O0/O1/O2, specify optimizations to use
     val usage = """
     Usage: llsc <.ll-filepath> <app-name> <entrance-fun-name> [n-sym-var]
     """
@@ -288,6 +311,7 @@ object RunLLSC {
       val fun = args(2)
       val nSym = if (args.isDefinedAt(3)) args(3).toInt else 0
       val llsc = new PureLLSC
+      // TODO: create Config value according to command-line arguments, pass to runLLSC/newInstance
       llsc.runLLSC(parseFile(filepath), appName, fun, nSym)
     }
 
