@@ -88,7 +88,7 @@ object Benchmarks {
 }
 
 object TestComp {
-  lazy val arrayExample1 = parseFile("benchmarks/test-comp/array-examples/data_structures_set_multi_proc_ground-1.ll")
+  lazy val arraySet1 = parseFile("benchmarks/test-comp/array-examples/data_structures_set_multi_proc_ground-1.ll")
 }
 
 object Coreutils {
