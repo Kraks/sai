@@ -8,8 +8,7 @@ extern int __VERIFIER_nondet_int();
 
 #include "../../../headers/llsc_client.h"
 
-//#define SIZE 100000
-#define SIZE 10000
+#define SIZE 100000
 
 // implements a set and checks that the insert and remove function maintain the structure
 
@@ -36,15 +35,12 @@ int main( ) {
 
 	for (x = 0; x < SIZE; x++)
 	{
-	  //set[x] = __VERIFIER_nondet_int();
-	  make_symbolic_whole(set + x, 32);
+	  set[x] = __VERIFIER_nondet_int();
 	}
 
   for ( x = 0 ; x < n ; x++ ) {
     for ( y = x + 1 ; y < n ; y++ ) {
-      //__VERIFIER_assert(  set[ x ] != set[ y ]  );
-      print_string("should not reach");
-      llsc_assert_eager(  set[ x ] != set[ y ]  );
+      __VERIFIER_assert(  set[ x ] != set[ y ] );
     }
   }
 
@@ -56,8 +52,7 @@ int main( ) {
 
 	for (v = 0; v < SIZE; v++)
 	{
-	  //values[v] = __VERIFIER_nondet_int();
-	  make_symbolic_whole(values + v, 32);
+	  values[v] = __VERIFIER_nondet_int();
 	}
   for ( v = 0 ; v < SIZE ; v++ ) {
     // check if the element exists, if not insert it.
@@ -70,8 +65,7 @@ int main( ) {
   // this is not trivial!
   for ( x = 0 ; x < n ; x++ ) {
     for ( y = x + 1 ; y < n ; y++ ) {
-      //__VERIFIER_assert( set[ x ] != set[ y ]  );
-      llsc_assert_eager( set[ x ] != set[ y ] );
+      __VERIFIER_assert( set[ x ] != set[ y ] );
     }
   }
   return 0;

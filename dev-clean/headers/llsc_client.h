@@ -17,4 +17,15 @@ void make_symbolic_whole(void* addr, size_t byte_size);
 void llsc_assert(bool);
 void llsc_assert_eager(bool);
 
+/* Support for runing test-comp examples */
+
+int __VERIFIER_nondet_int(void) {
+  int x;
+	make_symbolic_whole(&x, sizeof(int));
+  return x;
+}
+void __VERIFIER_assert(int cond) {
+  llsc_assert_eager(cond);
+}
+
 #endif
