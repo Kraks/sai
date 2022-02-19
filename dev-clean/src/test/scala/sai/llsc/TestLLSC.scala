@@ -236,7 +236,8 @@ class TestImpCPSLLSC extends TestLLSC {
 }
 
 class Playground extends TestLLSC {
-  testLLSC(new PureCPSLLSC_Z3, TestPrg(mergesort, "mergeSortTest", "@main", 0, None, nPath(720)))
-  testLLSC(new ImpLLSC, TestPrg(mergesort, "mergeSortImpTest", "@main", 0, None, nPath(720)))
+  import sai.lang.llvm.TestComp._
+  //testLLSC(new PureCPSLLSC_Z3, TestPrg(mergesort, "mergeSortTest", "@main", 0, None, nPath(720)))
+  testLLSC(new PureCPSLLSC_Z3, TestPrg(arrayExample1, "arrayExample", "@main", 0, None, Map()))
   //testLLSC(new PureCPSLLSC, TestPrg(mp1048576, "mp1mTest_CPS", "@f", 20, "--disable-solver", nPath(1048576)))
 }
