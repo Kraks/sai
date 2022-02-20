@@ -51,7 +51,6 @@ class ArgSeg {
         delete next_segment;
       }
     }
-  protected:
     ArgSeg *next_segment;
 };
 
@@ -59,7 +58,7 @@ class ConcSeg: public ArgSeg {
   public:
     ConcSeg (const std::string &content, ArgSeg* next = nullptr): content(content), ArgSeg(next) {};
     std::string toString() const override {
-      return std::string("Conc: ") + content;
+      return std::string("[Conc: ") + content + "]";
     }
     immer::flex_vector<PtrVal> _to_flex_vector() const override {
       immer::flex_vector<PtrVal> vec;
@@ -84,7 +83,7 @@ class SymSeg: public ArgSeg {
   public:
     SymSeg (unsigned length, ArgSeg* next = nullptr): length(length), ArgSeg(next) {};
     std::string toString() const override {
-      return std::string("Sym: ") + std::to_string(length);
+      return std::string("[Sym: ") + std::to_string(length) + "]";
     }
     immer::flex_vector<PtrVal> _to_flex_vector() const override {
       immer::flex_vector<PtrVal> vec;
@@ -133,17 +132,40 @@ inline std::shared_ptr<ArgSeg> match_arg(std::string argstring) {
   std::regex_token_iterator<std::string::iterator> sym_lengths ( argstring.begin(), argstring.end(), re, 1 );
 
   std::regex_token_iterator<std::string::iterator> conc_contents ( argstring.begin(), argstring.end(), re, -1 );
-  std::string conc_content = escape_concrete(conc_contents->str());
-  std::shared_ptr<ConcSeg> result = std::make_shared<ConcSeg>(conc_content);
-  ArgSeg *node = result.get();
-  while (++conc_contents!=rend) {
-    auto sym_length = stoi(sym_lengths->str());
-    /* TODO: set a bound on sym_length <2022-02-14, David Deng> */
-    node = node->set_next(new SymSeg(sym_length));
-    sym_lengths++;
+
+  std::string conc_content; // store the concrete content
+  int sym_length; // store the symbolic length
+
+
+  /*
+   * input            conc_contents       | sym_contents
+   * abc    -->       "abc"               | _
+   * #13    -->       ""                  | 13
+   * #13#26 -->       "" ""               | 13 26
+   * #13abc#26 -->    "" "abc"            | 13 26
+   * abc#13 -->       "abc"               | 13
+   * #13abc -->       "" "abc"            | 13
+   * abc#13def -->    "abc" "def"         | 13
+   */
+  
+  ArgSeg *node, *head;
+  ConcSeg dummy(""); // first dummy node
+  head = node = &dummy;
+  while (conc_contents!=rend) {
     conc_content = escape_concrete(conc_contents->str());
-    node = node->set_next(new ConcSeg(conc_content));
+    if (!conc_content.empty()) {
+      node = node->set_next(new ConcSeg(conc_content));
+    }
+    conc_contents++;
+    if (sym_lengths != rend) {
+      /* TODO: set a bound on sym_length <2022-02-14, David Deng> */
+      sym_length = stoi(sym_lengths->str());
+      node = node->set_next(new SymSeg(sym_length));
+      sym_lengths++;
+    }
   }
+  std::shared_ptr<ArgSeg> result(head->next_segment);
+  head->next_segment = nullptr; // prevent double free
   return result;
 }
 
