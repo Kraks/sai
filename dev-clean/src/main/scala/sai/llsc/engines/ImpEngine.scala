@@ -354,22 +354,15 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
 
   override def wrapFunV(f: FFTy): Rep[Value] = FunV[Ref](f)
 
-  def exec(fname: String, args: Rep[List[Value]], isCommandLine: Boolean = false, symarg: Int = 0): Rep[List[(SS, Value)]] = {
+  def exec(fname: String, args: Rep[List[Value]]): Rep[List[(SS, Value)]] = {
     val preHeap: Rep[List[Value]] = List(precompileHeapLists(m::Nil):_*)
     compile(funMap.map(_._2).toList)
     Coverage.setBlockNum
     Coverage.incPath(1)
     val ss = initState(preHeap.asRepOf[Mem])
-    if (!isCommandLine) {
-      val fv = eval(GlobalId(fname), VoidType, ss)(fname)
-      ss.push
-      fv[Ref](ss, args)
-    } else {
-      val commandLineArgs = List[Value](unchecked[Value]("g_argc"), unchecked[Value]("g_argv"))
-      val fv = eval(GlobalId(fname), VoidType, ss)(fname)
-      ss.push
-      ss.updateArg(symarg)
-      fv[Ref](ss, commandLineArgs)
-    }
+    val fv = eval(GlobalId(fname), VoidType, ss)(fname)
+    ss.push
+    ss.updateArg(0)
+    fv[Ref](ss, args)
   }
 }

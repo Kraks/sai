@@ -197,7 +197,7 @@ trait LLSC {
 }
 
 case class Config(nSym: Int, argv: Boolean /* potentially other compile-time configuration*/) {
-  def args(implicit d: SymExeDefs): d.Rep[List[d.Value]] = {
+  def args(implicit d: ValueDefs) = {
     if (argv) {
       d.mainArgs
     } else {
@@ -229,7 +229,7 @@ class PureCPSLLSC extends LLSC {
         val k: Rep[Cont] = fun { case sv =>
           checkPCToFile(sv._1); ()
         }
-        exec(fname, config.args, true, 0, k)
+        exec(fname, config.args, k)
       }
     }
 }
@@ -248,9 +248,9 @@ class ImpLLSC extends LLSC {
   val insName = "ImpLLSC"
   def newInstance(m: Module, name: String, fname: String, config: Config) =
     new ImpLLSCDriver[Int, Unit](m, name, "./llsc_gen") {
+      implicit val me: this.type = this
       def snippet(u: Rep[Int]) = {
-        val args: Rep[List[Value]] = SymV.makeSymVList(config.nSym)
-        val res = exec(fname, args, true, 0)
+        val res = exec(fname, config.args)
         res.foreach { s => checkPCToFile(s._1)}
         ()
       }
@@ -261,9 +261,9 @@ class ImpVecLLSC extends LLSC {
   val insName = "ImpLLSC"
   def newInstance(m: Module, name: String, fname: String, config: Config) =
     new ImpVecLLSCDriver[Int, Unit](m, name, "./llsc_gen") {
+      implicit val me: this.type = this
       def snippet(u: Rep[Int]) = {
-        val args: Rep[List[Value]] = SymV.makeSymVList(config.nSym)
-        val res = exec(fname, args, true, 0)
+        val res = exec(fname, config.args)
         res.foreach { s => checkPCToFile(s._1)}
         ()
       }
@@ -274,12 +274,12 @@ class ImpCPSLLSC extends LLSC {
   val insName = "ImpCPSLLSC"
   def newInstance(m: Module, name: String, fname: String, config: Config) =
     new ImpCPSLLSCDriver[Int, Unit](m, name, "./llsc_gen") {
+      implicit val me: this.type = this
       def snippet(u: Rep[Int]) = {
-        val args: Rep[List[Value]] = SymV.makeSymVList(config.nSym)
         val k: Rep[Cont] = fun { case sv =>
           checkPCToFile(sv._1); ()
         }
-        exec(fname, args, true, 0, k)
+        exec(fname, config.args, k)
       }
     }
 }
