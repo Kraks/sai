@@ -12,22 +12,22 @@ inline PtrVal g_argc;
 
 using MatchResult = List<std::variant<unsigned, std::string>>;
 
-List<PtrVal> match_result_to_ptrvals(MatchResult mr) {
-  List<PtrVal> vec;
+inline List<PtrVal> match_result_to_ptrvals(MatchResult mr) {
+  immer::flex_vector_transient<PtrVal> vec;
   for (auto segment: mr) {
     if (std::holds_alternative<unsigned>(segment)) {
       auto length = std::get<unsigned>(segment);
       for (auto i = 0; i < length; ++i) {
-        vec = vec.push_back(make_SymV_args());
+        vec.push_back(make_SymV_args());
       }
     } else if (std::holds_alternative<std::string>(segment)) {
       auto content = std::get<std::string>(segment);
       for (auto c: content) {
-        vec = vec.push_back(make_IntV(c, 8));
+        vec.push_back(make_IntV(c, 8));
       }
     }
   }
-  return vec;
+  return vec.persistent();
 }
 
 inline std::string escape_concrete(const std::string &raw) {
