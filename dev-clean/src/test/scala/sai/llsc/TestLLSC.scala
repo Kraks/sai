@@ -68,12 +68,12 @@ object TestCases {
   )
 
   val memModel: List[TestPrg] = List(
-    TestPrg(funptr, "funptr", "@main", Config(0, false), None, nPath(1)),
-    TestPrg(heapFunptr, "heapFunptr", "@main", Config(0, false), None, nPath(1)),
-    TestPrg(ptrtoint, "ptrToInt", "@main", Config(0, false), None, nPath(1)),
-    TestPrg(flexAddr, "flexAddr", "@main", Config(0, false), None, nPath(1)),
-    TestPrg(nastyStruct, "nastyStruct", "@main", Config(0, false), None, nPath(1)),
-    // TestPrg(arrayFlow, "arrayFlow", "@main", Config(0, false), None, nPath(15)),
+    TestPrg(funptr, "funptr", "@main", Config(0, false), None, nPath(1)++status(0)),
+    TestPrg(heapFunptr, "heapFunptr", "@main", Config(0, false), None, nPath(1)++status(0)),
+    TestPrg(ptrtoint, "ptrToInt", "@main", Config(0, false), None, nPath(1)++status(0)),
+    TestPrg(flexAddr, "flexAddr", "@main", Config(0, false), None, nPath(1)++status(0)),
+    TestPrg(nastyStruct, "nastyStruct", "@main", Config(0, false), None, nPath(1)++status(0)),
+    TestPrg(arrayFlow, "arrayFlow", "@main", Config(0, false), None, nPath(15)++status(0)),
   )
 
   val argv: List[TestPrg] = List(
@@ -105,7 +105,7 @@ object TestCases {
     TestPrg(knapsack, "knapsackTest", "@main", Config(0, false), None, nPath(1666)),
     TestPrg(nqueen, "nQueens", "@main", Config(0, false), None, nPath(1363)),
     // The oopsla20 version of maze
-    TestPrg(maze, "mazeTest", "@main", Config(2, false), None, nPath(309)),
+    TestPrg(maze, "mazeTest", "@main", Config(0, false), None, nPath(309)),
     TestPrg(mp1024, "mp1024Test", "@f", Config(10, false), None, nPath(1024)),
   )
 
@@ -221,11 +221,14 @@ class TestPureCPSLLSC extends TestLLSC {
 }
 
 class TestPureCPSLLSC_Z3 extends TestLLSC {
-  testLLSC(new PureCPSLLSC_Z3, TestCases.all ++ filesys)
-  //testLLSC(llsc, TestPrg(funptr, "funptr", "@main", Config(0, false), 1))
-  //testLLSC(llsc, TestPrg(heapFunptr, "heapFunptr", "@main", Config(0, false), 1))
-  testLLSC(new PureCPSLLSC_Z3, TestPrg(unboundedLoop, "unboundedLoop", "@main", Config(0, false), "--timeout=2", minTest(1)))
-  testLLSC(new PureCPSLLSC_Z3, TestPrg(unboundedLoop, "unboundedLoopMT", "@main", Config(0, false), "--thread=2 --timeout=2", minTest(1)))
+  import sai.lang.llvm.TestComp._
+  val llsc = new PureCPSLLSC_Z3
+  testLLSC(llsc, TestCases.all ++ filesys)
+  //testLLSC(llsc, TestPrg(funptr, "funptr", "@main", 0, 1))
+  //testLLSC(llsc, TestPrg(heapFunptr, "heapFunptr", "@main", 0, 1))
+  testLLSC(llsc, TestPrg(unboundedLoop, "unboundedLoop", "@main", Config(0, false), "--timeout=2", minTest(1)))
+  testLLSC(llsc, TestPrg(unboundedLoop, "unboundedLoopMT", "@main", Config(0, false), "--thread=2 --timeout=2", minTest(1)))
+  testLLSC(llsc, TestPrg(arraySet1, "testCompArraySet1", "@main", Config(0, false), None, status(255)))
 }
 
 class TestImpLLSC extends TestLLSC {
@@ -241,7 +244,10 @@ class TestImpCPSLLSC extends TestLLSC {
 }
 
 class Playground extends TestLLSC {
-  // testLLSC(new PureCPSLLSC_Z3, TestPrg(mergesort, "mergeSortTest", "@main", Config(0, false), None, nPath(720)))
-  testLLSC(new PureLLSC,   TestPrg(mp1024, "mp1024Test", "@f", Config(10, false), None, nPath(1024)))
-  //testLLSC(new PureCPSLLSC_Z3, TestPrg(aliasing, "aliasingTest", "@main", Config(0, false), None, nPath(1)))
+  //testLLSC(new PureCPSLLSC_Z3, TestPrg(mergesort, "mergeSortTest", "@main", 0, None, nPath(720)))
+  //testLLSC(new PureCPSLLSC, TestPrg(mp1048576, "mp1mTest_CPS", "@f", 20, "--disable-solver", nPath(1048576)))
+  import sai.lang.llvm.TestComp._
+  val llsc = new PureCPSLLSC_Z3
+  //testLLSC(llsc, TestPrg(bubbleSort2Ground, "bubbleSort2Ground", "@main", 0, None, status(255)))
+  //testLLSC(llsc, TestPrg(bubbleSortGround2, "bubbleSortGround2", "@main", 0, None, status(255)))
 }

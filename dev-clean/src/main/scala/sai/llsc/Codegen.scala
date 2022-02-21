@@ -67,6 +67,8 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     case Node(s, "ss-lookup-addr-struct", List(ss, a, sz), _) => es"$ss.at_struct($a, $sz)"
     case Node(s, "ss-lookup-addr-seq", List(ss, a, sz), _) => es"$ss.at_seq($a, $sz)"
     case Node(s, "ss-lookup-heap", List(ss, a), _) => es"$ss.heap_lookup($a)"
+    case Node(s, "ss-array-lookup", List(ss, base, off, es, ns, k), _) => es"array_lookup_k($ss, $base, $off, $es, $ns, $k)"
+    case Node(s, "ss-array-lookup", List(ss, base, off, es, ns), _) => es"array_lookup($ss, $base, $off, $es, $ns)"
     case Node(s, "ss-assign", List(ss, k, v), _) => es"$ss.assign($k, $v)"
     case Node(s, "ss-assign-seq", List(ss, ks, vs), _) => es"$ss.assign_seq($ks, $vs)"
     case Node(s, "ss-heap-size", List(ss), _) => es"$ss.heap_size()"
@@ -85,8 +87,6 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     case Node(s, "ss-get-fs", List(ss), _) => es"$ss.get_fs()"
     case Node(s, "ss-set-fs", List(ss, fs), _) => es"$ss.set_fs($fs)"
     case Node(s, "get-pc", List(ss), _) => es"$ss.get_PC()"
-    case Node(s, "null-v", _, _) => es"nullptr"
-    case Node(s, "shadow-v", _, _) => es"make_ShadowV()"
 
     case Node(s, "is-conc", List(v), _) => es"$v->is_conc()"
     case Node(s, "to-SMT", List(v), _) => es"$v->to_SMT()"
@@ -94,6 +94,9 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     case Node(s, "ValPtr-deref", List(v), _) => es"*$v"
     case Node(s, "to-IntV", List(v), _) => es"$v->to_IntV()"
     case Node(s, "to-LocV", List(v), _) => es"make_LocV($v)"
+    case Node(s, "nullptr", _, _) => es"nullptr"
+    case Node(s, "to-bytes", List(v), _) => es"$v->to_bytes()"
+    case Node(s, "to-bytes-shadow", List(v), _) => es"$v->to_bytes_shadow()"
 
     case Node(s, "cov-set-blocknum", List(n), _) => es"cov.set_num_blocks($n)"
     case Node(s, "cov-inc-block", List(id), _) => es"cov.inc_block($id)"
@@ -108,6 +111,15 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     case Node(s, "fs-read-file", List(fs, fd, n), _) => es"$fs.read_file($fd, $n)"
     case Node(s, "fs-write-file", List(fs, fd, c, n), _) => es"$fs.write_file($fd, $c, $n)"
     case Node(s, "fs-stat-file", List(fs, ptr), _) => es"$fs.stat_file($ptr)"
+
+    case Node(s, "add_tp_task", List(b: Block), _) =>
+      es"tp.add_task("
+      quoteTypedBlock(b, false, true, capture = "=")
+      es")"
+    case Node(s, "async_exec_block", List(b: Block), _) =>
+      es"async_exec_block("
+      quoteTypedBlock(b, false, true, capture = "=")
+      es")"
 
     case _ => super.shallow(n)
   }

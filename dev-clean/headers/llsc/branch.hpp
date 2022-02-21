@@ -48,8 +48,8 @@ sym_exec_br_k(SS ss, PtrVal t_cond, PtrVal f_cond,
     SS tbr_ss = ss.add_PC(t_cond);
     SS fbr_ss = ss.add_PC(f_cond);
 #if USE_TP
-    tp.add_task([tf, tbr_ss, t_cond, k]{ tf(tbr_ss, k); });
-    tp.add_task([ff, fbr_ss, f_cond, k]{ ff(fbr_ss, k); });
+    tp.add_task([tf, tbr_ss=std::move(tbr_ss), k]{ tf(tbr_ss, k); });
+    tp.add_task([ff, fbr_ss=std::move(fbr_ss), k]{ ff(fbr_ss, k); });
     return std::monostate{};
 #else
     if (can_par_async()) {
@@ -75,6 +75,57 @@ sym_exec_br_k(SS ss, PtrVal t_cond, PtrVal f_cond,
   } else {
     return std::monostate{};
   }
+}
+
+inline immer::flex_vector<std::pair<SS, PtrVal>>
+array_lookup(SS ss, PtrVal base, PtrVal offset, size_t esize, size_t nsize) {
+  auto baseaddr = proj_LocV(base);
+  auto basekind = proj_LocV_kind(base);
+  if (offset->to_IntV()) {
+    auto off = proj_IntV(offset);
+    return { std::make_pair(ss, make_LocV(baseaddr + esize * off, basekind)) };
+  }
+  int cnt = 0;
+  immer::flex_vector_transient<std::pair<SS, PtrVal>> tmp;
+  for (size_t idx = 0; idx < nsize; idx++) {
+    auto cond = int_op_2(op_eq, offset, make_IntV(idx, offset->get_bw()));
+    auto ss2 = ss.add_PC(cond);
+    if (check_pc(ss2.get_PC())) {
+      cnt++;
+      tmp.push_back(std::make_pair(ss2, make_LocV(baseaddr + esize * idx, basekind)));
+    }
+  }
+  assert(cnt > 0);
+  cov.inc_path(cnt - 1);
+  return tmp.persistent();
+}
+
+inline std::monostate
+array_lookup_k(SS ss, PtrVal base, PtrVal offset, size_t esize, size_t nsize,
+               std::function<std::monostate(SS, PtrVal)> k) {
+  auto baseaddr = proj_LocV(base);
+  auto basekind = proj_LocV_kind(base);
+  if (offset->to_IntV()) {
+    auto off = proj_IntV(offset);
+    return k(ss, make_LocV(baseaddr + esize * off, basekind));
+  }
+  int cnt = 0;
+  for (size_t idx = 0; idx < nsize; idx++) {
+    auto cond = int_op_2(op_eq, offset, make_IntV(idx, offset->get_bw()));
+    auto ss2 = ss.add_PC(cond);
+    if (check_pc(ss2.get_PC())) {
+      cnt++;
+      auto addr = make_LocV(baseaddr + esize * idx, basekind);
+#if USE_TP
+      tp.add_task([addr=std::move(addr), ss2=std::move(ss2), k]{ k(ss2, addr); });
+#else
+      k(ss2, addr);
+#endif
+    }
+  }
+  assert(cnt > 0);
+  cov.inc_path(cnt - 1);
+  return std::monostate{};
 }
 
 #endif
@@ -193,6 +244,52 @@ sym_exec_br_k(SS& ss, PtrVal t_cond, PtrVal f_cond,
   } else {
     return std::monostate{};
   }
+}
+
+inline immer::flex_vector<std::pair<SS, PtrVal>>
+array_lookup(SS& ss, PtrVal base, PtrVal offset, size_t esize, size_t nsize) {
+  auto baseaddr = proj_LocV(base);
+  auto basekind = proj_LocV_kind(base);
+  if (offset->to_IntV()) {
+    auto off = proj_IntV(offset);
+    return { std::make_pair(std::move(ss), make_LocV(baseaddr + esize * off, basekind)) };
+  }
+  int cnt = 0;
+  immer::flex_vector_transient<std::pair<SS, PtrVal>> tmp;
+  for (size_t idx = 0; idx < nsize; idx++) {
+    auto cond = int_op_2(op_eq, offset, make_IntV(idx, offset->get_bw()));
+    auto ss2 = ss.copy().add_PC(cond);
+    if (check_pc(ss2.get_PC())) {
+      cnt++;
+      tmp.push_back(std::make_pair(std::move(ss2), make_LocV(baseaddr + esize * idx, basekind)));
+    }
+  }
+  assert(cnt > 0);
+  cov.inc_path(cnt - 1);
+  return tmp.persistent();
+}
+
+inline std::monostate
+array_lookup_k(SS& ss, PtrVal base, PtrVal offset, size_t esize, size_t nsize,
+               std::function<std::monostate(SS&, PtrVal)> k) {
+  auto baseaddr = proj_LocV(base);
+  auto basekind = proj_LocV_kind(base);
+  if (offset->to_IntV()) {
+    auto off = proj_IntV(offset);
+    return k(ss, make_LocV(baseaddr + esize * off, basekind));
+  }
+  int cnt = 0;
+  for (size_t idx = 0; idx < nsize; idx++) {
+    auto cond = int_op_2(op_eq, offset, make_IntV(idx, offset->get_bw()));
+    auto ss2 = ss.copy().add_PC(cond);
+    if (check_pc(ss2.get_PC())) {
+      cnt++;
+      k(ss2, make_LocV(baseaddr + esize * idx, basekind));
+    }
+  }
+  assert(cnt > 0);
+  cov.inc_path(cnt - 1);
+  return std::monostate{};
 }
 #endif
 
