@@ -144,7 +144,8 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     }
     case PackedStruct(types) =>
       (types.map(getTySizeAlign(_)._1).sum, 1)
-    case _ => ???
+    case _ =>
+      throw new Exception(s"type $vt is not handled by getTySizeAlign")
   }
 
   def getTySize(vt: LLVMType): Int = getTySizeAlign(vt)._1

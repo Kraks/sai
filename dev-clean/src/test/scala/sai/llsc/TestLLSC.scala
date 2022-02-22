@@ -14,6 +14,8 @@ import sai.lmsx._
 import sai.utils.Utils.time
 import sai.lang.llvm.Benchmarks._
 import sai.lang.llvm.OOPSLA20Benchmarks._
+import sai.lang.llvm.TestComp.ArrayExamples._
+import sai.lang.llvm.TestComp.ArrayPrograms._
 
 import sys.process._
 
@@ -223,9 +225,6 @@ class TestPureCPSLLSC extends TestLLSC {
 }
 
 class TestPureCPSLLSC_Z3 extends TestLLSC {
-  import Config._
-  import sai.lang.llvm.TestComp._
-
   val llsc = new PureCPSLLSC_Z3
   testLLSC(llsc, TestCases.all ++ filesys)
   testLLSC(llsc, TestPrg(unboundedLoop, "unboundedLoop", "@main", noArg, "--timeout=2", minTest(1)))
@@ -250,8 +249,16 @@ class TestImpCPSLLSC extends TestLLSC {
 class Playground extends TestLLSC {
   //testLLSC(new PureCPSLLSC_Z3, TestPrg(mergesort, "mergeSortTest", "@main", noArg, None, nPath(720)))
   //testLLSC(new PureCPSLLSC, TestPrg(mp1048576, "mp1mTest_CPS", "@f", symArg(20), "--disable-solver", nPath(1048576)))
-  import sai.lang.llvm.TestComp._
   val llsc = new PureCPSLLSC_Z3
+
+  // Timeout:
+  //testLLSC(llsc, TestPrg(standard_minInArray_ground_1, "standard_minInArray_ground_1", "@main", noArg, None, status(255)))
+  //testLLSC(llsc, TestPrg(copysome1_2, "copysome1_2", "@main", noArg, None, status(255)))
+  //testLLSC(llsc, TestPrg(copysome2_2, "copysome2_2", "@main", noArg, None, status(255)))
+  //testLLSC(llsc, TestPrg(sorting_bubblesort_2_ground, "bubbleSort2Ground", "@main", noArg, None, status(255)))
+  //testLLSC(llsc, TestPrg(sorting_bubblesort_ground_2, "bubbleSortGround2", "@main", 0, None, status(255)))
+  //testLLSC(llsc, TestPrg(copysome1_2, "copysome1_2", "@main", noArg, None, status(255)))
+  //testLLSC(llsc, TestPrg(copysome2_2, "copysome2_2", "@main", noArg, None, status(255)))
   //testLLSC(llsc, TestPrg(sorting_bubblesort_2_ground, "bubbleSort2Ground", "@main", noArg, None, status(255)))
   //testLLSC(llsc, TestPrg(sorting_bubblesort_ground_2, "bubbleSortGround2", "@main", 0, None, status(255)))
 }
