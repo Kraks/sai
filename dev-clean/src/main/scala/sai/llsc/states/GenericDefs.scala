@@ -120,7 +120,6 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
   type PCont[W[_]] = ((W[SS], Value) => Unit)
 
   def mainArgs: Rep[List[Value]] = List[Value](unchecked[Value]("g_argc"), unchecked[Value]("g_argv"))
-  implicit def intToLong(i: Int): Long = i.toLong
 
   object IntV {
     def apply(i: Long): Rep[Value] = IntV(unit(i), DEFAULT_INT_BW)
