@@ -336,7 +336,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           }
         } yield u
       case SwitchTerm(cndTy, cndVal, default, table) =>
-        def switch(v: Rep[Int], s: Rep[SS], table: List[LLVMCase]): Rep[List[(SS, Value)]] = {
+        def switch(v: Rep[Long], s: Rep[SS], table: List[LLVMCase]): Rep[List[(SS, Value)]] = {
           if (table.isEmpty) execBlock(funName, default, s)
           else {
             if (v == table.head.n) execBlock(funName, table.head.label, s)

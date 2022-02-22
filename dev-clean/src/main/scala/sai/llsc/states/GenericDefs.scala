@@ -31,7 +31,7 @@ trait BasicDefs { self: SAIOps =>
 
   type IntData = Long
   type BlockLabel = Int
-  type Addr = Int
+  type Addr = Long
   type PC = Set[SMTBool]
   type Id[T] = T
   type Fd = Int
@@ -120,17 +120,14 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
   type PCont[W[_]] = ((W[SS], Value) => Unit)
 
   def mainArgs: Rep[List[Value]] = List[Value](unchecked[Value]("g_argc"), unchecked[Value]("g_argv"))
+  implicit def intToLong(i: Int): Long = i.toLong
 
   object IntV {
-    def apply(i: Rep[Int]): Rep[Value] = IntV(i, DEFAULT_INT_BW)
-    def apply(i: Rep[Int], bw: Int): Rep[Value] =
-      "make_IntV".reflectMutableWith[Value](i, bw)
-    def apply(i: Rep[Long])(implicit d: DummyImplicit): Rep[Value] = IntV(i, DEFAULT_INT_BW)
-    def apply(i: Rep[Long], bw: Int)(implicit d: DummyImplicit): Rep[Value] =
-      "make_IntV".reflectMutableWith[Value](i, bw)
+    def apply(i: Long): Rep[Value] = IntV(unit(i), DEFAULT_INT_BW)
+    def apply(i: Long, bw: Int): Rep[Value] = IntV(unit(i), bw)
+    def apply(i: Rep[Long]): Rep[Value] = IntV(i, DEFAULT_INT_BW)
+    def apply(i: Rep[Long], bw: Int): Rep[Value] = "make_IntV".reflectMutableWith[Value](i, bw)
     def unapply(v: Rep[Value]): Option[(Int, Int)] = Unwrap(v) match {
-      case gNode("make_IntV", bConst(v: Int)::bConst(bw: Int)::_) =>
-        Some((v, bw))
       case gNode("make_IntV", bConst(v: Long)::bConst(bw: Int)::_) =>
         Some((v, bw))
       case _ => None
@@ -240,12 +237,12 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
       case LocV(a, k, size) => k
       case _ => "proj_LocV_kind".reflectWith[LocV.Kind](v)
     }
-    def int: Rep[Int] = v match {
+    def int: Rep[Long] = v match {
       case IntV(n, bw) => unit(n)
       case _ => "proj_IntV".reflectWith[Int](v)
     }
     def float: Rep[Float] = "proj_FloatV".reflectWith[Float](v)
-    def structAt(i: Rep[Int]) = "structV_at".reflectWith[Value](v, i)
+    def structAt(i: Rep[Long]) = "structV_at".reflectWith[Value](v, i)
     def apply[W[_]](s: Rep[W[SS]], args: Rep[List[Value]])(implicit m: Manifest[W[SS]]): Rep[List[(SS, Value)]] = {
       v match {
         case ExternalFun(f) =>
