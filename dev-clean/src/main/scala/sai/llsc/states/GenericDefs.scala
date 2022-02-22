@@ -73,45 +73,32 @@ trait Coverage { self: SAIOps =>
 }
 
 trait Opaques { self: SAIOps with BasicDefs =>
-  object External extends Serializable {
-    val warned = MutableSet[String]()
-    // TODO: specify the signature of those functions (both in C and Scala)
-    val modeled = MutableSet[String](
-      "sym_print", "print_string", "malloc", "realloc", "llsc_assert", "make_symbolic", "make_symbolic_whole",
-      "open", "close", "read", "write", "stat", "sym_exit", "llsc_assert_eager",
-      "__assert_fail"
-    )
-    def print: Rep[Value] = "llsc-external-wrapper".reflectWith[Value]("sym_print")
-    def noop: Rep[Value] = "llsc-external-wrapper".reflectWith[Value]("noop")
-  }
-
-  def getString(ptr: Rep[Value], s: Rep[SS]): Rep[String] = "get_string".reflectWith[String](ptr, s)
-
-  object Intrinsics {
-    val warned = MutableSet[String]()
-    def get(id: String): Rep[Value] =
-      if (id.startsWith("@llvm.va_start")) llvm_va_start
-      else if (id.startsWith("@llvm.memcpy")) llvm_memcopy
-      else if (id.startsWith("@llvm.memset")) llvm_memset
-      else if (id.startsWith("@llvm.memmove")) llvm_memset
-      else {
-        if (!warned.contains(id)) {
-          System.out.println(s"Warning: intrinsic $id is ignored")
-          warned.add(id)
-        }
-        External.noop
-      }
-    def llvm_memcopy: Rep[Value] = "llsc-external-wrapper".reflectWith[Value]("llvm_memcpy")
-    def llvm_va_start: Rep[Value] = "llsc-external-wrapper".reflectWith[Value]("llvm_va_start")
-    def llvm_memset: Rep[Value] = "llsc-external-wrapper".reflectWith[Value]("llvm_memset")
-    def llvm_memmove: Rep[Value] = "llsc-external-wrapper".reflectWith[Value]("llvm_memmove")
-  }
-
   object ExternalFun {
+    private val warned = MutableSet[String]()
+    private val modeled = MutableSet[String](
+      "sym_print", "print_string", "malloc", "realloc",
+      "llsc_assert", "llsc_assert_eager", "__assert_fail", "sym_exit",
+      "make_symbolic", "make_symbolic_whole",
+      "open", "close", "read", "write", "stat",
+    )
+    def apply(f: String): Rep[Value] = "llsc-external-wrapper".reflectWith[Value](f)
     def unapply(v: Rep[Value]): Option[String] = Unwrap(v) match {
       case gNode("llsc-external-wrapper", bConst(f: String)::Nil) => Some(f)
       case _ => None
     }
+    def get(id: String): Rep[Value] =
+      if (modeled.contains(id.tail)) ExternalFun(id.tail)
+      else if (id.startsWith("@llvm.va_start")) ExternalFun("llvm.va_start")
+      else if (id.startsWith("@llvm.memcpy")) ExternalFun("llvm_memcopy")
+      else if (id.startsWith("@llvm.memset")) ExternalFun("llvm_memset")
+      else if (id.startsWith("@llvm.memmove")) ExternalFun("llvm_memset")
+      else {
+        if (!warned.contains(id)) {
+          System.out.println(s"Warning: function $id is treated as noop")
+          warned.add(id)
+        }
+        ExternalFun("noop")
+      }
   }
 }
 
