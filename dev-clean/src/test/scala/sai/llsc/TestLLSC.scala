@@ -250,7 +250,7 @@ class Playground extends TestLLSC {
   //testLLSC(new PureCPSLLSC_Z3, TestPrg(mergesort, "mergeSortTest", "@main", noArg, None, nPath(720)))
   //testLLSC(new PureCPSLLSC, TestPrg(mp1048576, "mp1mTest_CPS", "@f", symArg(20), "--disable-solver", nPath(1048576)))
   val llsc = new PureCPSLLSC_Z3
-  //testLLSC(new PureLLSC, TestPrg(complexStruct, "complexStructTest", "@main", noArg, None, nPath(1)))
+  //testLLSC(new PureLLSC, TestPrg(varArgInt, "varArgInt", "@main", noArg, None, nPath(1)))
   //testLLSC(llsc, TestPrg(bubbleSort2Ground, "bubbleSort2Ground", "@main", 0, None, status(255)))
   //testLLSC(llsc, TestPrg(bubbleSortGround2, "bubbleSortGround2", "@main", 0, None, status(255)))
 

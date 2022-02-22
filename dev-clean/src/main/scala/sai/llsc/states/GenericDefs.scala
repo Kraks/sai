@@ -88,7 +88,7 @@ trait Opaques { self: SAIOps with BasicDefs =>
     }
     def get(id: String): Rep[Value] =
       if (modeled.contains(id.tail)) ExternalFun(id.tail)
-      else if (id.startsWith("@llvm.va_start")) ExternalFun("llvm.va_start")
+      else if (id.startsWith("@llvm.va_start")) ExternalFun("llvm_va_start")
       else if (id.startsWith("@llvm.memcpy")) ExternalFun("llvm_memcpy")
       else if (id.startsWith("@llvm.memset")) ExternalFun("llvm_memset")
       else if (id.startsWith("@llvm.memmove")) ExternalFun("llvm_memset")
