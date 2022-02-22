@@ -19,6 +19,8 @@ import sys.process._
 
 import org.scalatest.FunSuite
 
+import Config._
+
 /* m: the parsed LLVM module
  * name: test name
  * f: entrance function name
@@ -46,7 +48,6 @@ object TestPrg {
 import TestPrg._
 
 object TestCases {
-  import Config._
   val concrete: List[TestPrg] = List(
     TestPrg(add, "addTest", "@main", noArg, None, nPath(1)),
     TestPrg(aliasing, "aliasingTest", "@main", noArg, None, nPath(1)),
@@ -249,6 +250,7 @@ class Playground extends TestLLSC {
   //testLLSC(new PureCPSLLSC, TestPrg(mp1048576, "mp1mTest_CPS", "@f", 20, "--disable-solver", nPath(1048576)))
   import sai.lang.llvm.TestComp._
   val llsc = new PureCPSLLSC_Z3
+  //testLLSC(new PureLLSC, TestPrg(complexStruct, "complexStructTest", "@main", noArg, None, nPath(1)))
   //testLLSC(llsc, TestPrg(bubbleSort2Ground, "bubbleSort2Ground", "@main", 0, None, status(255)))
   //testLLSC(llsc, TestPrg(bubbleSortGround2, "bubbleSortGround2", "@main", 0, None, status(255)))
 }

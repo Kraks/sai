@@ -28,6 +28,7 @@ struct Value : public std::enable_shared_from_this<Value>, public Printable {
    */
   virtual List<PtrVal> to_bytes_shadow() = 0;
 
+  // TODO: refactor to_SMT since it does nothing
   virtual PtrVal to_SMT() = 0;
   virtual std::shared_ptr<IntV> to_IntV() = 0;
 

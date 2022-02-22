@@ -89,7 +89,7 @@ trait Opaques { self: SAIOps with BasicDefs =>
     def get(id: String): Rep[Value] =
       if (modeled.contains(id.tail)) ExternalFun(id.tail)
       else if (id.startsWith("@llvm.va_start")) ExternalFun("llvm.va_start")
-      else if (id.startsWith("@llvm.memcpy")) ExternalFun("llvm_memcopy")
+      else if (id.startsWith("@llvm.memcpy")) ExternalFun("llvm_memcpy")
       else if (id.startsWith("@llvm.memset")) ExternalFun("llvm_memset")
       else if (id.startsWith("@llvm.memmove")) ExternalFun("llvm_memset")
       else {
@@ -177,6 +177,7 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
       case _ => None
     }
   }
+
   object ShadowV {
     def apply(): Rep[Value] = "make_ShadowV".reflectMutableWith[Value]()
     def apply(i: Int): Rep[Value] = "make_ShadowV".reflectMutableWith[Value](unit(i))
@@ -280,14 +281,22 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
     def toIntV: Rep[Value] = "to-IntV".reflectWith[Value](v)
     def toLocV: Rep[Value] = "to-LocV".reflectWith[Value](v)
 
-    def toBytes: Rep[List[Value]] = ???
+    def toBytes: Rep[List[Value]] = v match {
+      case ShadowV() => List[Value](v)
+      case IntV(n, bw) => ???
+      case FloatV(f, bw) => ???
+      case LocV(_, _, _) | FunV(_) | CPSFunV(_) =>
+        List[Value](v::ShadowV.indexSeq(7):_*)
+      case _ => "to-bytes".reflectWith[List[Value]](v)
+    }
+
     def toShadowBytes: Rep[List[Value]] = v match {
       case ShadowV() => List[Value](v)
       case IntV(n, bw) => List[Value](v::ShadowV.indexSeq((bw+BYTE_SIZE-1)/BYTE_SIZE - 1):_*)
       case FloatV(f, bw) => List[Value](v::ShadowV.indexSeq((bw+BYTE_SIZE-1)/BYTE_SIZE - 1):_*)
       case LocV(_, _, _) | FunV(_) | CPSFunV(_) =>
         List[Value](v::ShadowV.indexSeq(7):_*)
-      case _ => "to-bytes".reflectWith[List[Value]](v)
+      case _ => "to-bytes-shadow".reflectWith[List[Value]](v)
     }
 
   }

@@ -177,7 +177,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
         //  constants are allowed"
         // TODO: the align argument for getTySize
         // TODO: test this
-        val indexCst: List[Long] = index.map { case Wrap(Backend.Const(n: Int)) => n.toLong }
+        val indexCst: List[Long] = index.map { case Wrap(Backend.Const(n: Long)) => n.toLong }
         calculateOffsetStatic(ty, indexCst)
       case _ => ???
     }
