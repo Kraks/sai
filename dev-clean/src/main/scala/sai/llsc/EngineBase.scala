@@ -33,6 +33,8 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
 
   /* Basic functionalities */
 
+  def info(msg: String) = unchecked("INFO(\"" + msg + "\")")
+
   def compile(funName: String, b: BB): Unit = {
     if (BBFuns.contains((funName, b))) {
       System.out.println(s"Warning: ignoring the compilation of $funName - ${b.label}")

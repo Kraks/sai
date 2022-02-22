@@ -92,9 +92,11 @@ object Benchmarks {
 
 object TestComp {
   val prefix = "benchmarks/test-comp/array-examples"
-  lazy val arraySet1 = parseFile(s"$prefix/data_structures_set_multi_proc_ground-1.ll")
-  lazy val bubbleSort2Ground = parseFile(s"$prefix/sorting_bubblesort_2_ground.ll")
-  lazy val bubbleSortGround2 = parseFile(s"$prefix/sorting_bubblesort_ground-2.ll")
+  lazy val data_structures_set_multi_proc_ground_1 = parseFile(s"$prefix/data_structures_set_multi_proc_ground-1.ll")
+  lazy val sorting_bubblesort_2_ground = parseFile(s"$prefix/sorting_bubblesort_2_ground.ll")
+  lazy val sorting_bubblesort_ground_2 = parseFile(s"$prefix/sorting_bubblesort_ground-2.ll")
+  lazy val standard_allDiff2_ground = parseFile(s"$prefix/standard_allDiff2_ground.ll")
+  lazy val standard_copy9_ground = parseFile(s"$prefix/standard_copy9_ground-1.ll")
 }
 
 object Coreutils {

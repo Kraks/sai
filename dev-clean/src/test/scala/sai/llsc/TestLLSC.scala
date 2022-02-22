@@ -19,6 +19,8 @@ import sys.process._
 
 import org.scalatest.FunSuite
 
+import Config._
+
 /* m: the parsed LLVM module
  * name: test name
  * f: entrance function name
@@ -46,7 +48,6 @@ object TestPrg {
 import TestPrg._
 
 object TestCases {
-  import Config._
   val concrete: List[TestPrg] = List(
     TestPrg(add, "addTest", "@main", noArg, None, nPath(1)),
     TestPrg(aliasing, "aliasingTest", "@main", noArg, None, nPath(1)),
@@ -229,7 +230,9 @@ class TestPureCPSLLSC_Z3 extends TestLLSC {
   testLLSC(llsc, TestCases.all ++ filesys)
   testLLSC(llsc, TestPrg(unboundedLoop, "unboundedLoop", "@main", noArg, "--timeout=2", minTest(1)))
   testLLSC(llsc, TestPrg(unboundedLoop, "unboundedLoopMT", "@main", noArg, "--thread=2 --timeout=2", minTest(1)))
-  testLLSC(llsc, TestPrg(arraySet1, "testCompArraySet1", "@main", noArg, None, status(255)))
+  testLLSC(llsc, TestPrg(data_structures_set_multi_proc_ground_1, "testCompArraySet1", "@main", noArg, None, status(255)))
+  testLLSC(llsc, TestPrg(standard_allDiff2_ground, "stdAllDiff2Ground", "@main", noArg, None, status(255)))
+  testLLSC(llsc, TestPrg(standard_copy9_ground, "stdCopy9", "@main", noArg, None, status(255)))
 }
 
 class TestImpLLSC extends TestLLSC {
@@ -245,10 +248,10 @@ class TestImpCPSLLSC extends TestLLSC {
 }
 
 class Playground extends TestLLSC {
-  //testLLSC(new PureCPSLLSC_Z3, TestPrg(mergesort, "mergeSortTest", "@main", 0, None, nPath(720)))
-  //testLLSC(new PureCPSLLSC, TestPrg(mp1048576, "mp1mTest_CPS", "@f", 20, "--disable-solver", nPath(1048576)))
+  //testLLSC(new PureCPSLLSC_Z3, TestPrg(mergesort, "mergeSortTest", "@main", noArg, None, nPath(720)))
+  //testLLSC(new PureCPSLLSC, TestPrg(mp1048576, "mp1mTest_CPS", "@f", symArg(20), "--disable-solver", nPath(1048576)))
   import sai.lang.llvm.TestComp._
   val llsc = new PureCPSLLSC_Z3
-  //testLLSC(llsc, TestPrg(bubbleSort2Ground, "bubbleSort2Ground", "@main", 0, None, status(255)))
-  //testLLSC(llsc, TestPrg(bubbleSortGround2, "bubbleSortGround2", "@main", 0, None, status(255)))
+  //testLLSC(llsc, TestPrg(sorting_bubblesort_2_ground, "bubbleSort2Ground", "@main", noArg, None, status(255)))
+  //testLLSC(llsc, TestPrg(sorting_bubblesort_ground_2, "bubbleSortGround2", "@main", 0, None, status(255)))
 }
