@@ -313,11 +313,11 @@ struct LocV : Value {
   }
 };
 
-inline PtrVal make_LocV(unsigned int i, LocV::Kind k, int size) {
+inline PtrVal make_LocV(Addr i, LocV::Kind k, int size) {
   return std::make_shared<LocV>(i, k, size);
 }
 
-inline PtrVal make_LocV(unsigned int i, LocV::Kind k) {
+inline PtrVal make_LocV(Addr i, LocV::Kind k) {
   return std::make_shared<LocV>(i, k, -1);
 }
 
