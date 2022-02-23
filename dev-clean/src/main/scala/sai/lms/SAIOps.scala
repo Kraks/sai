@@ -29,9 +29,7 @@ trait PrimitiveOpsOpt extends PrimitiveOps { self: Base =>
       case _ => super.-(rhs)(__pos, __imp1)
     }
     override def -(rhs: Long)(implicit __pos: SourceContext, __imp1: Overloaded82) = Unwrap(x) match {
-      case Adapter.g.Def("+", StaticList(x: Backend.Exp, Backend.Const(y: Int))) if rhs == y.toLong =>
-        System.out.println("Hit1")
-        Wrap[Int](x)
+      case Adapter.g.Def("+", StaticList(x: Backend.Exp, Backend.Const(y: Int))) if rhs == y.toLong => Wrap[Int](x)
       case _ => super.-(rhs)(__pos, __imp1)
     }
   }

@@ -75,13 +75,20 @@ trait Coverage { self: SAIOps =>
 trait Opaques { self: SAIOps with BasicDefs =>
   object ExternalFun {
     private val warned = MutableSet[String]()
+    private val used = MutableSet[String]()
     private val modeled = MutableSet[String](
       "sym_print", "print_string", "malloc", "realloc",
       "llsc_assert", "llsc_assert_eager", "__assert_fail", "sym_exit",
       "make_symbolic", "make_symbolic_whole",
       "open", "close", "read", "write", "stat",
     )
-    def apply(f: String): Rep[Value] = "llsc-external-wrapper".reflectWith[Value](f)
+    def apply(f: String): Rep[Value] = {
+      if (!used.contains(f)) {
+        System.out.println(s"Use external function $f.")
+        used.add(f)
+      }
+      "llsc-external-wrapper".reflectWith[Value](f)
+    }
     def unapply(v: Rep[Value]): Option[String] = Unwrap(v) match {
       case gNode("llsc-external-wrapper", bConst(f: String)::Nil) => Some(f)
       case _ => None
@@ -94,7 +101,7 @@ trait Opaques { self: SAIOps with BasicDefs =>
       else if (id.startsWith("@llvm.memmove")) ExternalFun("llvm_memset")
       else {
         if (!warned.contains(id)) {
-          System.out.println(s"Warning: function $id is treated as noop")
+          System.out.println(s"External function ${id.tail} is treated as a noop.")
           warned.add(id)
         }
         ExternalFun("noop")
@@ -235,10 +242,7 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
       v match {
         case ExternalFun(f) =>
           if (f == "noop") List((s.asRepOf[SS], IntV(0)))
-          else {
-            System.out.println("use external function: " + f)
-            f.reflectWith[List[(SS, Value)]](s, args)
-          }
+          else f.reflectWith[List[(SS, Value)]](s, args)
         case FunV(f) => f(s, args)
         case _ => "direct_apply".reflectWith[List[(SS, Value)]](v, s, args)
       }
@@ -249,12 +253,7 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
       v match {
         case ExternalFun(f) =>
           if (f == "noop") k(s, IntV(0))
-          else {
-            // XXX: if the external function does not diverge, we don't need to
-            // pass the continuation into it, we can just return a pair of state/value.
-            System.out.println("use external function: " + f)
-            f.reflectWith[Unit](s, args, k)
-          }
+          else f.reflectWith[Unit](s, args, k)
         case CPSFunV(f) => f(s, args, k)                       // direct call
         case _ => "cps_apply".reflectWith[Unit](v, s, args, k) // indirect call
       }
