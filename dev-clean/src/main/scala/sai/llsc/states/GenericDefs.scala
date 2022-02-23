@@ -267,7 +267,7 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
       case IntV(_, _) => unit(true)
       case _ => "is-conc".reflectWith[Boolean](v)
     }
-    def toSMTBool: Rep[SMTBool] = "to-SMT".reflectWith[SMTBool](v)
+    def toSMTBool: Rep[SMTBool] = v.asRepOf[SMTBool]
     def toSMTBoolNeg: Rep[SMTBool] = "to-SMTNeg".reflectWith[SMTBool](v)
 
     def notNull: Rep[Boolean] = "not-null".reflectWith[Boolean](v)
