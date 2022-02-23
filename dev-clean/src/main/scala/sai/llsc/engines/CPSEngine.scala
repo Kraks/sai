@@ -49,15 +49,7 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
         if (!FunFuns.contains(id)) compile(funMap(id))
         CPSFunV[Ref](FunFuns(id))
       case GlobalId(id) if funDeclMap.contains(id) =>
-        if (External.modeled.contains(id.tail)) "llsc-external-wrapper".reflectWith[Value](id.tail)
-        else if (id.startsWith("@llvm")) Intrinsics.get(id)
-        else {
-          if (!External.warned.contains(id)) {
-            System.out.println(s"Warning: function $id is treated as noop")
-            External.warned.add(id)
-          }
-          External.noop
-        }
+        ExternalFun.get(id)
       case GlobalId(id) if globalDefMap.contains(id) =>
         LocV(heapEnv(id), LocV.kHeap)
       case GlobalId(id) if globalDeclMap.contains(id) =>
@@ -255,7 +247,7 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
           symExecBr(ss, cndVal.toSMTBool, cndVal.toSMTBoolNeg, thnLab, elsLab, funName, k)
         }
       case SwitchTerm(cndTy, cndVal, default, table) =>
-        def switch(v: Rep[Int], s: Rep[SS], table: List[LLVMCase]): Rep[Unit] = {
+        def switch(v: Rep[Long], s: Rep[SS], table: List[LLVMCase]): Rep[Unit] = {
           if (table.isEmpty) execBlock(funName, default, s, k)
           else {
             if (v == table.head.n) execBlock(funName, table.head.label, s, k)
@@ -324,7 +316,7 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
     execBlock(funName, findBlock(funName, label).get, s, k)
 
   def execBlock(funName: String, block: BB, s: Rep[SS], k: Rep[Cont]): Rep[Unit] = {
-    unchecked("// jump to block: " + block.label.get)
+    info("jump to block: " + block.label.get)
     getBBFun(funName, block)(s, k)
   }
 
@@ -336,8 +328,7 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
       }
 
     def runBlock(b: BB)(ss: Rep[Ref[SS]], k: Rep[Cont]): Rep[Unit] = {
-      unchecked("// compiling block: " + funName + " - " + b.label.get)
-      //println("// running function: " + funName + " - " + b.label.get)
+      info("running function: " + funName + " - " + b.label.get)
       Coverage.incBlock(funName, b.label.get)
       runInst(b.ins, b.term, ss, k)
     }
@@ -352,8 +343,7 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
         case TypedParam(ty, attrs, localId) => f.id + "_" + localId.get
         case Vararg => ""
       }
-      unchecked("// compiling function: " + f.id)
-      //println("// running function: " + f.id)
+      info("running function: " + f.id)
       ss.assign(params, args)
       execBlock(f.id, f.blocks(0), ss, k)
     }

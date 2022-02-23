@@ -61,17 +61,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
         if (!FunFuns.contains(id)) compile(funMap(id))
         ret(FunV[Id](FunFuns(id)))
       case GlobalId(id) if funDeclMap.contains(id) =>
-        val v =
-          if (External.modeled.contains(id.tail)) "llsc-external-wrapper".reflectWith[Value](id.tail)
-          else if (id.startsWith("@llvm")) Intrinsics.get(id)
-          else {
-            if (!External.warned.contains(id)) {
-              System.out.println(s"Warning: function $id is treated as noop")
-              External.warned.add(id)
-            }
-            External.noop
-          }
-        ret(v)
+        ret(ExternalFun.get(id))
       case GlobalId(id) if globalDefMap.contains(id) =>
         ret(LocV(heapEnv(id), LocV.kHeap))
       case GlobalId(id) if globalDeclMap.contains(id) =>
@@ -336,7 +326,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           }
         } yield u
       case SwitchTerm(cndTy, cndVal, default, table) =>
-        def switch(v: Rep[Int], s: Rep[SS], table: List[LLVMCase]): Rep[List[(SS, Value)]] = {
+        def switch(v: Rep[Long], s: Rep[SS], table: List[LLVMCase]): Rep[List[(SS, Value)]] = {
           if (table.isEmpty) execBlock(funName, default, s)
           else {
             if (v == table.head.n) execBlock(funName, table.head.label, s)
@@ -418,15 +408,14 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
     for {
       s <- getState
       v <- {
-        unchecked("// jump to block: " + block.label.get)
+        info("jump to block: " + block.label.get)
         reflect(getBBFun(funName, block)(s))
       }
     } yield v
 
   override def repBlockFun(funName: String, b: BB): (BFTy, Int) = {
     def runBlock(ss: Rep[SS]): Rep[List[(SS, Value)]] = {
-      unchecked("// compiling block: " + funName + " - " + b.label.get)
-      //println("// running block: " + funName + " - " + b.label.get)
+      info("running block: " + funName + " - " + b.label.get)
       Coverage.incBlock(funName, b.label.get)
       val runInstList: Comp[E, Rep[Value]] = for {
         _ <- mapM(b.ins)(execInst(_)(funName))
@@ -445,8 +434,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
         case TypedParam(ty, attrs, localId) => f.id + "_" + localId.get
         case Vararg => ""
       }
-      unchecked("// compiling function: " + f.id)
-      //println("// running function: " + f.id)
+      info("running function: " + f.id)
       val m: Comp[E, Rep[Value]] = for {
         _ <- stackUpdate(params, args)
         s <- getState

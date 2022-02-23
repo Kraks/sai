@@ -1,3 +1,5 @@
+[![Scala CI](https://github.com/Kraks/sai/actions/workflows/scala.yml/badge.svg)](https://github.com/Kraks/sai/actions/workflows/scala.yml)
+
 # Staged Program Analyzers
 
 Improving the performance of static analysis by meta-programming/multi-stage programming.
@@ -17,9 +19,14 @@ Improving the performance of static analysis by meta-programming/multi-stage pro
 
 ### Publications
 
+* Towards Partially Evaluating Symbolic Interpreters for All  
+  Shangyin Tan, Guannan Wei, Tiark Rompf  
+  ACM SIGPLAN Workshop on Partial Evaluation and Program Manipulation (PEPM), co-located with POPL 2022. Philadelphia, PA, USA  
+  [PDF](http://continuation.passing.style/static/papers/pepm22.pdf)
+
 * LLSC: A Parallel Symbolic Execution Compiler for LLVM IR (Demo Paper)  
   Guannan Wei, Shangyin Tan, Oliver Bračevac, Tiark Rompf  
-  Proceedings of The 29th ACM Joint European Software Engineering Conference and Symposium on the Foundations of   Software Engineering (ESEC/FSE 2021)  
+  Proceedings of The 29th ACM Joint European Software Engineering Conference and Symposium on the Foundations of Software Engineering (ESEC/FSE 2021)  
   [PDF (ACM DL)](https://dl.acm.org/doi/10.1145/3468264.3473108)
 
 * Compiling Symbolic Execution with Staging and Algebraic Effect  
