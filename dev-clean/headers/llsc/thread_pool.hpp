@@ -36,9 +36,6 @@ private:
   std::vector<std::mutex> qlocks;
   std::vector<std::priority_queue<Task>> ptasks;
 
-  //std::mutex q_lock = {};
-  //std::priority_queue<Task> ptasks = {};
-
   std::unique_ptr<std::thread[]> threads;
   std::unique_ptr<std::thread::id[]> thread_ids;
 
@@ -62,6 +59,8 @@ public:
   void init(const size_t n) {
     if (inited) ABORT("Thread pool is already initialized.");
     thread_num = n;
+    qlocks = std::vector<std::mutex>(n);
+    ptasks = std::vector<std::priority_queue<Task>>(n);
     threads.reset(new std::thread[thread_num]);
     thread_ids.reset(new std::thread::id[thread_num]);
     for (size_t i = 0; i < thread_num; i++) {
@@ -69,8 +68,6 @@ public:
       threads[i] = std::thread(&thread_pool::worker, this, i);
       thread_ids[i] = threads[i].get_id();
     }
-    qlocks = std::vector<std::mutex>(n);
-    ptasks = std::vector<std::priority_queue<Task>>(n);
     inited = true;
   }
   void with_thread_ids(const std::function<void(std::thread::id)>& f) {
@@ -112,7 +109,6 @@ public:
     }
   }
   bool pop_task(unsigned id, struct Task& task) {
-    if (qlocks.size() <= id || ptasks.size() <= id) return false;
     const std::scoped_lock lock(qlocks.at(id));
     if (ptasks[id].empty()) return false;
     task = std::move(ptasks[id].top());
