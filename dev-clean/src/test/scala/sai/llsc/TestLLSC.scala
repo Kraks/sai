@@ -86,7 +86,7 @@ object TestCases {
   )
 
   val varArg: List[TestPrg] = List(
-    TestPrg(varArgInt, "varArgInt", "@main", noArg, None, nPath(1))
+    TestPrg(varArgInt, "varArgInt", "@main", noArg, None, nPath(1)++status(0))
     // FIXME(PureLLSC): Sext an invalid value
     // TestPrg(varArgChar, "varArgChar", "@main", noArg, None, nPath(1))
   )
@@ -135,6 +135,7 @@ object TestCases {
     TestPrg(stat2Test, "statTestFail", "@main", noArg, "", nPath(1)++status(1)),
     TestPrg(kleefsminiTest, "kleefsmini", "@main", noArg, None, nPath(2)++status(0)),
     TestPrg(kleefsglobalTest, "kleefsminiglobal", "@main", noArg, None, nPath(2)++status(0)),
+    TestPrg(kleefslib64Test, "kleelib64", "@main", noArg, None, nPath(10)++status(0)),
   )
 
   val all: List[TestPrg] = concrete ++ memModel ++ symbolicSimple ++ symbolicSmall ++ external ++ argv
