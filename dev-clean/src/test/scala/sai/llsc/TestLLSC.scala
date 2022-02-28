@@ -137,7 +137,7 @@ object TestCases {
     TestPrg(kleefsglobalTest, "kleefsminiglobal", "@main", noArg, None, nPath(2)++status(0)),
   )
 
-  val all: List[TestPrg] = concrete ++ memModel ++ symbolicSimple ++ symbolicSmall ++ external
+  val all: List[TestPrg] = concrete ++ memModel ++ symbolicSimple ++ symbolicSmall ++ external ++ argv
 
   // FIXME: out of range
   // TestPrg(struct, "structTest", "@main", noArg, 1),

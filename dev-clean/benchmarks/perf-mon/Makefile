@@ -14,7 +14,7 @@ KLEE_GEN := $(wildcard ./klee-*)
 
 LLSC_TARGET := $(SRC_FILES:%.c=%.ll)
 
-all: llsc klee
+all: llsc
 
 llsc: $(LLSC_TARGET)
 klee: $(KLEE_TARGET)
@@ -26,7 +26,7 @@ $(KLEE_TARGET): %.bc : %.c
 $(KLEE_REPLAY_TARGET): %-replay : %.c
 	$(CC) $(KLEE_FLAGS) -o $@ $< -lkleeRuntest
 
-$(LLSC_TARGET): %.ll : %.c
+$(LLSC_TARGET): %.ll : %.c Makefile
 	$(CC) $(LLSC_FLAGS) $(FLAGS) -o $@ $<
 
 clean:

@@ -61,7 +61,7 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     val curDir = new File(".").getCanonicalPath
     val libraries = codegen.libraryFlags.mkString(" ")
     val includes = codegen.includePaths.map(s"-I $curDir/" + _).mkString(" ")
-    val libraryPaths = codegen.libraryPaths.map(s"-L $curDir/" + _).mkString(" ")
+    val libraryPaths = codegen.libraryPaths.map(p => s"-L $curDir/$p -Wl,-rpath $curDir/$p").mkString(" ")
 
     out.println(s"""|BUILD_DIR = build
     |SRC_DIR = .
@@ -69,7 +69,8 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     |TARGET = $appName
     |OBJECTS = $$(SOURCES:$$(SRC_DIR)/%.cpp=$$(BUILD_DIR)/%.o)
     |CC = g++ -std=c++17 -O3
-    |CXXFLAGS = $includes $extraFlags
+    |PERFFLAGS = -g -fno-omit-frame-pointer
+    |CXXFLAGS = $includes $extraFlags $$(PERFFLAGS)
     |LDFLAGS = $libraryPaths
     |LDLIBS = $libraries -lpthread
     |
@@ -186,7 +187,7 @@ abstract class ImpCPSLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName
 
 trait LLSC {
   val insName: String
-  def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[_, _]
+  def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit]
   def runLLSC(m: Module, name: String, fname: String, config: Config = Config(0, true)): Unit = {
     val (_, t) = time {
       val code = newInstance(m, name, fname, config)
@@ -211,7 +212,7 @@ object Config {
 
 class PureLLSC extends LLSC {
   val insName = "PureLLSC"
-  def newInstance(m: Module, name: String, fname: String, config: Config) =
+  def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit] =
     new PureLLSCDriver[Int, Unit](m, name, "./llsc_gen") {
       implicit val me: this.type = this
       @virtualize
@@ -224,7 +225,7 @@ class PureLLSC extends LLSC {
 
 class PureCPSLLSC extends LLSC {
   val insName = "PureCPSLLSC"
-  def newInstance(m: Module, name: String, fname: String, config: Config) =
+  def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit] =
     new PureCPSLLSCDriver[Int, Unit](m, name, "./llsc_gen") {
       implicit val me: this.type = this
       def snippet(u: Rep[Int]) = {
@@ -237,6 +238,7 @@ class PureCPSLLSC_Z3 extends PureCPSLLSC {
   override val insName = "PureCPSLLSC_Z3"
   override def newInstance(m: Module, name: String, fname: String, config: Config) = {
     val llsc = super.newInstance(m, name, fname, config)
+    llsc.codegen.libraryFlags.clear()
     llsc.codegen.registerLibrary("-lz3")
     llsc.extraFlags = "-D USE_TP -D Z3"
     llsc
@@ -245,7 +247,7 @@ class PureCPSLLSC_Z3 extends PureCPSLLSC {
 
 class ImpLLSC extends LLSC {
   val insName = "ImpLLSC"
-  def newInstance(m: Module, name: String, fname: String, config: Config) =
+  def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit] =
     new ImpLLSCDriver[Int, Unit](m, name, "./llsc_gen") {
       implicit val me: this.type = this
       def snippet(u: Rep[Int]) = {
@@ -257,7 +259,7 @@ class ImpLLSC extends LLSC {
 
 class ImpVecLLSC extends LLSC {
   val insName = "ImpLLSC"
-  def newInstance(m: Module, name: String, fname: String, config: Config) =
+  def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit] =
     new ImpVecLLSCDriver[Int, Unit](m, name, "./llsc_gen") {
       implicit val me: this.type = this
       def snippet(u: Rep[Int]) = {
@@ -269,7 +271,7 @@ class ImpVecLLSC extends LLSC {
 
 class ImpCPSLLSC extends LLSC {
   val insName = "ImpCPSLLSC"
-  def newInstance(m: Module, name: String, fname: String, config: Config) =
+  def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit] =
     new ImpCPSLLSCDriver[Int, Unit](m, name, "./llsc_gen") {
       implicit val me: this.type = this
       def snippet(u: Rep[Int]) = {
