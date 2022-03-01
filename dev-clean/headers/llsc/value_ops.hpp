@@ -6,7 +6,7 @@ struct IntV;
 struct SS;
 
 using PtrVal = std::shared_ptr<Value>;
-inline PtrVal bv_extract(PtrVal v1, int hi, int lo);
+inline PtrVal bv_extract(const PtrVal& v1, int hi, int lo);
 inline PtrVal make_IntV(IntData i, int bw=bitwidth, bool toMSB=true);
 
 /* Value representations */
