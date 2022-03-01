@@ -203,7 +203,12 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     case IntConst(n) => IntV(n, ty.asInstanceOf[IntType].size)
     case FloatConst(f) => FloatV(f)
     case NullConst => LocV(0.toLong, LocV.kHeap)
-    case PtrToIntExpr(from, const, to) => evalHeapAtomicConst(const, from).toIntV
+    case PtrToIntExpr(from, const, to) =>
+      val v = evalHeapAtomicConst(const, from).toIntV
+      if (ARCH_WORD_SIZE == to.asInstanceOf[IntType].size) 
+        v.toIntV
+      else
+        v.toIntV.trunc(ARCH_WORD_SIZE, to.asInstanceOf[IntType].size)
     case GlobalId(id) if funMap.contains(id) =>
       if (!FunFuns.contains(id)) compile(funMap(id))
       wrapFunV(FunFuns(id))
