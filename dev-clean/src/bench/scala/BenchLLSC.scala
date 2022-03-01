@@ -51,6 +51,7 @@ object TestCases {
   val benchcases: List[TestPrg] = List(
     TestPrg(parseFile(s"$prefix/knapsack.ll"), "knapsackTest", "@main", noArg, None, nPath(1666)),
     TestPrg(parseFile(s"$prefix/nqueen.ll"), "nQueens", "@main", noArg, None, nPath(1363)),
+    TestPrg(parseFile(s"$prefix/kmpmatcher.ll"), "kmp", "@main", noArg, None, nPath(1287)),
     // These benchmarks have a larger input size compared with those in demo_benchmarks
     TestPrg(parseFile(s"$prefix/mergesort.ll"), "mergeSortTest", "@main", noArg, None, nPath(5040)),
     TestPrg(parseFile(s"$prefix/bubblesort.ll"), "bubbleSortTest", "@main", noArg, None, nPath(720)),
@@ -60,6 +61,7 @@ object TestCases {
   val paraBenchcases: List[TestPrg] = List(
     TestPrg(parseFile(s"$prefix/knapsack.ll"), "par_knapsackTest", "@main", noArg, "--thread=20", nPath(1666)),
     TestPrg(parseFile(s"$prefix/nqueen.ll"), "par_nQueens", "@main", noArg, "--thread=20", nPath(1363)),
+    TestPrg(parseFile(s"$prefix/kmpmatcher.ll"), "kmp", "@main", noArg, None, nPath(1287)),
     TestPrg(parseFile(s"$prefix/mergesort.ll"), "par_mergeSortTest", "@main", noArg, "--thread=20", nPath(5040)),
     TestPrg(parseFile(s"$prefix/bubblesort.ll"), "par_bubbleSortTest", "@main", noArg, "--thread=20", nPath(720)),
     TestPrg(parseFile(s"$prefix/quicksort.ll"), "par_quickSortTest", "@main", noArg, "--thread=20", nPath(720)),
