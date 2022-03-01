@@ -47,9 +47,23 @@ object TestPrg {
 import TestPrg._
 
 object TestCases {
+  val prefix = "benchmarks/perf-mon"
   val benchcases: List[TestPrg] = List(
-    TestPrg(parseFile("benchmarks/perf-mon/knapsack.ll"), "knapsackTest", "@main", noArg, None, nPath(1666)),
-    TestPrg(parseFile("benchmarks/perf-mon/nqueen.ll"), "nQueens", "@main", noArg, None, nPath(1363)),
+    TestPrg(parseFile(s"$prefix/knapsack.ll"), "knapsackTest", "@main", noArg, None, nPath(1666)),
+    TestPrg(parseFile(s"$prefix/nqueen.ll"), "nQueens", "@main", noArg, None, nPath(1363)),
+    // These benchmarks have a larger input size compared with those in demo_benchmarks
+    TestPrg(parseFile(s"$prefix/mergesort.ll"), "mergeSortTest", "@main", noArg, None, nPath(5040)),
+    TestPrg(parseFile(s"$prefix/bubblesort.ll"), "bubbleSortTest", "@main", noArg, None, nPath(720)),
+    TestPrg(parseFile(s"$prefix/quicksort.ll"), "quickSortTest", "@main", noArg, None, nPath(720)),
+    TestPrg(parseFile(s"$prefix/multipath_1048576_sym.ll"), "mp1m", "@f", symArg(20), "--disable-solver", nPath(1048576)),
+  )
+  val paraBenchcases: List[TestPrg] = List(
+    TestPrg(parseFile(s"$prefix/knapsack.ll"), "par_knapsackTest", "@main", noArg, "--thread=20", nPath(1666)),
+    TestPrg(parseFile(s"$prefix/nqueen.ll"), "par_nQueens", "@main", noArg, "--thread=20", nPath(1363)),
+    TestPrg(parseFile(s"$prefix/mergesort.ll"), "par_mergeSortTest", "@main", noArg, "--thread=20", nPath(5040)),
+    TestPrg(parseFile(s"$prefix/bubblesort.ll"), "par_bubbleSortTest", "@main", noArg, "--thread=20", nPath(720)),
+    TestPrg(parseFile(s"$prefix/quicksort.ll"), "par_quickSortTest", "@main", noArg, "--thread=20", nPath(720)),
+    TestPrg(parseFile(s"$prefix/multipath_1048576_sym.ll"), "par_mp1m", "@f", symArg(20), "--disable-solver --thread=20", nPath(1048576)),
   )
 }
 import TestCases._
@@ -99,14 +113,15 @@ abstract class TestLLSC extends FunSuite {
   }
 
   def testLLSC(llsc: LLSC, tst: TestPrg): Unit = {
+    val nTest = 5 // GW: smaller sample size seems enough?
     val TestPrg(m, name, f, config, cliArgOpt, exp) = tst
     test(name) {
       val code = llsc.newInstance(m, llsc.insName + "_" + name, f, config)
       code.genAll
       val mkRet = code.make(4)
       assert(mkRet == 0, "make failed")
-      for (i <- 1 to 10) {
-        Thread.sleep(5 * 1000)
+      for (i <- 1 to nTest) {
+        //Thread.sleep(5 * 1000) // GW: do we need that?
         val (output, ret) = code.runWithStatus(cliArgOpt.getOrElse(""))
         val resStat = parseOutput(llsc.insName, name, output)
         System.out.println(resStat)
@@ -146,5 +161,5 @@ class BenchPureCPSLLSC extends TestLLSC {
 }
 
 class BenchPureCPSLLSCZ3 extends TestLLSC {
-  testLLSC(new PureCPSLLSC_Z3 with LinkZ3, benchcases)
+  testLLSC(new PureCPSLLSC_Z3 with LinkZ3, benchcases ++ paraBenchcases)
 }
