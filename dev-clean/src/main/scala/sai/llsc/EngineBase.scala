@@ -203,8 +203,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     case IntConst(n) => IntV(n, ty.asInstanceOf[IntType].size)
     case FloatConst(f) => FloatV(f)
     case NullConst => LocV(0.toLong, LocV.kHeap)
-    case PtrToIntExpr(from, const, to) =>
-      IntV(evalHeapAtomicConst(const, from).int, to.asInstanceOf[IntType].size)
+    case PtrToIntExpr(from, const, to) => evalHeapAtomicConst(const, from).toIntV
     case GlobalId(id) if funMap.contains(id) =>
       if (!FunFuns.contains(id)) compile(funMap(id))
       wrapFunV(FunFuns(id))
@@ -212,7 +211,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     case BitCastExpr(from, const, to) => evalHeapAtomicConst(const, to)
     case GetElemPtrExpr(inBounds, baseType, ptrType, const, typedConsts) =>
       val indexLLVMValue = typedConsts.map(tv => tv.const.asInstanceOf[IntConst].n)
-      val base = evalHeapAtomicConst(const, getRealType(ptrType)).int
+      val base = evalHeapAtomicConst(const, getRealType(ptrType)).loc
       val addr = base + calculateOffsetStatic(ptrType, indexLLVMValue)
       LocV(addr, LocV.kHeap)
     case _ => throw new Exception("Not atomic heap constant " + v)
