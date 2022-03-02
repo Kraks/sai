@@ -236,9 +236,10 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
           case None => NullPtr()
         }
         k(ss, ret)
+      case BrTerm(lab) if (cfg.pred(funName, lab).size == 1) =>
+        execBlockEager(funName, findBlock(funName, lab).get, ss, k)
       case BrTerm(lab) =>
-        if (cfg.pred(funName, lab).size == 1) execBlockEager(funName, findBlock(funName, lab).get, ss, k)
-        else execBlock(funName, lab, ss.addIncomingBlock(incomingBlock), k)
+        execBlock(funName, lab, ss.addIncomingBlock(incomingBlock), k)
       case CondBrTerm(ty, cnd, thnLab, elsLab) =>
         val ss1 = ss.addIncomingBlock(incomingBlock)
         val cndVal = eval(cnd, ty, ss1)
@@ -336,7 +337,6 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
       }
       info("running function: " + f.id)
       execBlockEager(f.id, f.blocks(0), ss.assign(params, args), k)
-      //execBlock(f.id, f.blocks(0), ss.assign(params, args), k)
     }
     val fn: FFTy = topFun(runFun(_, _, _))
     val n = Unwrap(fn).asInstanceOf[Backend.Sym].n
