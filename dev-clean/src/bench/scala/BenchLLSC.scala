@@ -19,15 +19,6 @@ import org.scalatest.FunSuite
 
 import Config._
 
-/* m: the parsed LLVM module
- * name: test name
- * f: entrance function name
- * config: compile time configuration
- * nPath: expected number of explored paths
- * nTest: expteted number of test cases generated
- * runOpt: the command line argument to run the compiled executable
- * result: expected return status of the compiled executable
- */
 // TODO: refactor and max share with test/...
 case class TestPrg(m: Module, name: String, f: String, config: Config, runOpt: Option[String], exp: Map[String, Any])
 object TestPrg {
@@ -115,7 +106,7 @@ abstract class TestLLSC extends FunSuite {
   }
 
   def testLLSC(llsc: LLSC, tst: TestPrg): Unit = {
-    val nTest = 5 // GW: smaller sample size seems enough?
+    val nTest = 5
     val TestPrg(m, name, f, config, cliArgOpt, exp) = tst
     test(name) {
       val code = llsc.newInstance(m, llsc.insName + "_" + name, f, config)
@@ -123,7 +114,7 @@ abstract class TestLLSC extends FunSuite {
       val mkRet = code.make(4)
       assert(mkRet == 0, "make failed")
       for (i <- 1 to nTest) {
-        //Thread.sleep(5 * 1000) // GW: do we need that?
+        Thread.sleep(1 * 1000)
         val (output, ret) = code.runWithStatus(cliArgOpt.getOrElse(""))
         val resStat = parseOutput(llsc.insName, name, output)
         System.out.println(resStat)
