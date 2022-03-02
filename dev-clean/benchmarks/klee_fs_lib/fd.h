@@ -11,7 +11,7 @@
 #define KLEE_FD_H
 
 //#include "klee/Config/config.h"
-#include "llsc.h"
+#include "../../headers/llsc_client.h"
 
 #ifndef _LARGEFILE64_SOURCE
 #error "_LARGEFILE64_SOURCE should be defined"

@@ -150,4 +150,28 @@ inline std::monostate __assert_fail(SS state, List<PtrVal> args, Cont k) {
   return llsc_assert(state, args, k);
 }
 
+/******************************************************************************/
+
+template<typename T>
+inline T __llvm_va_start(SS& state, List<PtrVal>& args, __Cont<T> k);
+
+template<typename T>
+inline T __llvm_va_end(SS& state, List<PtrVal>& args, __Cont<T> k);
+
+inline List<SSVal> llvm_va_start(SS state, List<PtrVal> args) {
+  return __llvm_va_start<List<SSVal>>(state, args, [](auto s, auto v) { return List<SSVal>{{s, v}}; });
+}
+
+inline std::monostate llvm_va_start(SS state, List<PtrVal> args, Cont k) {
+  return __llvm_va_start<std::monostate>(state, args, [&k](auto s, auto v) { return k(s, v); });
+}
+
+inline List<SSVal> llvm_va_end(SS state, List<PtrVal> args) {
+  return __llvm_va_end<List<SSVal>>(state, args, [](auto s, auto v) { return List<SSVal>{{s, v}}; });
+}
+
+inline std::monostate llvm_va_end(SS state, List<PtrVal> args, Cont k) {
+  return __llvm_va_end<std::monostate>(state, args, [&k](auto s, auto v) { return k(s, v); });
+}
+
 #endif
