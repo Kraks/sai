@@ -281,7 +281,16 @@ package IR {
   abstract class Constant extends LLVMValue
   case class BoolConst(b: Boolean) extends Constant
   case class IntConst(n: Long) extends Constant
-  case class FloatConst(f: Float) extends Constant
+  case class FloatConst(n: Either[Float, List[String]]) extends Constant {
+    override def toString = n match {
+      case Left(f) => f.toString
+      case Right(l) => '{' + l.map(v => "0x" ++ v).mkString(", ") + '}'
+    }
+  }
+  object FloatConst{
+    def apply(f: Float): FloatConst = FloatConst(Left(f))
+    def apply(buf: List[String]): FloatConst = FloatConst(Right(buf))
+  }
   case object NullConst extends Constant
   case object NoneConst extends Constant
   case class StructConst(cs: List[TypedConst]) extends Constant
@@ -799,6 +808,18 @@ class MyVisitor extends LLVMParserBaseVisitor[LAST] {
   override def visitFloatConst(ctx: LLVMParser.FloatConstContext): LAST = {
     val floatStr = ctx.FLOAT_LIT.getText
     if (floatStr.contains('.')) FloatConst(floatStr.toFloat)
+    else if (floatStr.startsWith("0xK")) {
+      // x86_fp80
+      System.out.println(s"fp80 literal: ${floatStr}")
+      val numStr = floatStr.substring(3)
+      def toBytes(str: String): List[String] = 
+        if (str.length < 2) List() 
+        else str.take(2) :: toBytes(str.drop(2))
+      System.out.println(s"numStr: ${numStr}")
+      val byteArr = toBytes(numStr)
+      System.out.println(s"byteArr: ${byteArr}")
+      FloatConst(byteArr)
+    }
     else if (floatStr.startsWith("0x")) {
       val hexString = floatStr.substring(2)
       val longBits = java.lang.Long.parseUnsignedLong(hexString, 16)
@@ -1133,7 +1154,7 @@ class MyVisitor extends LLVMParserBaseVisitor[LAST] {
     val lhs = visit(ctx.value(0)).asInstanceOf[LLVMValue]
     val rhs = visit(ctx.value(1)).asInstanceOf[LLVMValue]
     // Skipped OptCommaSepMetadataAttachmentListContext
-    SDivInst(ty, lhs, rhs)
+    FDivInst(ty, lhs, rhs)
   }
 
   override def visitURemInst(ctx: LLVMParser.URemInstContext): LAST = {
