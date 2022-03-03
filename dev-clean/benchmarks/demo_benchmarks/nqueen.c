@@ -1,12 +1,13 @@
 #ifdef KLEE
 #include "klee/klee.h"
 #endif
+#include "../../headers/llsc_client.h"
 
 // https://www.geeksforgeeks.org/n-queen-problem-backtracking-3/
 #define N 5
 #include <stdbool.h>
 #include <stdio.h>
-  
+
 bool isSafe(int board[N][N], int row, int col) {
     int i, j;
     for (i = 0; i < col; i++)
@@ -20,7 +21,7 @@ bool isSafe(int board[N][N], int row, int col) {
             return false;
     return true;
 }
-  
+
 bool solveNQUtil(int board[N][N], int col) {
     if (col >= N) return true;
     for (int i = 0; i < N; i++) {
@@ -39,15 +40,18 @@ bool solveNQ() {
 #ifdef KLEE
     klee_make_symbolic(board, sizeof(int) * N * N, "board");
 #else
-    make_symbolic(board, sizeof(int) * N * N);
+    for (int i = 0; i < N*N; i++) {
+      make_symbolic_whole(((int*)board)+i, sizeof(int));
+    }
+    //make_symbolic(board, sizeof(int) * N * N);
 #endif
     if (solveNQUtil(board, 0) == false) {
         return false;
     }
-  
+
     return true;
 }
-  
+
 int main()
 {
     solveNQ();
