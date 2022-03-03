@@ -544,10 +544,11 @@ inline PtrVal float_op_2(fOP op, PtrVal v1, PtrVal v2) {
   auto f2 = std::dynamic_pointer_cast<FloatV>(v2);
 
   if (f1 && f2) {
-    if (op == op_fadd) { return make_FloatV(f1->f + f2->f); }
-    else if (op == op_fsub) { return make_FloatV(f1->f - f2->f); }
-    else if (op == op_fmul) { return make_FloatV(f1->f * f2->f); }
-    else if (op == op_fdiv) { return make_FloatV(f1->f / f2->f); }
+    if (op == op_fadd) { return make_FloatV(f1->f + f2->f, MAX(f1->bw, f2->bw)); }
+    else if (op == op_fsub) { return make_FloatV(f1->f - f2->f, MAX(f1->bw, f2->bw)); }
+    else if (op == op_fmul) { return make_FloatV(f1->f * f2->f, MAX(f1->bw, f2->bw)); }
+    else if (op == op_fdiv) { return make_FloatV(f1->f / f2->f, MAX(f1->bw, f2->bw)); }
+    /* else if (op == op_fcmp) { return f1->f > f2->f; } */
     // FIXME: Float cmp operations
     else { return make_IntV(1); }
   } else {
