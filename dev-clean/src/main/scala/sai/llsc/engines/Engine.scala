@@ -47,8 +47,10 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
         for { ss <- getState } yield ss.lookup(funName + "_" + x)
       case IntConst(n) =>
         ret(IntV(n, ty.asInstanceOf[IntType].size))
-      case FloatConst(f) =>
-        ret(FloatV(f))
+      case fc@FloatConst(n) => n match {
+        case Left(f) => ret(FloatV(f))
+        case Right(buf) => ret("make_FloatV".reflectWriteWith[Value](fc.toString, 80)(Adapter.CTRL))
+      }
       // case ArrayConst(cs) =>
       case BitCastExpr(from, const, to) =>
         eval(const, to)
@@ -93,9 +95,17 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
     for { v1 <- eval(lhs, ty); v2 <- eval(rhs, ty) } yield IntOp2(op, v1, v2)
 
   def evalFloatOp2(op: String, lhs: LLVMValue, rhs: LLVMValue, ty: LLVMType)(implicit funName: String): Comp[E, Rep[Value]] =
-    for { v1 <- eval(lhs, ty); v2 <- eval(rhs, ty) } yield FloatOp2(op, v1, v2)
+  {
+    System.out.println(s"evalFloatOp2:")
+    System.out.println(s"op: ${op}")
+    System.out.println(s"lhs: ${lhs}")
+    System.out.println(s"rhs: ${rhs}")
+
+      for { v1 <- eval(lhs, ty); v2 <- eval(rhs, ty) } yield FloatOp2(op, v1, v2)
+  }
 
   def execValueInst(inst: ValueInstruction)(implicit funName: String): Comp[E, Rep[Value]] = {
+    System.out.println(s"inst: ${inst}")
     inst match {
       // Memory Access Instructions
       case AllocaInst(ty, align) =>

@@ -284,7 +284,7 @@ package IR {
   case class FloatConst(n: Either[Float, List[String]]) extends Constant {
     override def toString = n match {
       case Left(f) => f.toString
-      case Right(l) => '{' + l.map(v => "0x" ++ v).mkString(", ") + '}'
+      case Right(l) => '{' + l.reverse.map(v => "0x" ++ v).mkString(", ") + '}'
     }
   }
   object FloatConst{
