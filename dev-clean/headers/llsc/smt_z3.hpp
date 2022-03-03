@@ -14,11 +14,24 @@ private:
     solver* s = new solver(*c);
     return std::make_tuple(c, s);
   }
+
   context* g_ctx;
+  params* pr;
+  tactic* t;
   solver* g_solver;
 public:
   CheckerZ3() {
     std::cout << "Use Z3 " << Z3_get_full_version() << "\n";
+    g_ctx = new context;
+    pr = new params(*g_ctx);
+    pr->set("mul2concat", true);
+    t = new tactic(with(tactic(*g_ctx, "qfbv"), *pr) &
+               //tactic(*g_ctx, "solve-eqs") &
+               //tactic(*g_ctx, "qfbv") &
+               tactic(*g_ctx, "bit-blast") &
+               //tactic(*g_ctx, "aig") &
+               tactic(*g_ctx, "sat"));
+    g_solver = new solver(t->mk_solver());
   }
   ~CheckerZ3() { destroy_solvers(); }
   void init_solvers() override {
@@ -35,15 +48,20 @@ public:
     }
   }
   instance get_my_thread_local_instance() {
-    return checker_map[std::this_thread::get_id()];
+    return {g_ctx, g_solver};
+    //return checker_map[std::this_thread::get_id()];
   }
   solver_result make_query(PC pc) override {
     auto pc_set = pc.get_path_conds();
     auto start = steady_clock::now();
+
     context* c; solver* s;
     std::tie(c, s) = get_my_thread_local_instance();
-    for (auto& e: pc_set)
-      s->add(construct_z3_expr(c, e));
+    for (auto& e: pc_set) {
+      auto t = construct_z3_expr(c, e);
+      s->add(t);
+    }
+    //std::cout << s->to_smt2() << "\n";
     auto result = s->check();
     auto end = steady_clock::now();
     solver_time += duration_cast<microseconds>(end - start);
