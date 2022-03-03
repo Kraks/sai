@@ -49,15 +49,17 @@ object TestCases {
     TestPrg(parseFile(s"$prefix/quicksort.ll"), "quickSortTest", "@main", noArg, None, nPath(720)),
     TestPrg(parseFile(s"$prefix/multipath_1048576_sym.ll"), "mp1m", "@f", symArg(20), "--disable-solver", nPath(1048576)),
   )
-  val paraBenchcases: List[TestPrg] = List(
-    TestPrg(parseFile(s"$prefix/knapsack.ll"), "par_knapsackTest", "@main", noArg, "--thread=20", nPath(1666)),
-    TestPrg(parseFile(s"$prefix/nqueen.ll"), "par_nQueens", "@main", noArg, "--thread=20", nPath(1363)),
-    TestPrg(parseFile(s"$prefix/kmpmatcher.ll"), "kmp", "@main", noArg, None, nPath(1287)),
-    TestPrg(parseFile(s"$prefix/mergesort.ll"), "par_mergeSortTest", "@main", noArg, "--thread=20", nPath(5040)),
-    TestPrg(parseFile(s"$prefix/bubblesort.ll"), "par_bubbleSortTest", "@main", noArg, "--thread=20", nPath(720)),
-    TestPrg(parseFile(s"$prefix/quicksort.ll"), "par_quickSortTest", "@main", noArg, "--thread=20", nPath(720)),
-    TestPrg(parseFile(s"$prefix/multipath_1048576_sym.ll"), "par_mp1m", "@f", symArg(20), "--disable-solver --thread=20", nPath(1048576)),
-  )
+  val paraBenchcases: List[TestPrg] = List(2, 4, 8, 16).flatMap { case tn => 
+    List(
+      TestPrg(parseFile(s"$prefix/knapsack.ll"), s"par${tn}_knapsackTest", "@main", noArg, s"--thread=$tn", nPath(1666)),
+      TestPrg(parseFile(s"$prefix/nqueen.ll"), s"par${tn}_nQueens", "@main", noArg, s"--thread=$tn", nPath(1363)),
+      TestPrg(parseFile(s"$prefix/kmpmatcher.ll"), s"par${tn}_kmp", "@main", noArg, s"--thread=$tn", nPath(1287)),
+      TestPrg(parseFile(s"$prefix/mergesort.ll"), s"par${tn}_mergeSortTest", "@main", noArg, s"--thread=$tn", nPath(5040)),
+      TestPrg(parseFile(s"$prefix/bubblesort.ll"), s"par${tn}_bubbleSortTest", "@main", noArg, s"--thread=$tn", nPath(720)),
+      TestPrg(parseFile(s"$prefix/quicksort.ll"), s"par${tn}_quickSortTest", "@main", noArg, s"--thread=$tn", nPath(720)),
+      TestPrg(parseFile(s"$prefix/multipath_1048576_sym.ll"), s"par${tn}_mp1m", "@f", symArg(20), s"--disable-solver --thread=$tn", nPath(1048576)),
+    )
+  }
 }
 import TestCases._
 
