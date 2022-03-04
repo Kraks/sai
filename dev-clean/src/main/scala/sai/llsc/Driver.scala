@@ -52,7 +52,17 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     if (!folderFile.exists()) folderFile.mkdir
     createNewDir
     val mainStream = new PrintStream(s"$folder/$appName/$appName.cpp")
-    val statics = Adapter.emitCommon1(appName, codegen, mainStream)(manifest[A], manifest[B])(x => Unwrap(wrapper(Wrap[A](x))))
+
+    val initial_graph = Adapter.genGraph1(manifest[A], manifest[B])(x => Unwrap(wrapper(Wrap[A](x))))
+    val passes: List[Transformer] = StaticList()
+    val final_graph = passes.foldLeft(initial_graph) { case (graph, pass) => pass.transform(graph) }
+
+    val statics = lms.core.utils.time("codegen") {
+      codegen.typeMap = Adapter.typeMap
+      codegen.stream = mainStream
+      codegen.emitAll(final_graph,appName)(manifest[A], manifest[B])
+      codegen.extractAllStatics
+    }
     mainStream.close
   }
 
