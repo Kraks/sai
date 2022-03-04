@@ -182,8 +182,10 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
         case FK_FP128 => 128
         case FK_PPC_FP128 => 128
       }
+      import scala.math.{log, ceil, pow}
       val elemSize = (rawSize + BYTE_SIZE - 1) / BYTE_SIZE
-      (elemSize, elemSize)
+      val align = pow(2, ceil(log(elemSize)/log(2)))
+      (elemSize, align)
     }
     case PackedStruct(types) =>
       (types.map(getTySizeAlign(_)._1).sum, 1)
@@ -233,7 +235,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
   def uninitValue: Rep[Value] = IntV(0, 8) //NullPtr()
 
   def isAtomicConst(c: Constant): Boolean = c match {
-    case BoolConst(_) | IntConst(_) | FloatConst(_)
+    case BoolConst(_) | IntConst(_) | FloatConst(_) | FloatLitConst(_)
        | NullConst | PtrToIntExpr(_, _, _) | GlobalId(_)
        | BitCastExpr(_, _, _) | GetElemPtrExpr(_, _, _, _, _) =>
       true
@@ -244,8 +246,8 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
   def evalHeapAtomicConst(v: Constant, ty: LLVMType): Rep[Value] = v match {
     case BoolConst(b) => IntV(if (b) 1 else 0, 1)
     case IntConst(n) => IntV(n, ty.asInstanceOf[IntType].size)
-    case FloatConst(Left(f)) => FloatV(f)
-    case fc@FloatConst(Right(v)) => FloatV(fc.toString, 80)
+    case FloatConst(f) => FloatV(f)
+    case FloatLitConst(l) => FloatV(l.toString, 80)
     case NullConst => LocV(0.toLong, LocV.kHeap)
     case PtrToIntExpr(from, const, to) =>
       val v = evalHeapAtomicConst(const, from).toIntV
@@ -288,17 +290,6 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
         case _ =>
           val (size, align) = getTySizeAlign(real_ty)
           (IntV(0, 8 * size).toShadowBytes.toStatic, align)
-      }
-      case fc@FloatConst(Right(l: List[String])) => real_ty match {
-        case FloatType(k) => k match {
-          case FK_X86_FP80 => {
-            val v: Rep[Value] = "make_FloatV".reflectWriteWith[Value](fc.toString, 80)(Adapter.CTRL)
-            val shadow: StaticList[Rep[Value]] = ShadowV.indexSeq(9)
-            (v::shadow, 16)
-          }
-          case _ => ???
-        }
-        case _ => throw new Exception("Not FloatType " + real_ty)
       }
       case UndefConst => real_ty match {
         case ArrayType(size, ety) =>
