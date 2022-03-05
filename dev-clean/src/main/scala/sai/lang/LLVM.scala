@@ -296,9 +296,7 @@ package IR {
   case class BoolConst(b: Boolean) extends Constant
   case class IntConst(n: Long) extends Constant
   case class FloatConst(f: Float) extends Constant
-  case class FloatLitConst(l: List[String]) extends Constant {
-    override def toString = '{' + l.reverse.map(v => "0x" ++ v).mkString(", ") + '}'
-  }
+  case class FloatLitConst(l: String) extends Constant
   case object NullConst extends Constant
   case object NoneConst extends Constant
   case class StructConst(cs: List[TypedConst]) extends Constant
@@ -842,15 +840,8 @@ class MyVisitor extends LLVMParserBaseVisitor[LAST] {
   override def visitFloatConst(ctx: LLVMParser.FloatConstContext): LAST = {
     val floatStr = ctx.FLOAT_LIT.getText
     if (floatStr.contains('.')) FloatConst(floatStr.toFloat)
-    else if (floatStr.startsWith("0xK")) {
-      // x86_fp80
-      val numStr = floatStr.substring(3)
-      def toBytes(str: String): List[String] = 
-        if (str.length < 2) List() 
-        else str.take(2) :: toBytes(str.drop(2))
-      val byteArr = toBytes(numStr)
-      FloatLitConst(byteArr)
-    }
+    // x86_fp80
+    else if (floatStr.startsWith("0xK")) FloatLitConst(floatStr)
     else if (floatStr.startsWith("0x")) {
       val hexString = floatStr.substring(2)
       val longBits = java.lang.Long.parseUnsignedLong(hexString, 16)

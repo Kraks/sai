@@ -48,7 +48,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
       case IntConst(n) =>
         ret(IntV(n, ty.asInstanceOf[IntType].size))
       case FloatConst(f) => ret(FloatV(f))
-      case FloatLitConst(_) => ret(FloatV(v.toString, 80))
+      case FloatLitConst(l) => ret(FloatV(l, 80))
       // case ArrayConst(cs) =>
       case BitCastExpr(from, const, to) =>
         eval(const, to)
