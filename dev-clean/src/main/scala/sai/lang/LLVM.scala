@@ -20,6 +20,8 @@ package IR {
       es.filter(_.isInstanceOf[GlobalDecl]).asInstanceOf[List[GlobalDecl]].map(d => (d.id, d)).toMap
     val typeDefMap: Map[String, LLVMType] =
       es.filter(_.isInstanceOf[TypeDef]).asInstanceOf[List[TypeDef]].map(d => (d.id, d.ty)).toMap
+    val symDefMap: Map[String, IndirectSymbolDef] =
+      es.filter(_.isInstanceOf[IndirectSymbolDef]).asInstanceOf[List[IndirectSymbolDef]].map(d => (d.id, d)).toMap
 
     def lookupFuncDef(id: String): Option[FunctionDef] = funcDefMap.get(id)
     def lookupFuncDecl(id: String): Option[FunctionDecl] = funcDeclMap.get(id)
@@ -80,7 +82,19 @@ package IR {
     globalAttrs: List[GlobalAttr],
     funcAttrs: List[FuncAttr],
   ) extends TopLevelEntity
-  case class IndirectSymbolDef(ctx: LLVMParser.IndirectSymbolDefContext) extends TopLevelEntity
+  case class IndirectSymbolDef(
+    id: String,
+    linkage: Option[Linkage],
+    externLinkage: Option[ExternalLinkage],
+    preemptionSpec: Option[PreemptionSpec],
+    visibility: Option[Visibility],
+    dllStorageClass: Option[DllStorageClass],
+    threadLocal: Option[ThreadLocal],
+    unnamedAddr: Option[UnnamedAddr],
+    typ: LLVMType,
+    srcTy: LLVMType,
+    const: Constant,
+  ) extends TopLevelEntity
   case class FunctionDecl(id: String, header: FunctionHeader) extends TopLevelEntity
   case class FunctionDef(
     id: String,
@@ -361,6 +375,7 @@ package IR {
   case class ICmpInst(pred: IPredicate, ty: LLVMType, lhs: LLVMValue, rhs: LLVMValue) extends ValueInstruction
   case class FCmpInst(pred: FPredicate, ty: LLVMType, lhs: LLVMValue, rhs: LLVMValue) extends ValueInstruction
   case class TruncInst(from: LLVMType, value: LLVMValue, to: LLVMType) extends ValueInstruction
+  case class FpTruncInst(from: LLVMType, value: LLVMValue, to: LLVMType) extends ValueInstruction
   case class ZExtInst(from: LLVMType, value: LLVMValue, to: LLVMType) extends ValueInstruction
   case class SExtInst(from: LLVMType, value: LLVMValue, to: LLVMType) extends ValueInstruction
   case class FpExtInst(from: LLVMType, value: LLVMValue, to: LLVMType) extends ValueInstruction
@@ -528,7 +543,32 @@ class MyVisitor extends LLVMParserBaseVisitor[LAST] {
   }
 
   override def visitIndirectSymbolDef(ctx: LLVMParser.IndirectSymbolDefContext): LAST = {
-    IndirectSymbolDef(ctx)
+    val id = ctx.globalIdent.GLOBAL_IDENT.getText
+    println(id)
+    val linkage =
+      if (ctx.optLinkage.linkage != null)
+        Some(visit(ctx.optLinkage.linkage).asInstanceOf[Linkage])
+      else None
+    val externLinkage = 
+      if (ctx.externLinkage != null)
+        Some(visit(ctx.externLinkage).asInstanceOf[ExternalLinkage])
+      else None
+    val optPreemptSpec = None // Skipped
+    val vis =
+      if (ctx.visibility != null)
+        Some(visit(ctx.visibility).asInstanceOf[Visibility])
+      else None
+    val optDll = None // Skipped
+    val thread = None // Skipped
+    val unnamedAddr =
+      if (ctx.unnamedAddr != null)
+        Some(visit(ctx.unnamedAddr).asInstanceOf[UnnamedAddr])
+      else None
+    val toTy = visit(ctx.llvmType(0)).asInstanceOf[LLVMType]
+    val srcTy = visit(ctx.llvmType(0)).asInstanceOf[LLVMType]
+    val srcVal = visit(ctx.constant).asInstanceOf[Constant]
+    IndirectSymbolDef(id, linkage, externLinkage, optPreemptSpec, vis, optDll,
+      thread, unnamedAddr, toTy, srcTy, srcVal)
   }
 
   override def visitAttrGroupDef(ctx: LLVMParser.AttrGroupDefContext): LAST = {
@@ -1301,6 +1341,14 @@ class MyVisitor extends LLVMParserBaseVisitor[LAST] {
     TruncInst(from, value, to)
   }
 
+  override def visitFpTruncInst(ctx: LLVMParser.FpTruncInstContext): LAST = {
+    val from = visit(ctx.llvmType(0)).asInstanceOf[LLVMType]
+    val to = visit(ctx.llvmType(1)).asInstanceOf[LLVMType]
+    val value = visit(ctx.value).asInstanceOf[LLVMValue]
+    // Skipped optCommaSepMetadataAttachmentList
+    FpTruncInst(from, value, to)
+  }
+
   override def visitZExtInst(ctx: LLVMParser.ZExtInstContext): LAST = {
     // Skipped optCommaSepMetadataAttachmentList
     val from = visit(ctx.llvmType(0)).asInstanceOf[LLVMType]
@@ -1515,7 +1563,7 @@ class MyVisitor extends LLVMParserBaseVisitor[LAST] {
   }
 
   override def visitFunctionHeader(ctx: LLVMParser.FunctionHeaderContext): LAST = {
-    val optPreepSpec = None
+    val optPreemptSpec = None // Incomplete
     val vis =
       if (ctx.visibility != null)
         Some(visit(ctx.visibility).asInstanceOf[Visibility])
@@ -1536,7 +1584,7 @@ class MyVisitor extends LLVMParserBaseVisitor[LAST] {
       if (ctx.section != null)
         Some(visit(ctx.section).asInstanceOf[Section]) //TODO
       else None
-    FunctionHeader(optPreepSpec, vis, optDll, optCallConv, returnAttrs,
+    FunctionHeader(optPreemptSpec, vis, optDll, optCallConv, returnAttrs,
       retType, id, params, unnamedAddr, funcAttrs, section)
   }
 

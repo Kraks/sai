@@ -96,11 +96,26 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
   }
   def compile(funs: List[FunctionDef]): Unit = funs.foreach(compile)
 
-  def funMap: StaticMap[String, FunctionDef] = m.funcDefMap
-  def funDeclMap: StaticMap[String, FunctionDecl] = m.funcDeclMap
-  def globalDefMap: StaticMap[String, GlobalDef] = m.globalDefMap
-  def globalDeclMap: StaticMap[String, GlobalDecl] = m.globalDeclMap
-  def typeDefMap: StaticMap[String, LLVMType] = m.typeDefMap
+  val funMap: StaticMap[String, FunctionDef] = m.funcDefMap
+  val funDeclMap: StaticMap[String, FunctionDecl] = m.funcDeclMap
+  val globalDefMap: StaticMap[String, GlobalDef] = m.globalDefMap
+  val globalDeclMap: StaticMap[String, GlobalDecl] = m.globalDeclMap
+  val typeDefMap: StaticMap[String, LLVMType] = m.typeDefMap
+  val symDefMap: StaticMap[String, IndirectSymbolDef] = m.symDefMap
+
+  // Note: the following two functions checks/retrieves functions considering aliases.
+  // Note: we assume aliases in symDefMap all indeed have a definition (instead of a declaration)
+  def isFunDefined(f: String): Boolean =
+    funMap.contains(f) || (symDefMap.contains(f) && {
+      val src = symDefMap(f).const
+      src.isInstanceOf[GlobalId] && funMap.contains(src.asInstanceOf[GlobalId].id)
+    })
+  def getFunDef(f: String): FunctionDef =
+    funMap.getOrElse(f, (for {
+      d <- symDefMap.get(f)
+      if d.const.isInstanceOf[GlobalId]
+      v <- funMap.get(d.const.asInstanceOf[GlobalId].id)
+    } yield v).get)
 
   lazy val cfg: CFG = CFG(funMap)
   //cfg.prettyPrint
