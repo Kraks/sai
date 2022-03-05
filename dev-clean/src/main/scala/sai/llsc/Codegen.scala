@@ -110,6 +110,7 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
       }
       case _ => es"make_FloatV($f)"
     }
+    case Node(s, "get-bw", List(v), _) => es"$v->get_bw()"
 
     case Node(s, "cov-set-blocknum", List(n), _) => es"cov.set_num_blocks($n)"
     case Node(s, "cov-inc-block", List(id), _) => es"cov.inc_block($id)"
