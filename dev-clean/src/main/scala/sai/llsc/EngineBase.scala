@@ -15,9 +15,49 @@ import lms.core.stub.{While => _, _}
 
 import sai.lmsx._
 import sai.lmsx.smt.SMTBool
-import scala.collection.immutable.{List => StaticList, Map => StaticMap}
+
+case class CFG(funMap: Map[String, FunctionDef]) {
+  import collection.mutable.HashMap
+  import sai.structure.lattices.Lattices._
+
+  type Fun = String
+  type Label = String
+  type Succs = Map[Label, Set[Label]]
+  type Preds = Map[Label, Set[Label]]
+  type Graph = (Succs, Preds)
+
+  val mtGraph: Graph = Lattice[Graph].bot
+
+  val funCFG: Map[Fun, Graph] = funMap.map({ case (f, d) => (f, construct(d.body.blocks)) }).toMap
+
+  def construct(blocks: List[BB]): Graph = blocks.foldLeft(mtGraph) { case (g, b) =>
+    val from: Label = b.label.get
+    val to: Set[Label] = b.term match {
+      case BrTerm(lab) => Set(lab)
+      case CondBrTerm(ty, cnd, thnLab, elsLab) => Set(thnLab, elsLab)
+      case SwitchTerm(cndTy, cndVal, default, table) => Set(default) ++ table.map(_.label).toSet
+      case _ => Set()
+    }
+    g ⊔ (Map(from → to), to.map(_ → Set(from)).toMap)
+  }
+
+  def prettyPrint: Unit =
+    funCFG.foreach { case (f, g) =>
+      println(s"$f\n  successors:")
+      g._1.foreach { case (from, to) =>
+        val toStr = to.mkString(",")
+        println(s"    $from → {$toStr}")
+      }
+      println("  predecessors:")
+      g._2.foreach { case (to, from) =>
+        val fromStr = from.mkString(",")
+        println(s"    $to → {$fromStr}")
+      }
+    }
+}
 
 trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
+  import scala.collection.immutable.{List => StaticList, Map => StaticMap}
   import collection.mutable.HashMap
   import Constants._
 
@@ -62,6 +102,9 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
   def globalDeclMap: StaticMap[String, GlobalDecl] = m.globalDeclMap
   def typeDefMap: StaticMap[String, LLVMType] = m.typeDefMap
 
+  lazy val cfg: CFG = CFG(funMap)
+  //cfg.prettyPrint
+
   var heapEnv: StaticMap[String, Rep[Addr]] = StaticMap()
 
   val blockNameMap: HashMap[Int, String] = new HashMap()
@@ -104,7 +147,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
 
     def getFieldOffset(types: List[LLVMType], idx: Int): Int =
       fields(types.take(idx+1))._1
-    
+
     def concat[E](cs: List[E])(feval: E => (List[Rep[Value]], Int)): (List[Rep[Value]], Int) = {
       val fill: Int => List[Rep[Value]] = (StaticList.fill(_)(uninitValue))
       val (list, align) = cs.foldLeft((StaticList[Rep[Value]](), 0)) { case ((list, maxalign), c) =>
@@ -204,7 +247,11 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     case FloatConst(f) => FloatV(f)
     case NullConst => LocV(0.toLong, LocV.kHeap)
     case PtrToIntExpr(from, const, to) =>
-      IntV(evalHeapAtomicConst(const, from).int, to.asInstanceOf[IntType].size)
+      val v = evalHeapAtomicConst(const, from).toIntV
+      if (ARCH_WORD_SIZE == to.asInstanceOf[IntType].size) 
+        v.toIntV
+      else
+        v.toIntV.trunc(ARCH_WORD_SIZE, to.asInstanceOf[IntType].size)
     case GlobalId(id) if funMap.contains(id) =>
       if (!FunFuns.contains(id)) compile(funMap(id))
       wrapFunV(FunFuns(id))
@@ -212,7 +259,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     case BitCastExpr(from, const, to) => evalHeapAtomicConst(const, to)
     case GetElemPtrExpr(inBounds, baseType, ptrType, const, typedConsts) =>
       val indexLLVMValue = typedConsts.map(tv => tv.const.asInstanceOf[IntConst].n)
-      val base = evalHeapAtomicConst(const, getRealType(ptrType)).int
+      val base = evalHeapAtomicConst(const, getRealType(ptrType)).loc
       val addr = base + calculateOffsetStatic(ptrType, indexLLVMValue)
       LocV(addr, LocV.kHeap)
     case _ => throw new Exception("Not atomic heap constant " + v)
@@ -240,6 +287,17 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
         case _ =>
           val (size, align) = getTySizeAlign(real_ty)
           (IntV(0, 8 * size).toShadowBytes.toStatic, align)
+      }
+      case UndefConst => real_ty match {
+        case ArrayType(size, ety) =>
+          val (value, align) = evalHeapConstWithAlign(UndefConst, ety)
+          (StaticList.fill(size)(value).flatten, align)
+        case Struct(types) =>
+          StructCalc.concat(types) { evalHeapConstWithAlign(UndefConst, _) }
+        // TODO: fallback case is not typed
+        case _ =>
+          val (size, align) = getTySizeAlign(real_ty)
+          (StaticList.fill(size)(uninitValue), align)
       }
       case _ => throw new Exception("Not complex heap constant: " + v)
     }
