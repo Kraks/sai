@@ -55,9 +55,7 @@ object AssignElim {
     val collect = new CollectLookup
     collect(g)
     val elim = new ElimAssign(collect.ids)
-    val g1 = elim.transform(g)
-    //println(elim.subst)
-    (g1, elim.subst)
+    (elim.transform(g), elim.subst)
   }
 }
 
@@ -97,9 +95,8 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     val g0 = Adapter.genGraph1(manifest[A], manifest[B])(x => Unwrap(wrapper(Wrap[A](x))))
     val (g1, subst1) = AssignElim.transform(g0)
 
-    codegen.reconsMapping(subst1)
-
     val statics = lms.core.utils.time("codegen") {
+      codegen.reconsMapping(subst1)
       codegen.typeMap = Adapter.typeMap
       codegen.stream = mainStream
       codegen.emitAll(g1, appName)(manifest[A], manifest[B])
