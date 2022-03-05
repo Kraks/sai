@@ -20,6 +20,49 @@ import sai.llsc.imp.ImpCPSLLSCEngine
 
 import sys.process._
 
+object AssignElim {
+  import Backend._
+  type HashSet[A] = collection.mutable.HashSet[A]
+
+  class CollectLookup extends Traverser {
+    val ids = new HashSet[Int]()
+    override def traverse(n: Node): Unit = n match {
+      case Node(s, "ss-lookup-env", StaticList(ss, Backend.Const(x: Int)), _) => ids.add(x)
+      case _ => super.traverse(n)
+    }
+  }
+
+  class ElimAssign(val ids: HashSet[Int]) extends Transformer {
+    override val name = "ElimAssign"
+    override def transform(n: Node): Backend.Exp = n match {
+      case Node(s, "ss-assign", StaticList(ss: Backend.Exp, Backend.Const(x: Int), v), _) if !ids.contains(x) =>
+        System.out.println(n)
+        ss
+      case _ => super.transform(n)
+    }
+    override def transform(graph: Graph): Graph = {
+      g = Adapter.mkGraphBuilder()
+      Adapter.g = g
+      try {
+        super.transform(graph)
+      } finally {
+        g = null; Adapter.g = null
+      }
+    }
+  }
+
+  def apply(g: Graph): Graph = {
+    val collect = new CollectLookup
+    collect(g)
+    println(collect.ids)
+    val c = new Canonicalize {}
+    val h = c.transform(g)
+    //val elim = new ElimAssign(collect.ids)
+    //elim.transform(g)
+    h
+  }
+}
+
 abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, folder: String = ".")
     extends SAISnippet[A, B] with SAIOps { q =>
   import java.io.{File, PrintStream}
@@ -47,61 +90,6 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     }
   }
 
-  def transformGraph(g: Graph): Graph = {
-    type Set[A] = collection.mutable.HashSet[A]
-
-    class CollectLookup extends Traverser {
-      val ids = new Set[Int]()
-      override def traverse(n: Node): Unit = n match {
-        case Node(s, "ss-lookup-env", StaticList(ss, Backend.Const(x: Int)), _) =>
-          ids.add(x)
-        case _ => super.traverse(n)
-      }
-    }
-
-    class ElimAssign(val ids: Set[Int]) extends Transformer {
-      override val name = "ElimAssign"
-      override def transform(n: Node): Backend.Exp = n match {
-        // case Node(s, "ss-assign", StaticList(ss: Backend.Exp, Backend.Const(x: Int), v), _) if !(ids contains x) => ss
-        case _ => super.transform(n)
-      }
-      override def transform(b: Block): Block = b match {
-        case b @ Block(a1::a2::Nil, res, block, eff) =>
-          g.reify { (e1, e2) =>
-            if (subst contains a1)
-              println(s"Warning: already have a subst for $a1")
-            if (subst contains a2)
-              println(s"Warning: already have a subst for $a2")
-            try {
-              subst(a1) = e1
-              subst(a2) = e2
-              //subst(block) = g.effectToExp(g.curBlock) //XXX
-              traverse(b)
-              transform(res)
-            } finally {
-              subst -= a1
-              subst -= a2
-            }
-          }
-        case _ => super.transform(b)
-      }
-      override def transform(graph: Graph): Graph = {
-        g = Adapter.mkGraphBuilder()
-        Adapter.g = g
-        try {
-          super.transform(graph)
-        } finally {
-          g = null; Adapter.g = null
-        }
-      }
-    }
-
-    val collect = new CollectLookup
-    collect(g)
-    val elim = new ElimAssign(collect.ids)
-    elim.transform(g)
-  }
-
   def genSource: Unit = {
     val folderFile = new File(folder)
     if (!folderFile.exists()) folderFile.mkdir
@@ -109,7 +97,7 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     val mainStream = new PrintStream(s"$folder/$appName/$appName.cpp")
 
     val initial_graph = Adapter.genGraph1(manifest[A], manifest[B])(x => Unwrap(wrapper(Wrap[A](x))))
-    val final_graph = transformGraph(initial_graph)
+    val final_graph = AssignElim(initial_graph)
 
     val statics = lms.core.utils.time("codegen") {
       codegen.typeMap = Adapter.typeMap
