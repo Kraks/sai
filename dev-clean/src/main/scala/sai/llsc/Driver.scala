@@ -23,6 +23,7 @@ import sys.process._
 object AssignElim {
   import Backend._
   type HashSet[A] = collection.mutable.HashSet[A]
+  type Subst = HashMap[Sym, Exp]
 
   class CollectLookup extends Traverser {
     val ids = new HashSet[Int]()
@@ -50,11 +51,13 @@ object AssignElim {
     }
   }
 
-  def transform(g: Graph): Graph = {
+  def transform(g: Graph): (Graph, Subst) = {
     val collect = new CollectLookup
     collect(g)
     val elim = new ElimAssign(collect.ids)
-    elim.transform(g)
+    val g1 = elim.transform(g)
+    //println(elim.subst)
+    (g1, elim.subst)
   }
 }
 
@@ -91,13 +94,15 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     createNewDir
     val mainStream = new PrintStream(s"$folder/$appName/$appName.cpp")
 
-    val initial_graph = Adapter.genGraph1(manifest[A], manifest[B])(x => Unwrap(wrapper(Wrap[A](x))))
-    val final_graph = AssignElim.transform(initial_graph)
+    val g0 = Adapter.genGraph1(manifest[A], manifest[B])(x => Unwrap(wrapper(Wrap[A](x))))
+    val (g1, subst1) = AssignElim.transform(g0)
+
+    codegen.reconsMapping(subst1)
 
     val statics = lms.core.utils.time("codegen") {
       codegen.typeMap = Adapter.typeMap
       codegen.stream = mainStream
-      codegen.emitAll(final_graph,appName)(manifest[A], manifest[B])
+      codegen.emitAll(g1, appName)(manifest[A], manifest[B])
       codegen.extractAllStatics
     }
     mainStream.close
@@ -178,8 +183,8 @@ abstract class PureLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: 
   val codegen = new PureLLSCCodeGen {
     val IR: q.type = q
     val codegenFolder = s"$folder/$appName/"
-    def funMap: HashMap[Int, String] = q.funNameMap
-    def blockMap: HashMap[Int, String] = q.blockNameMap
+    setFunMap(q.funNameMap)
+    setBlockMap(q.blockNameMap)
   }
 }
 
@@ -190,8 +195,8 @@ abstract class PureCPSLLSCDriver[A: Manifest, B: Manifest](val m: Module, appNam
   val codegen = new PureLLSCCodeGen {
     val IR: q.type = q
     val codegenFolder = s"$folder/$appName/"
-    def funMap: HashMap[Int, String] = q.funNameMap
-    def blockMap: HashMap[Int, String] = q.blockNameMap
+    setFunMap(q.funNameMap)
+    setBlockMap(q.blockNameMap)
   }
 }
 
@@ -202,8 +207,8 @@ abstract class ImpLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: S
   val codegen = new ImpureLLSCCodeGen {
     val IR: q.type = q
     val codegenFolder = s"$folder/$appName/"
-    def funMap: HashMap[Int, String] = q.funNameMap
-    def blockMap: HashMap[Int, String] = q.blockNameMap
+    setFunMap(q.funNameMap)
+    setBlockMap(q.blockNameMap)
   }
 }
 
@@ -215,8 +220,8 @@ abstract class ImpVecLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName
   val codegen = new ImpureLLSCCodeGen with StdVectorCodeGen {
     val IR: q.type = q
     val codegenFolder = s"$folder/$appName/"
-    def funMap: HashMap[Int, String] = q.funNameMap
-    def blockMap: HashMap[Int, String] = q.blockNameMap
+    setFunMap(q.funNameMap)
+    setBlockMap(q.blockNameMap)
   }
 }
 
@@ -227,8 +232,8 @@ abstract class ImpCPSLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName
   val codegen = new ImpureLLSCCodeGen /* with StdVectorCodeGen */ {
     val IR: q.type = q
     val codegenFolder = s"$folder/$appName/"
-    def funMap: HashMap[Int, String] = q.funNameMap
-    def blockMap: HashMap[Int, String] = q.blockNameMap
+    setFunMap(q.funNameMap)
+    setBlockMap(q.blockNameMap)
   }
 }
 
