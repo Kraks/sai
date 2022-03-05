@@ -27,17 +27,16 @@ object AssignElim {
   class CollectLookup extends Traverser {
     val ids = new HashSet[Int]()
     override def traverse(n: Node): Unit = n match {
-      case Node(s, "ss-lookup-env", StaticList(ss, Backend.Const(x: Int)), _) => ids.add(x)
+      case Node(s, "ss-lookup-env", StaticList(ss, Const(x: Int)), _) => ids.add(x)
       case _ => super.traverse(n)
     }
   }
 
   class ElimAssign(val ids: HashSet[Int]) extends Transformer {
     override val name = "ElimAssign"
-    override def transform(n: Node): Backend.Exp = n match {
-      case Node(s, "ss-assign", StaticList(ss: Backend.Exp, Backend.Const(x: Int), v), _) if !ids.contains(x) =>
-        System.out.println(n)
-        ss
+    override def transform(n: Node): Exp = n match {
+      case Node(s, "ss-assign", StaticList(ss: Sym, Const(x: Int), v), _) if !ids.contains(x) =>
+        subst(ss)
       case _ => super.transform(n)
     }
     override def transform(graph: Graph): Graph = {
@@ -51,15 +50,11 @@ object AssignElim {
     }
   }
 
-  def apply(g: Graph): Graph = {
+  def transform(g: Graph): Graph = {
     val collect = new CollectLookup
     collect(g)
-    println(collect.ids)
-    val c = new Canonicalize {}
-    val h = c.transform(g)
-    //val elim = new ElimAssign(collect.ids)
-    //elim.transform(g)
-    h
+    val elim = new ElimAssign(collect.ids)
+    elim.transform(g)
   }
 }
 
@@ -97,7 +92,7 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     val mainStream = new PrintStream(s"$folder/$appName/$appName.cpp")
 
     val initial_graph = Adapter.genGraph1(manifest[A], manifest[B])(x => Unwrap(wrapper(Wrap[A](x))))
-    val final_graph = AssignElim(initial_graph)
+    val final_graph = AssignElim.transform(initial_graph)
 
     val statics = lms.core.utils.time("codegen") {
       codegen.typeMap = Adapter.typeMap
