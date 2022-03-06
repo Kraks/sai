@@ -159,18 +159,15 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
   }
 
   object PackedStructCalc {
-    private def padding(size: Int, align: Int): Int = 0
-
-    private def fields(types: List[LLVMType]): (Int, Int, Int) =
-      types.foldLeft((0, 0, 0)) { case ((begin, end, maxalign), ty) =>
-        val (size, align) = getTySizeAlign(ty)
-        val new_begin = end + padding(end, align)
-        (new_begin, new_begin + size, 1)
+    private def fields(types: List[LLVMType]): (Int, Int) =
+      types.foldLeft((0, 0)) { case ((begin, end), ty) =>
+        val size = getTySizeAlign(ty)._1
+        (end, end + size)
       }
 
     def getSizeAlign(types: List[LLVMType]): (Int, Int) = {
-      val (_, size, align) = fields(types)
-      (size + padding(size, align), 1)
+      val size = fields(types)._2
+      (size, 1)
     }
 
     def getFieldOffset(types: List[LLVMType], idx: Int): Int =
