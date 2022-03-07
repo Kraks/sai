@@ -47,6 +47,8 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     }
   }
 
+  def transform(g0: Graph): Graph = g0
+
   def genSource: Unit = {
     val folderFile = new File(folder)
     if (!folderFile.exists()) folderFile.mkdir
@@ -54,10 +56,9 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     val mainStream = new PrintStream(s"$folder/$appName/$appName.cpp")
 
     val g0 = Adapter.genGraph1(manifest[A], manifest[B])(x => Unwrap(wrapper(Wrap[A](x))))
-    val (g1, subst1) = AssignElim.transform(g0)
+    val g1 = transform(g0)
 
     val statics = lms.core.utils.time("codegen") {
-      codegen.reconsMapping(subst1)
       codegen.typeMap = Adapter.typeMap
       codegen.stream = mainStream
       codegen.emitAll(g1, appName)(manifest[A], manifest[B])
@@ -144,6 +145,12 @@ abstract class PureLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: 
     setFunMap(q.funNameMap)
     setBlockMap(q.blockNameMap)
   }
+
+  override def transform(g0: Graph): Graph = {
+    val (g1, subst1) = AssignElim.transform(g0)
+    codegen.reconsMapping(subst1)
+    g1
+  }
 }
 
 // Using immer data structures but generating CPS code,
@@ -155,6 +162,12 @@ abstract class PureCPSLLSCDriver[A: Manifest, B: Manifest](val m: Module, appNam
     val codegenFolder = s"$folder/$appName/"
     setFunMap(q.funNameMap)
     setBlockMap(q.blockNameMap)
+  }
+
+  override def transform(g0: Graph): Graph = {
+    val (g1, subst1) = AssignElim.transform(g0)
+    codegen.reconsMapping(subst1)
+    g1
   }
 }
 
