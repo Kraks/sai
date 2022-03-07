@@ -150,7 +150,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
 
     def getFieldOffset(types: List[LLVMType], idx: Int): Int =
       fields(types.take(idx+1))._1
-    
+
     def concat[E](cs: List[E])(feval: E => (List[Rep[Value]], Int)): (List[Rep[Value]], Int) = {
       val fill: Int => List[Rep[Value]] = (StaticList.fill(_)(uninitValue))
       val (list, align) = cs.foldLeft((StaticList[Rep[Value]](), 0)) { case ((list, maxalign), c) =>
@@ -158,6 +158,30 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
         (list ++ fill(padding(list.size, align)) ++ value, align max maxalign)
       }
       (list ++ fill(padding(list.size, align)), align)
+    }
+  }
+
+  object PackedStructCalc {
+    private def fields(types: List[LLVMType]): (Int, Int) =
+      types.foldLeft((0, 0)) { case ((begin, end), ty) =>
+        val size = getTySizeAlign(ty)._1
+        (end, end + size)
+      }
+
+    def getSizeAlign(types: List[LLVMType]): (Int, Int) = {
+      val size = fields(types)._2
+      (size, 1)
+    }
+
+    def getFieldOffset(types: List[LLVMType], idx: Int): Int =
+      fields(types.take(idx+1))._1
+
+    def concat[E](cs: List[E])(feval: E => (List[Rep[Value]], Int)): (List[Rep[Value]], Int) = {
+      val (list, align) = cs.foldLeft((StaticList[Rep[Value]](), 0)) { case ((list, maxalign), c) =>
+        val (value, align) = feval(c)
+        (list ++ value, 1)
+      }
+      (list, 1)
     }
   }
 
@@ -189,7 +213,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
       (elemSize, elemSize)
     }
     case PackedStruct(types) =>
-      (types.map(getTySizeAlign(_)._1).sum, 1)
+      PackedStructCalc.getSizeAlign(types)
     case _ =>
       throw new Exception(s"type $vt is not handled by getTySizeAlign")
   }
@@ -208,6 +232,9 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
         calculateOffsetStatic(typeDefMap(id), index)
       case PtrType(ety, addrSpace) =>
         index.head * getTySize(ety) + calculateOffsetStatic(ety, index.tail)
+      case PackedStruct(types) =>
+        val prev: Int = PackedStructCalc.getFieldOffset(types, index.head)
+        prev + calculateOffsetStatic(types(index.head), index.tail)
       case _ => ???
     }
   }
@@ -226,6 +253,9 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
         //  constants are allowed"
         // TODO: the align argument for getTySize
         // TODO: test this
+        val indexCst: List[Long] = index.map { case Wrap(Backend.Const(n: Long)) => n.toLong }
+        calculateOffsetStatic(ty, indexCst)
+      case PackedStruct(types) =>
         val indexCst: List[Long] = index.map { case Wrap(Backend.Const(n: Long)) => n.toLong }
         calculateOffsetStatic(ty, indexCst)
       case _ => ???
@@ -250,7 +280,11 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     case FloatConst(f) => FloatV(f)
     case NullConst => LocV(0.toLong, LocV.kHeap)
     case PtrToIntExpr(from, const, to) =>
-      IntV(evalHeapAtomicConst(const, from).int, to.asInstanceOf[IntType].size)
+      val v = evalHeapAtomicConst(const, from).toIntV
+      if (ARCH_WORD_SIZE == to.asInstanceOf[IntType].size)
+        v.toIntV
+      else
+        v.toIntV.trunc(ARCH_WORD_SIZE, to.asInstanceOf[IntType].size)
     case GlobalId(id) if funMap.contains(id) =>
       if (!FunFuns.contains(id)) compile(funMap(id))
       wrapFunV(FunFuns(id))
@@ -258,7 +292,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     case BitCastExpr(from, const, to) => evalHeapAtomicConst(const, to)
     case GetElemPtrExpr(inBounds, baseType, ptrType, const, typedConsts) =>
       val indexLLVMValue = typedConsts.map(tv => tv.const.asInstanceOf[IntConst].n)
-      val base = evalHeapAtomicConst(const, getRealType(ptrType)).int
+      val base = evalHeapAtomicConst(const, getRealType(ptrType)).loc
       val addr = base + calculateOffsetStatic(ptrType, indexLLVMValue)
       LocV(addr, LocV.kHeap)
     case _ => throw new Exception("Not atomic heap constant " + v)
@@ -266,8 +300,15 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
 
   def evalHeapComplexConst(v: Constant, real_ty: LLVMType): (List[Rep[Value]], Int) = {
     v match {
-      case StructConst(cs) =>
-        StructCalc.concat(cs) { c => evalHeapConstWithAlign(c.const, c.ty) }
+      case StructConst(cs) => {
+        real_ty match {
+          case Struct(types) =>
+            StructCalc.concat(cs) { c => evalHeapConstWithAlign(c.const, c.ty) }
+          case PackedStruct(types) =>
+            PackedStructCalc.concat(cs) { c => evalHeapConstWithAlign(c.const, c.ty) }
+          case _ => ???
+        }
+      }
       case ArrayConst(cs) =>
         cs.foldLeft((StaticList[Rep[Value]](), 0)) { case ((l0, a0), c) =>
           val va = evalHeapConstWithAlign(c.const, c.ty)
@@ -282,10 +323,25 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
           (StaticList.fill(size)(value).flatten, align)
         case Struct(types) =>
           StructCalc.concat(types) { evalHeapConstWithAlign(ZeroInitializerConst, _) }
+        case PackedStruct(types) =>
+          PackedStructCalc.concat(types) { evalHeapConstWithAlign(ZeroInitializerConst, _) }
         // TODO: fallback case is not typed
         case _ =>
           val (size, align) = getTySizeAlign(real_ty)
           (IntV(0, 8 * size).toShadowBytes.toStatic, align)
+      }
+      case UndefConst => real_ty match {
+        case ArrayType(size, ety) =>
+          val (value, align) = evalHeapConstWithAlign(UndefConst, ety)
+          (StaticList.fill(size)(value).flatten, align)
+        case Struct(types) =>
+          StructCalc.concat(types) { evalHeapConstWithAlign(UndefConst, _) }
+        case PackedStruct(types) =>
+          PackedStructCalc.concat(types) { evalHeapConstWithAlign(UndefConst, _) }
+        // TODO: fallback case is not typed
+        case _ =>
+          val (size, align) = getTySizeAlign(real_ty)
+          (StaticList.fill(size)(uninitValue), align)
       }
       case _ => throw new Exception("Not complex heap constant: " + v)
     }

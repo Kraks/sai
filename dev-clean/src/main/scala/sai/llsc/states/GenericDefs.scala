@@ -80,7 +80,7 @@ trait Opaques { self: SAIOps with BasicDefs =>
       "sym_print", "print_string", "malloc", "realloc",
       "llsc_assert", "llsc_assert_eager", "__assert_fail", "sym_exit",
       "make_symbolic", "make_symbolic_whole",
-      "open", "close", "read", "write", "stat",
+      "open", "close", "read", "write", "stat", "stop", "syscall", "llsc_assume"
     )
     def apply(f: String): Rep[Value] = {
       if (!used.contains(f)) {
@@ -96,6 +96,8 @@ trait Opaques { self: SAIOps with BasicDefs =>
     def get(id: String): Rep[Value] =
       if (modeled.contains(id.tail)) ExternalFun(id.tail)
       else if (id.startsWith("@llvm.va_start")) ExternalFun("llvm_va_start")
+      else if (id.startsWith("@llvm.va_end")) ExternalFun("llvm_va_end")
+      else if (id.startsWith("@llvm.va_copy")) ExternalFun("llvm_va_copy")
       else if (id.startsWith("@llvm.memcpy")) ExternalFun("llvm_memcpy")
       else if (id.startsWith("@llvm.memset")) ExternalFun("llvm_memset")
       else if (id.startsWith("@llvm.memmove")) ExternalFun("llvm_memset")
@@ -109,6 +111,7 @@ trait Opaques { self: SAIOps with BasicDefs =>
   }
 }
 
+@virtualize
 trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
   import Constants._
   type PCont[W[_]] = ((W[SS], Value) => Unit)
@@ -215,15 +218,44 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
   }
 
   object IntOp2 {
-    def apply(op: String, o1: Rep[Value], o2: Rep[Value]) = "int_op_2".reflectWith[Value](op, o1, o2)
+    def apply_noopt(op: String, o1: Rep[Value], o2: Rep[Value]): Rep[Value] =
+      "int_op_2".reflectWith[Value](op, o1, o2)
+    def apply(op: String, o1: Rep[Value], o2: Rep[Value]): Rep[Value] =
+      op match {
+        case "neq" => neq(o1, o2)
+        case "eq" => eq(o1, o2)
+        case _ => apply_noopt(op, o1, o2)
+      }
+    def neq(o1: Rep[Value], o2: Rep[Value]): Rep[Value] = (Unwrap(o1), Unwrap(o2)) match {
+      case (gNode("bv_sext", (e1: bExp)::bConst(bw1: Int)::_),
+            gNode("bv_sext", (e2: bExp)::bConst(bw2: Int)::_)) if bw1 == bw2 =>
+        val v1 = Wrap[Value](e1)
+        val v2 = Wrap[Value](e2)
+        if (v1.bw == v2.bw) apply_noopt("neq", v1, v2)
+        else apply_noopt("neq", o1, o2)
+      case _ => apply_noopt("neq", o1, o2)
+    }
+    def eq(o1: Rep[Value], o2: Rep[Value]): Rep[Value] = (Unwrap(o1), Unwrap(o2)) match {
+      case (gNode("bv_sext", (e1: bExp)::bConst(bw1: Int)::_),
+            gNode("bv_sext", (e2: bExp)::bConst(bw2: Int)::_)) if bw1 == bw2 =>
+        val v1 = Wrap[Value](e1)
+        val v2 = Wrap[Value](e2)
+        if (v1.bw == v2.bw) apply_noopt("eq", v1, v2)
+        else apply_noopt("eq", o1, o2)
+      case _ => apply_noopt("eq", o1, o2)
+    }
   }
 
   object FloatOp2 {
     def apply(op: String, o1: Rep[Value], o2: Rep[Value]) = "float_op_2".reflectWith[Value](op, o1, o2)
   }
 
-
   implicit class ValueOps(v: Rep[Value]) {
+    def bw: Rep[Int] = v match {
+      case IntV(n, bw) => bw
+      case LocV(a, k, size) => unit(64)
+      case _ => "get-bw".reflectWith[Int](v)
+    }
     def loc: Rep[Addr] = v match {
       case LocV(a, k, size) => a
       case _ => "proj_LocV".reflectWith[Addr](v)
@@ -257,11 +289,11 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
         case CPSFunV(f) => f(s, args, k)                       // direct call
         case _ => "cps_apply".reflectWith[Unit](v, s, args, k) // indirect call
       }
-    
+
     def deref: Rep[Any] = "ValPtr-deref".reflectWith[Any](v)
 
-    def sExt(bw: Rep[Int]): Rep[Value] =  "bv_sext".reflectWith[Value](v, bw)
-    def zExt(bw: Rep[Int]): Rep[Value] =  "bv_zext".reflectWith[Value](v, bw)
+    def sExt(bw: Int): Rep[Value] = "bv_sext".reflectWith[Value](v, bw)
+    def zExt(bw: Int): Rep[Value] = "bv_zext".reflectWith[Value](v, bw)
 
     def isConc: Rep[Boolean] = v match {
       case IntV(_, _) => unit(true)
@@ -275,8 +307,7 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
     def fromFloatToSInt(toSize: Int): Rep[Value] = "fp_tosi".reflectWith[Value](v, toSize)
     def fromUIntToFloat: Rep[Value] = "ui_tofp".reflectWith[Value](v)
     def fromSIntToFloat: Rep[Value] = "si_tofp".reflectWith[Value](v)
-    def trunc(from: Rep[Int], to: Rep[Int]): Rep[Value] =
-      "trunc".reflectWith[Value](v, from, to)
+    def trunc(from: Int, to: Int): Rep[Value] = "trunc".reflectWith[Value](v, from, to)
     def toIntV: Rep[Value] = "to-IntV".reflectWith[Value](v)
     def toLocV: Rep[Value] = "to-LocV".reflectWith[Value](v)
 

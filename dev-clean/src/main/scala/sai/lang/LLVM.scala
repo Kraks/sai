@@ -1,5 +1,6 @@
 package sai.lang.llvm
 
+import scala.annotation.tailrec
 import org.antlr.v4.runtime._
 import scala.collection.JavaConverters._
 
@@ -124,7 +125,9 @@ package IR {
     useListOrders: List[UseListOrder]
   ) extends LAST
 
-  case class BB(label: Option[String], ins: List[Instruction], term: Terminator) extends LAST
+  case class BB(label: Option[String], ins: List[Instruction], term: Terminator) extends LAST {
+    def size: Int = ins.size
+  }
 
   case class BasicBlockList(bbs: List[BB]) extends LAST
   case class InstructionList(is: List[Instruction]) extends LAST
@@ -250,7 +253,7 @@ package IR {
   case class Other(s: String) extends Attr with ParamAttr
 
   trait ParamAttr extends Attr
-  case object ByVal extends ParamAttr
+  case class  ByVal(ty: LLVMType) extends ParamAttr
   case object InAlloca extends ParamAttr
   case object Nest extends ParamAttr
   case object NoCapture extends ParamAttr
@@ -721,13 +724,16 @@ class MyVisitor extends LLVMParserBaseVisitor[LAST] {
     }
   }
 
+  override def visitByval(ctx: LLVMParser.ByvalContext): LAST = {
+    ByVal(visit(ctx.llvmType).asInstanceOf[LLVMType])
+  }
+
   override def visitParamAttr(ctx: LLVMParser.ParamAttrContext): LAST = {
     // Return ParamAttr
 
     if (ctx.ZEROEXT() != null) ZeroExt
     else if (ctx.SIGNEXT() != null) SignExt
     else if (ctx.INREG() != null) InReg
-    else if (ctx.BYVAL() != null) ByVal
     else if (ctx.INALLOCA() != null) InAlloca
     else if (ctx.SRET() != null) SRet
     else if (ctx.NOALIAS() != null) NoAlias
@@ -736,7 +742,9 @@ class MyVisitor extends LLVMParserBaseVisitor[LAST] {
     else if (ctx.WRITEONLY() != null) WriteOnly
     else if (ctx.READONLY() != null) ReadOnly
     else if (ctx.IMMARG() != null) Immarg
-    else if (ctx.alignment() != null) {
+    else if (ctx.byval() != null) {
+      visit(ctx.byval)
+    } else if (ctx.alignment() != null) {
       visit(ctx.alignment)
     } else {
       println("Warning: parsing unknown param attr")
@@ -822,10 +830,15 @@ class MyVisitor extends LLVMParserBaseVisitor[LAST] {
 
   override def visitCharArrayConst(ctx: LLVMParser.CharArrayConstContext): LAST = {
     val raw = ctx.stringLit.STRING_LIT.getText
-    var s = raw.slice(1, raw.length - 1)
-    s = s.replaceAllLiterally("\\0A", "\n")
-    s = s.replaceAllLiterally("\\00", "\u0000")
-    CharArrayConst(s)
+    val s = raw.slice(1, raw.length - 1)
+    val x = List.range(0x0, 0x100)
+    // 0x5C is \, we need to replace it last
+    val replace_map = x.filter(_ != 0x5C).map( t => ("\\"+"%02X".format(t), t.toChar.toString))
+    val s_t = replace_map.foldLeft(s)((acc, entry) => {
+      acc.replaceAllLiterally(entry._1, entry._2)
+    })
+    val new_s = s_t.replaceAllLiterally("\\5C", "\\")
+    CharArrayConst(new_s)
   }
 
   override def visitStructConst(ctx: LLVMParser.StructConstContext): LAST = {
@@ -914,13 +927,16 @@ class MyVisitor extends LLVMParserBaseVisitor[LAST] {
   }
 
   override def visitTypeConstList(ctx: LLVMParser.TypeConstListContext): LAST = {
-    val tc = visit(ctx.typeConst).asInstanceOf[TypedConst]
-    if (ctx.typeConstList == null) {
-      TypedConstList(List(tc))
-    } else {
-      val tcs = visit(ctx.typeConstList).asInstanceOf[TypedConstList].cs
-      TypedConstList(tcs ++ List(tc))
+    @tailrec def getTypeConstList(ctx: LLVMParser.TypeConstListContext, ctx_l: List[TypedConst]): List[TypedConst] = {
+      val tc = visit(ctx.typeConst).asInstanceOf[TypedConst]
+      if (ctx.typeConstList == null) {
+        List(tc) ++ ctx_l
+      } else {
+        getTypeConstList(ctx.typeConstList, List(tc) ++ ctx_l)
+      }
     }
+    val const_list = getTypeConstList(ctx, List())
+    TypedConstList(const_list)
   }
 
   override def visitTypeConst(ctx: LLVMParser.TypeConstContext): LAST = {
@@ -973,7 +989,6 @@ class MyVisitor extends LLVMParserBaseVisitor[LAST] {
   }
 
   override def visitFuncAttr(ctx: LLVMParser.FuncAttrContext): LAST = {
-    //println(ctx.getText)
     super.visitFuncAttr(ctx)
   }
 
@@ -1236,7 +1251,12 @@ class MyVisitor extends LLVMParserBaseVisitor[LAST] {
     val valTy = visit(ctx.llvmType(0)).asInstanceOf[LLVMType]
     val ptrTy = visit(ctx.llvmType(1)).asInstanceOf[LLVMType]
     val ptrVal = visit(ctx.value).asInstanceOf[LLVMValue]
-    val align = visit(ctx.alignment).asInstanceOf[Alignment]
+    val align = Option(ctx.alignment) match {
+      case Some(alignment) => visit(alignment).asInstanceOf[Alignment]
+      case None => {
+        Alignment(1)
+      }
+    }
     LoadInst(valTy, ptrTy, ptrVal, align)
   }
 
@@ -1391,7 +1411,12 @@ class MyVisitor extends LLVMParserBaseVisitor[LAST] {
     val valValue = visit(ctx.value(0)).asInstanceOf[LLVMValue]
     val addrType = visit(ctx.llvmType(1)).asInstanceOf[LLVMType]
     val addrValue = visit(ctx.value(1)).asInstanceOf[LLVMValue]
-    val align = visit(ctx.alignment).asInstanceOf[Alignment]
+    val align = Option(ctx.alignment) match {
+      case Some(alignment) => visit(alignment).asInstanceOf[Alignment]
+      case None => {
+        Alignment(1)
+      }
+    }
     StoreInst(valType, valValue, addrType, addrValue, align)
   }
 
@@ -1514,6 +1539,7 @@ class MyVisitor extends LLVMParserBaseVisitor[LAST] {
       if (ctx.unnamedAddr != null)
         Some(visit(ctx.unnamedAddr).asInstanceOf[UnnamedAddr])
       else None
+
     val funcAttrs = visit(ctx.funcAttrs).asInstanceOf[FuncAttrList].as //TODO
     val section =
       if (ctx.section != null)
