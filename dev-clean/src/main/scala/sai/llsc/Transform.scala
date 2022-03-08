@@ -20,6 +20,9 @@ object AssignElim {
   class ElimAssign(val ids: HashSet[Int]) extends Transformer {
     override val name = "ElimAssign"
     override def transform(n: Node): Exp = n match {
+      case Node(s, "ss-assign-seq", StaticList(ss: Sym, Const(xs: List[Int]), vs), _)
+          if xs.forall(x => !ids.contains(x)) =>
+        subst(ss)
       case Node(s, "ss-assign", StaticList(ss: Sym, Const(x: Int), v), _) if !ids.contains(x) =>
         subst(ss)
       case _ => super.transform(n)
