@@ -356,7 +356,6 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
     // XXX: precompile functions here takes some unreachable blocks into account,
     //      leading to spurious number of total blocks.
     compile(funMap.map(_._2).toList)
-    Coverage.setBlockNum
     Coverage.incPath(1)
     val ss = initState(preHeap.asRepOf[Mem])
     val fv = eval(GlobalId(fname), VoidType, ss)(fname)

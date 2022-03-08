@@ -466,7 +466,6 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
       s <- getState
       v <- reflect(fv[Id](s, args))
     } yield v
-    Coverage.setBlockNum
     Coverage.incPath(1)
     reify[Value](initState(heap0))(comp)
   }

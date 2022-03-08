@@ -13,7 +13,7 @@ sym_exec_br(SS ss, PtrVal t_cond, PtrVal f_cond,
   auto tbr_sat = check_pc(pc.add(t_cond));
   auto fbr_sat = check_pc(pc.add(f_cond));
   if (tbr_sat && fbr_sat) {
-    cov.inc_path(1);
+    cov().inc_path(1);
     SS tbr_ss = ss.add_PC(t_cond);
     SS fbr_ss = ss.add_PC(f_cond);
     if (can_par_async()) {
@@ -44,7 +44,7 @@ sym_exec_br_k(SS ss, PtrVal t_cond, PtrVal f_cond,
   auto tbr_sat = check_pc(pc.add(t_cond));
   auto fbr_sat = check_pc(pc.add(f_cond));
   if (tbr_sat && fbr_sat) {
-    cov.inc_path(1);
+    cov().inc_path(1);
     SS tbr_ss = ss.add_PC(t_cond);
     SS fbr_ss = ss.add_PC(f_cond);
 #if USE_TP
@@ -96,7 +96,7 @@ array_lookup(SS ss, PtrVal base, PtrVal offset, size_t esize, size_t nsize) {
     }
   }
   assert(cnt > 0);
-  cov.inc_path(cnt - 1);
+  cov().inc_path(cnt - 1);
   return tmp.persistent();
 }
 
@@ -124,7 +124,7 @@ array_lookup_k(SS ss, PtrVal base, PtrVal offset, size_t esize, size_t nsize,
     }
   }
   assert(cnt > 0);
-  cov.inc_path(cnt - 1);
+  cov().inc_path(cnt - 1);
   return std::monostate{};
 }
 
@@ -144,7 +144,7 @@ sym_exec_br(SS& ss, PtrVal t_cond, PtrVal f_cond,
   pc.push_back(f_cond);
   auto fbr_sat = check_pc(pc);
   if (tbr_sat && fbr_sat) {
-    cov.inc_path(1);
+    cov().inc_path(1);
     SS tbr_ss = ss.copy().add_PC(t_cond);
     SS fbr_ss = ss.add_PC(f_cond);
     if (can_par_async()) {
@@ -178,7 +178,7 @@ sym_exec_br(SS& ss, PtrVal t_cond, PtrVal f_cond,
   pc.push_back(f_cond);
   auto fbr_sat = check_pc(pc);
   if (tbr_sat && fbr_sat) {
-    cov.inc_path(1);
+    cov().inc_path(1);
     SS tbr_ss = ss.copy().add_PC(t_cond);
     SS fbr_ss = ss.add_PC(f_cond);
     if (can_par_async()) {
@@ -219,7 +219,7 @@ sym_exec_br_k(SS& ss, PtrVal t_cond, PtrVal f_cond,
   pc.push_back(f_cond);
   auto fbr_sat = check_pc(pc);
   if (tbr_sat && fbr_sat) {
-    cov.inc_path(1);
+    cov().inc_path(1);
     SS tbr_ss = ss.copy().add_PC(t_cond);
     SS fbr_ss = ss.add_PC(f_cond);
     if (can_par_async()) {
@@ -265,7 +265,7 @@ array_lookup(SS& ss, PtrVal base, PtrVal offset, size_t esize, size_t nsize) {
     }
   }
   assert(cnt > 0);
-  cov.inc_path(cnt - 1);
+  cov().inc_path(cnt - 1);
   return tmp.persistent();
 }
 
@@ -288,7 +288,7 @@ array_lookup_k(SS& ss, PtrVal base, PtrVal offset, size_t esize, size_t nsize,
     }
   }
   assert(cnt > 0);
-  cov.inc_path(cnt - 1);
+  cov().inc_path(cnt - 1);
   return std::monostate{};
 }
 #endif
