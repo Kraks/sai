@@ -223,7 +223,7 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     |int main(int argc, char *argv[]) {
     |  prelude(argc, argv);
     |#ifdef USE_TP
-    |  tp.add_task([]() { $name(0); });
+    |  tp.add_task([]() { return $name(0); });
     |#else
     |  $name(0);
     |#endif

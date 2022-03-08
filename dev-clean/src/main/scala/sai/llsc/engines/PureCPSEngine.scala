@@ -226,11 +226,8 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
   }
 
   def asyncExecBlock(funName: String, lab: String, ss: Rep[SS], k: Rep[Cont]): Rep[Unit] = {
-    //val blkFunName = getRealBlockFunName(getBBFun(funName, lab))
-    def f(u: Rep[Unit]): Rep[Unit] = execBlock(funName, lab, ss, k)
-    val block = Adapter.g.reifyHere(u => Unwrap(f(Wrap[Unit](u))))
+    val block = Adapter.g.reifyHere(Unwrap(execBlock(funName, lab, ss, k)))
     val (rdKeys, wrKeys) = Adapter.g.getEffKeys(block)
-    //Wrap[Unit](Adapter.g.reflectEffectSummaryHere("add_tp_task", block)((rdKeys, wrKeys + Adapter.CTRL)))
     Wrap[Unit](Adapter.g.reflectEffectSummaryHere("async_exec_block", block)((rdKeys, wrKeys + Adapter.CTRL)))
   }
 

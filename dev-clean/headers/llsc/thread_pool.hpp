@@ -16,8 +16,10 @@
 #include <type_traits>
 #include <utility>
 
+using TaskFun = std::function<std::monostate()>;
+
 struct Task {
-  std::function<void()> f;
+  TaskFun f;
   int weight;
 };
 
@@ -80,14 +82,13 @@ public:
   void with_thread_ids(const std::function<void(std::thread::id)>& f) {
     for (size_t i = 0; i < thread_num; i++) { f(thread_ids[i]); }
   }
-  std::monostate add_task(const std::function<std::monostate(std::monostate)>& f) {
-    add_task([f]() { f(std::monostate{}); });
-    return std::monostate{};
-  }
+  /*
   void add_task(const std::function<void()>& f) {
-    add_task(f, rand_int(1024));
+    add_task([f]{ f(); return std::monostate{}; });
   }
-  void add_task(const std::function<void()>& f, int w) {
+  */
+  void add_task(const TaskFun& f) { add_task(f, rand_int(1024)); }
+  void add_task(const TaskFun& f, int w) {
     tasks_num_total++;
     {
       unsigned id = rand_int(queue_num)-1;

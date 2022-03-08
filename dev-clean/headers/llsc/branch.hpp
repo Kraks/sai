@@ -48,8 +48,8 @@ sym_exec_br_k(SS ss, PtrVal t_cond, PtrVal f_cond,
     SS tbr_ss = ss.add_PC(t_cond);
     SS fbr_ss = ss.add_PC(f_cond);
 #if USE_TP
-    tp.add_task([tf, tbr_ss=std::move(tbr_ss), k]{ tf(tbr_ss, k); });
-    tp.add_task([ff, fbr_ss=std::move(fbr_ss), k]{ ff(fbr_ss, k); });
+    tp.add_task([tf, tbr_ss=std::move(tbr_ss), k]{ return tf(tbr_ss, k); });
+    tp.add_task([ff, fbr_ss=std::move(fbr_ss), k]{ return ff(fbr_ss, k); });
     return std::monostate{};
 #else
     if (can_par_async()) {
@@ -117,7 +117,7 @@ array_lookup_k(SS ss, PtrVal base, PtrVal offset, size_t esize, size_t nsize,
       cnt++;
       auto addr = make_LocV(baseaddr + esize * idx, basekind);
 #if USE_TP
-      tp.add_task([addr=std::move(addr), ss2=std::move(ss2), k]{ k(ss2, addr); });
+      tp.add_task([addr=std::move(addr), ss2=std::move(ss2), k]{ return k(ss2, addr); });
 #else
       k(ss2, addr);
 #endif
