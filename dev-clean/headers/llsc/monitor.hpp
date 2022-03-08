@@ -20,7 +20,6 @@ struct Monitor {
     std::thread watcher;
     std::promise<void> signal_exit;
 
-    //duration<double, std::micro> lk_time = microseconds::zero();
   public:
     Monitor() : num_blocks(0), num_paths(0), start(steady_clock::now()) {}
     Monitor(uint64_t num_blocks) :
@@ -32,10 +31,7 @@ struct Monitor {
       block_cov[b]++;
     }
     void inc_path(size_t n) {
-      //auto start = steady_clock::now();
       num_paths += n;
-      //auto end = steady_clock::now();
-      //lk_time += duration_cast<microseconds>(end - start);
     }
     void print_path_cov() {
       std::cout << "#paths: " << num_paths << "; " << std::flush;
@@ -68,7 +64,7 @@ struct Monitor {
     }
     void print_time(bool done) {
       steady_clock::time_point now = done ? stop : steady_clock::now();
-      //std::cout << "[" << (lk_time.count() / 1.0e6) << "s]";
+      //std::cout << "[" << (debug_time.count() / 1.0e6) << "s]";
       std::cout << "[" << (solver_time.count() / 1.0e6) << "s/"
                 << (duration_cast<microseconds>(now - start).count() / 1.0e6) << "s] ";
     }
