@@ -40,12 +40,8 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
 
   def addIncomingBlockOpt(ss: Rep[SS], from: String, tos: StaticList[String])(implicit funName: String): Rep[SS] =
     (tos.exists(to => findBlock(funName, to).get.hasPhi)) match {
-      case true =>
-        System.out.println(s"$from -> $tos True")
-        ss.addIncomingBlock(from)
-      case _ =>
-        System.out.println(s"$from -> $tos False")
-        ss
+      case true => ss.addIncomingBlock(from)
+      case _ => ss
     }
 
   // Note: now ty is mainly for eval IntConst to contain bit width
