@@ -117,20 +117,11 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     case Node(s, "nullptr", _, _) => es"nullptr"
     case Node(s, "to-bytes", List(v), _) => es"$v->to_bytes()"
     case Node(s, "to-bytes-shadow", List(v), _) => es"$v->to_bytes_shadow()"
-    case Node(s, "make_FloatV", List(f, bw), _) => bw match {
-      // fp80
-      case Const(80) => {
-        val Const(l: String) = f
-        val numStr = l.substring(3)
-        def toBytes(str: String): List[String] = 
-          if (str.length < 2) List() 
-          else str.take(2) :: toBytes(str.drop(2))
-        val byteArr = toBytes(numStr)
-        val litRep = '{' + byteArr.reverse.map(v => "0x" ++ v).mkString(", ") + '}'
-        emit(s"make_FloatV_fp80($litRep)")
-      }
-      case _ => es"make_FloatV($f)"
-    }
+    case Node(s, "make_FloatV", List(Const(l: String), Const(80)), _) =>
+      val byteArr = l.substring(3).grouped(2).toList
+      val litRep = "{" + byteArr.reverse.map(v => "0x" ++ v).mkString(", ") + "}"
+      es"make_FloatV_fp80($litRep)"
+    case Node(s, "make_FloatV", List(f, bw), _) => es"make_FloatV($f, $bw)"
     case Node(s, "get-bw", List(v), _) => es"$v->get_bw()"
 
     case Node(s, "cov-set-blocknum", List(n), _) => es"cov().set_num_blocks($n)"
