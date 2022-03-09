@@ -426,12 +426,12 @@ struct SymV : Value {
         case op_eq:  return std::make_shared<SymV>(op_neq, arg0->rands, bw);
         case op_sle: return std::make_shared<SymV>(op_sgt, arg0->rands, bw);
         case op_slt: return std::make_shared<SymV>(op_sge, arg0->rands, bw);
-        case op_sge: return std::make_shared<SymV>(op_sle, arg0->rands, bw);
-        case op_sgt: return std::make_shared<SymV>(op_slt, arg0->rands, bw);
+        case op_sge: return std::make_shared<SymV>(op_slt, arg0->rands, bw);
+        case op_sgt: return std::make_shared<SymV>(op_sle, arg0->rands, bw);
         case op_ule: return std::make_shared<SymV>(op_ugt, arg0->rands, bw);
         case op_ult: return std::make_shared<SymV>(op_uge, arg0->rands, bw);
-        case op_uge: return std::make_shared<SymV>(op_ule, arg0->rands, bw);
-        case op_ugt: return std::make_shared<SymV>(op_ult, arg0->rands, bw);
+        case op_uge: return std::make_shared<SymV>(op_ult, arg0->rands, bw);
+        case op_ugt: return std::make_shared<SymV>(op_ule, arg0->rands, bw);
       }
     }
     auto end = steady_clock::now();
@@ -463,7 +463,12 @@ inline PtrVal make_SymV(String n, size_t bw) {
 
 inline PtrVal make_SymV(iOP rator, List<PtrVal> rands, size_t bw) {
   auto s = SymV::simplify(rator, rands, bw);
-  if (s) return s;
+  if (s) {
+    //auto v = std::make_shared<SymV>(rator, std::move(rands), bw);
+    //std::cout << "from: " << v->toString() << "\n";
+    //std::cout << "to: " << s->toString() << "\n";
+    return s;
+  }
   return std::make_shared<SymV>(rator, std::move(rands), bw);
 }
 
