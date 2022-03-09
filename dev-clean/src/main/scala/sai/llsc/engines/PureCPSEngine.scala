@@ -38,11 +38,13 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
     "sym_exec_br_k".reflectWriteWith[Unit](ss, tCond, fCond, unchecked[String](tBrFunName), unchecked[String](fBrFunName), k)(Adapter.CTRL)
   }
 
-  def addIncomingBlockOpt(ss: Rep[SS], from: String, tos: StaticList[String])(implicit funName: String): Rep[SS] =
+  def addIncomingBlockOpt(ss: Rep[SS], from: String, tos: StaticList[String])(implicit funName: String): Rep[SS] = ss
+  /*
     (tos.exists(to => findBlock(funName, to).get.hasPhi)) match {
       case true => ss.addIncomingBlock(from)
       case _ => ss
     }
+   */
 
   // Note: now ty is mainly for eval IntConst to contain bit width
   // does it have some other implications?

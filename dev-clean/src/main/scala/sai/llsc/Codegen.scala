@@ -67,8 +67,8 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
   def quoteOp(op: String): String = "op_" + op
 
   override def traverse(n: Node): Unit = n match {
-    case Node(s, "make_CPSFunV", _, _) =>
-    case Node(s, "make_FunV", _, _) =>
+    case Node(s, "make_CPSFunV", _, _) if !dce.live(n.n) =>
+    case Node(s, "make_FunV", _, _) if !dce.live(n.n) =>
     case _ => super.traverse(n)
   }
 
