@@ -94,11 +94,13 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           val v = p.toIntV
           if (ARCH_WORD_SIZE == toSize) v else v.trunc(ARCH_WORD_SIZE, toSize)
         }
+      case InlineASM() => ret(NullPtr())
       case ZeroInitializerConst =>
         System.out.println("Warning: Evaluate zeroinitialize in body")
         ret(NullPtr()) // FIXME: use uninitValue
       case NullConst => ret(LocV.nullloc)
       case NoneConst => ret(NullPtr())
+      case v => System.out.println(ty, v); ???
     }
   }
 
@@ -302,6 +304,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           v <- execBlock(funName, lab)
         } yield v
       case CondBrTerm(ty, cnd, thnLab, elsLab) =>
+        System.out.println(ty, cnd, thnLab, elsLab)
         for {
           _ <- updateIncomingBlock(incomingBlock)
           ss <- getState
@@ -384,6 +387,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
   }
 
   def execInst(inst: Instruction)(implicit fun: String): Comp[E, Rep[Unit]] = {
+    System.out.println(s"inst: ${inst}")
     inst match {
       case AssignInst(x, valInst) =>
         for {

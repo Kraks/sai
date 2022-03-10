@@ -75,6 +75,7 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
         import sai.llsc.Constants.ARCH_WORD_SIZE
         val v = eval(value, from, ss).toIntV
         if (ARCH_WORD_SIZE == toSize) v else v.trunc(ARCH_WORD_SIZE, toSize)
+      case InlineASM() => NullPtr()
       case ZeroInitializerConst =>
         System.out.println("Warning: Evaluate zeroinitialize in body")
         NullPtr() // FIXME: use uninitValue
