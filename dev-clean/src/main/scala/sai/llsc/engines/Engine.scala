@@ -57,6 +57,11 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
         case false => ret(IntV(0, 1))
       }
       // case CharArrayConst(s) =>
+      case GlobalId(id) if symDefMap.contains(id) =>
+        System.out.println(s"Alias: $id => ${symDefMap(id).const}")
+        for {
+          v <- eval(symDefMap(id).const, ty)
+        } yield v
       case GlobalId(id) if funMap.contains(id) =>
         if (!FunFuns.contains(id)) compile(funMap(id))
         ret(FunV[Id](FunFuns(id)))

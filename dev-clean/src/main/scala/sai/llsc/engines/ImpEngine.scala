@@ -46,6 +46,9 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
         case false => IntV(0, 1)
       }
       // case CharArrayConst(s) =>
+      case GlobalId(id) if symDefMap.contains(id) =>
+        System.out.println(s"Alias: $id => ${symDefMap(id).const}")
+        eval(symDefMap(id).const, ty, ss)
       case GlobalId(id) if funMap.contains(id) =>
         if (!FunFuns.contains(id)) compile(funMap(id))
         FunV[Ref](FunFuns(id))
