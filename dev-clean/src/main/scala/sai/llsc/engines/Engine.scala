@@ -94,6 +94,8 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           val v = p.toIntV
           if (ARCH_WORD_SIZE == toSize) v else v.trunc(ARCH_WORD_SIZE, toSize)
         }
+      case FCmpExpr(pred, ty1, ty2, lhs, rhs) if ty1 == ty2 => evalFloatOp2(pred.op, lhs, rhs, ty1)
+      case ICmpExpr(pred, ty1, ty2, lhs, rhs) if ty1 == ty2 => evalIntOp2(pred.op, lhs, rhs, ty1)
       case InlineASM() => ret(NullPtr())
       case ZeroInitializerConst =>
         System.out.println("Warning: Evaluate zeroinitialize in body")
