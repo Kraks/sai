@@ -53,7 +53,7 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
     v match {
       case LocalId(x) => ss.lookup(funName + "_" + x)
       case IntConst(n) => IntV(n, ty.asInstanceOf[IntType].size)
-      case FloatConst(f) => FloatV(f, getTySizeAlign(ty)._1)
+      case FloatConst(f) => FloatV(f)
       case FloatLitConst(l) => FloatV(l, 80)
       case BitCastExpr(from, const, to) => eval(const, to, ss)
       case BoolConst(b) => b match {
