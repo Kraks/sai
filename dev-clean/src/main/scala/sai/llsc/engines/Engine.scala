@@ -392,7 +392,6 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
   }
 
   def execInst(inst: Instruction)(implicit fun: String): Comp[E, Rep[Unit]] = {
-    System.out.println(s"inst: ${inst}")
     inst match {
       case AssignInst(x, valInst) =>
         for {
