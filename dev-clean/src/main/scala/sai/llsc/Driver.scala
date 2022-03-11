@@ -79,7 +79,7 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     |SOURCES = $$(shell find $$(SRC_DIR)/ -name "*.cpp")
     |TARGET = $appName
     |OBJECTS = $$(SOURCES:$$(SRC_DIR)/%.cpp=$$(BUILD_DIR)/%.o)
-    |CC = g++ -std=c++17 -O3
+    |CC = g++ -std=c++17 -O0 -g
     |PERFFLAGS = -fno-omit-frame-pointer #-g
     |CXXFLAGS = $includes $extraFlags $$(PERFFLAGS)
     |LDFLAGS = $libraryPaths
@@ -215,6 +215,7 @@ trait LLSC {
     BlockCounter.reset
     val (_, t) = time {
       val code = newInstance(m, name, fname, config)
+      scala.Predef.println("\n\n\nstart genneratecode\n\n")
       code.genAll
     }
     println(s"[$insName] compiling $name, time $t ms")

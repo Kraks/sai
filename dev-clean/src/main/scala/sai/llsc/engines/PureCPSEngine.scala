@@ -53,7 +53,7 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
     v match {
       case LocalId(x) => ss.lookup(funName + "_" + x)
       case IntConst(n) => IntV(n, ty.asInstanceOf[IntType].size)
-      case FloatConst(f) => FloatV(f, getTySizeAlign(ty)._1)
+      case FloatConst(f) => FloatV(f, getFloatSize(ty.asInstanceOf[FloatType]))
       case FloatLitConst(l) => FloatV(l, 80)
       case BitCastExpr(from, const, to) => eval(const, to, ss)
       case BoolConst(b) => b match {
@@ -71,7 +71,7 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
         ExternalFun.get(id)
       case GlobalId(id) if globalDefMap.contains(id) =>
         LocV(heapEnv(id), LocV.kHeap)
-      case GlobalId(id) if globalDeclMap.contains(id) => 
+      case GlobalId(id) if globalDeclMap.contains(id) =>
         System.out.println(s"Warning: globalDecl $id is ignored")
         ty match {
           case PtrType(_, _) => LocV.nullloc
@@ -265,7 +265,7 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
         execBlock(funName, lab, addIncomingBlockOpt(ss, incomingBlock, StaticList(lab)), k)
       case CondBrTerm(ty, cnd, thnLab, elsLab) =>
         val cndVal = eval(cnd, ty, ss)
-        // FIXME: using addIncomingBlockOpt triggers some issue of recursive functions 
+        // FIXME: using addIncomingBlockOpt triggers some issue of recursive functions
         val ss1 = ss.addIncomingBlock(incomingBlock)
         if (cndVal.isConc) {
           if (cndVal.int == 1) asyncExecBlock(funName, thnLab, ss1, k)
