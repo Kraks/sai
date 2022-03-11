@@ -53,7 +53,7 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
     v match {
       case LocalId(x) => ss.lookup(funName + "_" + x)
       case IntConst(n) => IntV(n, ty.asInstanceOf[IntType].size)
-      case FloatConst(f) => FloatV(f)
+      case FloatConst(f) => FloatV(f, getTySizeAlign(ty)._1)
       case FloatLitConst(l) => FloatV(l, 80)
       case BitCastExpr(from, const, to) => eval(const, to, ss)
       case BoolConst(b) => b match {
@@ -71,9 +71,12 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
         ExternalFun.get(id)
       case GlobalId(id) if globalDefMap.contains(id) =>
         LocV(heapEnv(id), LocV.kHeap)
-      case GlobalId(id) if globalDeclMap.contains(id) =>
+      case GlobalId(id) if globalDeclMap.contains(id) => 
         System.out.println(s"Warning: globalDecl $id is ignored")
-        NullPtr()
+        ty match {
+          case PtrType(_, _) => LocV.nullloc
+          case _ => NullPtr()
+        }
       case GetElemPtrExpr(_, baseType, ptrType, const, typedConsts) =>
         // typedConst are not all int, could be local id
         val indexLLVMValue = typedConsts.map(tv => tv.const)
