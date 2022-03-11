@@ -636,22 +636,12 @@ inline PtrVal float_op_2(fOP op, const PtrVal& v1, const PtrVal& v2) {
 /* TODO: implement those two <2022-03-10, David Deng> */
 
 inline PtrVal fp_ext(const PtrVal& v1, int from, int to) {
-  ASSERT(
-      (from == 16 || from == 32 || from == 64 || from == 80 || from == 128) && 
-      (to == 16 || to == 32 || to == 64 || to == 80 || to == 128),
-    "floating point size must be 16, 32, 64, 80, or 128");
-  ASSERT((from < to), "from size must be smaller than to size");
   auto f1 = std::dynamic_pointer_cast<FloatV>(v1);
   ASSERT((f1 != nullptr), "extending a non-FloatV value");
   return make_FloatV(f1->f, to);
 }
 
 inline PtrVal fp_trunc(const PtrVal& v1, int from, int to) {
-  ASSERT(
-      (from == 16 || from == 32 || from == 64 || from == 80 || from == 128) && 
-      (to == 16 || to == 32 || to == 64 || to == 80 || to == 128),
-    "floating point size must be 16, 32, 64, 80, or 128");
-  ASSERT((from > to), "from size must be greater than to size");
   auto f1 = std::dynamic_pointer_cast<FloatV>(v1);
   ASSERT((f1 != nullptr), "truncating a non-FloatV value");
   /* TODO: support other bw values (e.g. fp80) <2022-03-10, David Deng> */
