@@ -117,6 +117,7 @@ public:
   MemIdxShadow(List<PtrVal> mem) : PreMem(mem) {}
   PtrVal at(size_t idx, size_t byte_size) {
     auto val = mem.at(idx);
+    //std::cout << "Memidxshadow: " << this->toString() << std::endl;
     if (std::dynamic_pointer_cast<IntV>(val) || std::dynamic_pointer_cast<SymV>(val)) {
       auto val_size = val->get_byte_size();
       if (val_size == byte_size) return val;
@@ -132,7 +133,13 @@ public:
       if (src_bytes.size() <  byte_size)
         return Value::from_bytes_shadow(src_bytes + Vec::slice(mem, idx+src_bytes.size(), byte_size-src_bytes.size()));
     }
-    ASSERT(val != nullptr, "Reading a nullptr value");
+    //ASSERT(val != nullptr, "Reading a nullptr value");
+    if (val == nullptr) {
+      std::cout << "alert, read from a uninitialized value. idx" << idx << "byte_size: " << byte_size <<std::endl;
+      return make_IntV(0, byte_size * 8);
+    }
+    std::cout <<"val: " <<*val<<std::endl;
+    ABORT("unreachable");
     return val;
   }
   MemIdxShadow update(size_t idx, const PtrVal& val, size_t byte_size) {
