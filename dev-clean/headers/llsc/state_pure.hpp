@@ -125,6 +125,10 @@ public:
     }
     if (auto sv = std::dynamic_pointer_cast<ShadowV>(val)) {
       auto src = mem.at(idx + sv->offset);
+      if (std::dynamic_pointer_cast<LocV>(src)) {
+        ASSERT(1 == byte_size,"Only read single byte of LocV's shadowv");
+        return val;
+      }
       ASSERT(!std::dynamic_pointer_cast<LocV>(src), "Reading shadow of a LocV"); // XXX function too
       auto src_bytes = src->to_bytes().drop(-sv->offset);
       if (src_bytes.size() == byte_size) return Value::from_bytes(std::move(src_bytes));
@@ -132,11 +136,20 @@ public:
       if (src_bytes.size() <  byte_size)
         return Value::from_bytes_shadow(src_bytes + Vec::slice(mem, idx+src_bytes.size(), byte_size-src_bytes.size()));
     }
+    if (nullptr == val) {
+      return make_IntV(0, byte_size * 8);
+    }
+    if (auto sv = std::dynamic_pointer_cast<LocV>(val)) {
+      ASSERT(1 == byte_size || addr_bw/8 == byte_size,"Only read first byte of LocV");
+      return val;
+    }
     ASSERT(val != nullptr, "Reading a nullptr value");
     return val;
   }
   MemIdxShadow update(size_t idx, const PtrVal& val, size_t byte_size) {
-    ASSERT(val->get_byte_size() == byte_size, "Mismatched value and size to write: " << val->get_byte_size() << " vs " << byte_size);
+    auto lv = std::dynamic_pointer_cast<LocV>(val);
+    auto sv = std::dynamic_pointer_cast<ShadowV>(val);
+    ASSERT(lv || sv || val->get_byte_size() == byte_size, "Mismatched value and size to write: " << val->get_byte_size() << " vs " << byte_size);
     auto old_val = mem.at(idx);
     auto mem = this->mem.transient();
     if (auto sv = std::dynamic_pointer_cast<ShadowV>(old_val)) {
@@ -411,6 +424,11 @@ class SS: public Printable {
       return heap.at(loc->l);
     }
     PtrVal at(const PtrVal& addr, int size) {
+      auto i1 = std::dynamic_pointer_cast<IntV>(addr);
+      if (i1) {
+        ASSERT(0 == i1->as_signed(), "can only write to erro_location");
+        return make_IntV(0, size * 8);
+      }
       auto loc = std::dynamic_pointer_cast<LocV>(addr);
       ASSERT(loc != nullptr, "Lookup an non-address value");
       if (loc->k == LocV::kStack) return stack.at(loc->l, size);
@@ -438,6 +456,12 @@ class SS: public Printable {
       return SS(heap.update(loc->l, val), stack, pc, bb, fs);
     }
     SS update(const PtrVal& addr, const PtrVal& val, int size) {
+      auto i1 = std::dynamic_pointer_cast<IntV>(addr);
+      if (i1) {
+        ASSERT(0 == i1->as_signed(), "can only write to erro_location");
+        return *this;
+      }
+
       auto loc = std::dynamic_pointer_cast<LocV>(addr);
       ASSERT(loc != nullptr, "Lookup an non-address value");
       if (loc->k == LocV::kStack) return SS(heap, stack.update(loc->l, val, size), pc, bb, fs);

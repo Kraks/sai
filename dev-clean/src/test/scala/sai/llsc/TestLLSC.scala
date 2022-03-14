@@ -188,7 +188,7 @@ abstract class TestLLSC extends FunSuite {
     test(name) {
       val code = llsc.newInstance(m, llsc.insName + "_" + name, f, config)
       code.genAll
-      val mkRet = code.make(4)
+      val mkRet = code.make(128)
       assert(mkRet == 0, "make failed")
       val (output, ret) = code.runWithStatus(cliArgOpt.getOrElse(""))
       System.err.println(output)
@@ -254,10 +254,15 @@ class TestImpCPSLLSC extends TestLLSC {
 class Playground extends TestLLSC {
   //testLLSC(new PureCPSLLSC, TestPrg(mp1048576, "mp1mTest_CPS", "@f", symArg(20), "--disable-solver", nPath(1048576)))
   val llsc = new PureCPSLLSC_Z3
-  testLLSC(llsc, TestPrg(mergesort, "mergeSortTest", "@main", noArg, None, nPath(720)))
+  //testLLSC(llsc, TestPrg(mergesort, "mergeSortTest", "@main", noArg, None, nPath(720)))
   //testLLSC(llsc, TestPrg(mp1048576, "mp1mTest", "@f", symArg(20), "--disable-solver", nPath(1048576)))
   //testLLSC(llsc, TestPrg(parseFile("benchmarks/demo_benchmarks/nqueen_opt.ll"), "nQueensOpt", "@main", noArg, None, nPath(1363)))
-  //testLLSC(new PureLLSC, List(TestPrg(true_linked, "true_linked", "@main", useArgv, "--argv=true --sym-arg 3", nPath(10)++status(0))))
+  //testLLSC(new PureLLSC, List(TestPrg(assumeTest, "assume", "@main", useArgv, "--argv=\"./true.bc --sym-arg 3\"", nPath(10)++status(0))))
+  //testLLSC(new PureLLSC, List(TestPrg(true_linked, "true_linked", "@main", useArgv, "--argv=./true.bc --sym-arg 3", nPath(16)++status(0))))
+  //testLLSC(new PureLLSC, List(TestPrg(false_linked, "false_linked", "@main", useArgv, "--argv=./false.bc --sym-arg 3", nPath(16)++status(0))))
+  testLLSC(new PureLLSC, List(TestPrg(base32_linked, "base32_linked", "@main", useArgv, "--argv=./base32.bc --sym-arg 3", nPath(16)++status(0))))
+  //testLLSC(new PureLLSC, List(TestPrg(echo_linked, "echo_linked", "@main", useArgv, "--argv=abcdef", nPath(10)++status(0))))
+  //testLLSC(new PureLLSC, List(TestPrg(cat_linked, "cat_linked", "@main", useArgv, "--argv=abcdef", nPath(10)++status(0))))
   //testLLSC(llsc, TestPrg(bubbleSort2Ground, "bubbleSort2Ground", "@main", 0, None, status(255)))
   //testLLSC(llsc, TestPrg(bubbleSortGround2, "bubbleSortGround2", "@main", 0, None, status(255)))
 

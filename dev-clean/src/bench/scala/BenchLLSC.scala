@@ -49,7 +49,7 @@ object TestCases {
     TestPrg(parseFile(s"$prefix/quicksort.ll"), "quickSortTest", "@main", noArg, None, nPath(720)),
     TestPrg(parseFile(s"$prefix/multipath_1048576_sym.ll"), "mp1m", "@f", symArg(20), "--disable-solver", nPath(1048576)),
   )
-  val paraBenchcases: List[TestPrg] = List(2, 4, 8, 16).flatMap { case tn => 
+  val paraBenchcases: List[TestPrg] = List(2, 4, 8, 16).flatMap { case tn =>
     List(
       TestPrg(parseFile(s"$prefix/knapsack.ll"), s"par${tn}_knapsackTest", "@main", noArg, s"--thread=$tn", nPath(1666)),
       TestPrg(parseFile(s"$prefix/nqueen.ll"), s"par${tn}_nQueens", "@main", noArg, s"--thread=$tn", nPath(1363)),
@@ -113,7 +113,7 @@ abstract class TestLLSC extends FunSuite {
     test(name) {
       val code = llsc.newInstance(m, llsc.insName + "_" + name, f, config)
       code.genAll
-      val mkRet = code.make(4)
+      val mkRet = code.make(128)
       assert(mkRet == 0, "make failed")
       for (i <- 1 to nTest) {
         Thread.sleep(1 * 1000)

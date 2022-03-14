@@ -194,6 +194,12 @@ inline std::monostate llvm_memset(SS state, List<PtrVal> args, Cont k) {
 /******************************************************************************/
 inline int64_t getIntArg(PtrVal x) {
   auto x_i = std::dynamic_pointer_cast<IntV>(x);
+  //if (!x_i) {
+  //  std::cout << "non int arg: " << *x <<std::endl;
+  //  if (std::dynamic_pointer_cast<SymV>(x)) {
+  //    return 0;
+  //  }
+  //}
   ASSERT(x_i, "Non integer argument!");
   return x_i->as_signed();
 }
@@ -323,7 +329,7 @@ inline T __syscall(SS& state, List<PtrVal>& args, __Cont<T> k) {
       break;
     }
     case __NR_ioctl:
-      ABORT("Unsupported Systemcall");
+      retval = -1;
       break;
     case __NR_pread64: {
       int fd = getIntArg(args.at(1));
@@ -348,64 +354,64 @@ inline T __syscall(SS& state, List<PtrVal>& args, __Cont<T> k) {
       break;
     }
     case __NR_access:
-      ABORT("Unsupported Systemcall");
+      retval = -1;
       break;
     case __NR_select:
-      ABORT("Unsupported Systemcall");
+      retval = -1;
       break;
     case __NR_fcntl:
-      ABORT("Unsupported Systemcall");
+      retval = -1;
       break;
     case __NR_fsync:
-      ABORT("Unsupported Systemcall");
+      retval = -1;
       break;
     case __NR_ftruncate:
-      ABORT("Unsupported Systemcall");
+      retval = -1;
       break;
     case __NR_getcwd:
-      ABORT("Unsupported Systemcall");
+      retval = -1;
       break;
     case __NR_chdir:
-      ABORT("Unsupported Systemcall");
+      retval = -1;
       break;
     case __NR_fchdir:
-      ABORT("Unsupported Systemcall");
+      retval = -1;
       break;
     case __NR_readlink:
-      ABORT("Unsupported Systemcall");
+      retval = -1;
       break;
     case __NR_chmod:
-      ABORT("Unsupported Systemcall");
+      retval = -1;
       break;
     case __NR_fchmod:
-      ABORT("Unsupported Systemcall");
+      retval = -1;
       break;
     case __NR_chown:
-      ABORT("Unsupported Systemcall");
+      retval = -1;
       break;
     case __NR_fchown:
-      ABORT("Unsupported Systemcall");
+      retval = -1;
       break;
     case __NR_statfs:
-      ABORT("Unsupported Systemcall");
+      retval = -1;
       break;
     case __NR_fstatfs:
-      ABORT("Unsupported Systemcall");
+      retval = -1;
       break;
     case __NR_getdents64:
-      ABORT("Unsupported Systemcall");
+      retval = -1;
       break;
     case __NR_utimes:
-      ABORT("Unsupported Systemcall");
+      retval = -1;
       break;
     case __NR_openat:
-      ABORT("Unsupported Systemcall");
+      retval = -1;
       break;
     case __NR_futimesat:
-      ABORT("Unsupported Systemcall");
+      retval = -1;
       break;
     case __NR_newfstatat:
-      ABORT("Unsupported Systemcall");
+      retval = -1;
       break;
     default:
       ABORT("Unsupported Systemcall");
@@ -474,6 +480,7 @@ template<typename T>
 inline T __llsc_assume(SS& state, List<PtrVal>& args, __Cont<T> k, __Halt<T> h) {
   auto v = args.at(0);
   auto i = v->to_IntV();
+  //std::cout << "assume condition: " << *v <<std::endl;
   if (i) {
     if (i->i == 0) {
       // concrete false - generate the test and ``halt''
