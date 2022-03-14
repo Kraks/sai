@@ -47,7 +47,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
         for { ss <- getState } yield ss.lookup(funName + "_" + x)
       case IntConst(n) =>
         ret(IntV(n, ty.asInstanceOf[IntType].size))
-      case FloatConst(f) => ret(FloatV(f))
+      case FloatConst(f) => ret(FloatV(f, getFloatSize(ty.asInstanceOf[FloatType])))
       case FloatLitConst(l) => ret(FloatV(l, 80))
       // case ArrayConst(cs) =>
       case BitCastExpr(from, const, to) =>
@@ -310,7 +310,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           v <- execBlock(funName, lab)
         } yield v
       case CondBrTerm(ty, cnd, thnLab, elsLab) =>
-        System.out.println(ty, cnd, thnLab, elsLab)
+        // System.out.println(ty, cnd, thnLab, elsLab)
         for {
           _ <- updateIncomingBlock(incomingBlock)
           ss <- getState

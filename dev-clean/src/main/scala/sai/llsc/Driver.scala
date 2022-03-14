@@ -123,9 +123,9 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     ret.split("\n").last.split(" ").last.toInt
   }
   // returns the number of paths, and the return status of the process
-  def runWithStatus(opt: String = ""): (String, Int) = {
+  def runWithStatus(opt: String = "", launcher: String = ""): (String, Int) = {
     import collection.mutable.ListBuffer
-    val cmd = s"./$appName $opt"
+    val cmd = if (launcher.nonEmpty) s"$launcher ./$appName $opt" else s"./$appName $opt"
     System.out.println(s"running $cmd")
     val output = ListBuffer[String]()
     val ret = Process(cmd, new File(s"$folder/$appName")).run(ProcessLogger(r => output += r, e => output += e)).exitValue
@@ -264,7 +264,7 @@ class PureCPSLLSC_Z3 extends PureCPSLLSC {
     val llsc = super.newInstance(m, name, fname, config)
     llsc.codegen.libraryFlags.clear()
     llsc.codegen.registerLibrary("-lz3")
-    llsc.extraFlags = "-D USE_TP -D Z3 -D USE_LKFREE_Q"
+    llsc.extraFlags = "-D USE_TP -D Z3" // -D USE_LKFREE_Q"
     llsc
   }
 }
