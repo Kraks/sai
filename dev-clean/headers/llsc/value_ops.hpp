@@ -149,6 +149,7 @@ template <typename func_t>
 struct FunV : Value {
   func_t f;
   FunV(func_t f) : f(f) {
+    ASSERT(f != nullptr, "funv cannot be nullptr");
     hash_combine(hash(), std::string("funv"));
     hash_combine(hash(), f);
   }
