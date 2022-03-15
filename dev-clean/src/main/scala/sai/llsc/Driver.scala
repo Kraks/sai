@@ -125,7 +125,6 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
   // returns the number of paths, and the return status of the process
   def runWithStatus(opt: String = "", launcher: String = ""): (String, Int) = {
     import collection.mutable.ListBuffer
-    //val string = Seq()
     val cmd = if (launcher.nonEmpty) Seq(launcher, s"./$appName", opt) else Seq(s"./$appName", opt)
     System.out.println(s"running $cmd")
     val output = ListBuffer[String]()

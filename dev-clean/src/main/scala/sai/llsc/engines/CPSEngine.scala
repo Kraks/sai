@@ -53,10 +53,11 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
         if (!FunFuns.contains(id)) compile(funMap(id))
         CPSFunV[Ref](FunFuns(id))
       case GlobalId(id) if funDeclMap.contains(id) =>
-        ExternalFun.get(id)
+        val t = funDeclMap(id).header.returnType
+        ExternalFun.get(id, Some(t))
       case GlobalId(id) if globalDefMap.contains(id) =>
         LocV(heapEnv(id), LocV.kHeap)
-      case GlobalId(id) if globalDeclMap.contains(id) => 
+      case GlobalId(id) if globalDeclMap.contains(id) =>
         System.out.println(s"Warning: globalDecl $id is ignored")
         ty match {
           case PtrType(_, _) => LocV.nullloc
@@ -382,6 +383,7 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
     val fv = eval(GlobalId(fname), VoidType, ss)(fname)
     ss.push
     ss.updateArg
+    ss.updateErrorLoc
     fv[Ref](ss, args, k)
   }
 }

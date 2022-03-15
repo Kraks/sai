@@ -56,7 +56,7 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
         ExternalFun.get(id)
       case GlobalId(id) if globalDefMap.contains(id) =>
         LocV(heapEnv(id), LocV.kHeap)
-      case GlobalId(id) if globalDeclMap.contains(id) => 
+      case GlobalId(id) if globalDeclMap.contains(id) =>
         System.out.println(s"Warning: globalDecl $id is ignored")
         ty match {
           case PtrType(_, _) => LocV.nullloc
@@ -381,6 +381,7 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
     val fv = eval(GlobalId(fname), VoidType, ss)(fname)
     ss.push
     ss.updateArg
+    ss.updateErrorLoc
     fv[Ref](ss, args)
   }
 }

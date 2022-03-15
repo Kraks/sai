@@ -66,7 +66,8 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
         if (!FunFuns.contains(id)) compile(funMap(id))
         ret(FunV[Id](FunFuns(id)))
       case GlobalId(id) if funDeclMap.contains(id) =>
-        ret(ExternalFun.get(id))
+        val t = funDeclMap(id).header.returnType
+        ret(ExternalFun.get(id, Some(t)))
       case GlobalId(id) if globalDefMap.contains(id) =>
         ret(LocV(heapEnv(id), LocV.kHeap))
       case GlobalId(id) if globalDeclMap.contains(id) =>
@@ -484,6 +485,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
       fv <- eval(GlobalId(fname), VoidType)(fname)
       _ <- pushFrame
       _ <- initializeArg
+      _ <- initializeErrorLoc
       s <- getState
       v <- reflect(fv[Id](s, args))
     } yield v

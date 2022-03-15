@@ -118,6 +118,29 @@ inline std::monostate realloc(SS state, List<PtrVal> args, Cont k) {
 /******************************************************************************/
 
 template<typename T>
+inline T __calloc(SS& state, List<PtrVal>& args, __Cont<T> k) {
+  IntData nmemb = proj_IntV(args.at(0));
+  IntData size = proj_IntV(args.at(1));
+  auto emptyMem = List<PtrVal>(nmemb * size, make_IntV(0, 8));
+
+  PtrVal memLoc = make_LocV(state.heap_size(), LocV::kHeap, nmemb * size);
+  if (exlib_failure_branch)
+    return k(state.heap_append(emptyMem), memLoc) + k(state, make_LocV_null());
+  return k(state.heap_append(emptyMem), memLoc);
+}
+
+inline List<SSVal> calloc(SS state, List<PtrVal> args) {
+  return __calloc<List<SSVal>>(state, args, [](auto s, auto v) { return List<SSVal>{{s, v}}; });
+}
+
+inline std::monostate calloc(SS state, List<PtrVal> args, Cont k) {
+  // TODO: in the thread pool version, we should add task into the pool when forking
+  return __calloc<std::monostate>(state, args, [&k](auto s, auto v) { return k(s, v); });
+}
+
+/******************************************************************************/
+
+template<typename T>
 inline T __llvm_memcpy(SS& state, List<PtrVal>& args, __Cont<T> k) {
   PtrVal dest = args.at(0);
   PtrVal src = args.at(1);

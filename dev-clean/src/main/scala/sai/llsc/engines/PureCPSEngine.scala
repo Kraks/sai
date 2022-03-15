@@ -68,10 +68,11 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
         if (!FunFuns.contains(id)) compile(funMap(id))
         CPSFunV[Id](FunFuns(id))
       case GlobalId(id) if funDeclMap.contains(id) =>
-        ExternalFun.get(id)
+        val t = funDeclMap(id).header.returnType
+        ExternalFun.get(id, Some(t))
       case GlobalId(id) if globalDefMap.contains(id) =>
         LocV(heapEnv(id), LocV.kHeap)
-      case GlobalId(id) if globalDeclMap.contains(id) => 
+      case GlobalId(id) if globalDeclMap.contains(id) =>
         System.out.println(s"Warning: globalDecl $id is ignored")
         ty match {
           case PtrType(_, _) => LocV.nullloc
@@ -378,6 +379,6 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
     Coverage.incPath(1)
     val ss = initState(preHeap.asRepOf[Mem])
     val fv = eval(GlobalId(fname), VoidType, ss)(fname)
-    fv[Id](ss.push.updateArg, args, k)
+    fv[Id](ss.push.updateArg.updateErrorLoc, args, k)
   }
 }
