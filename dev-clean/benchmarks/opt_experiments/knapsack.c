@@ -42,7 +42,8 @@ int main()
     klee_make_symbolic(wt, sizeof(int) * N, "wt");
 #else
     //make_symbolic(val, sizeof(int) * N);
-    make_symbolic(wt, sizeof(int) * N);
+    // make_symbolic(wt, sizeof(int) * N);
+    for (int i = 0; i < N; i++) make_symbolic_whole(wt + i, sizeof(int));
 #endif
     int W = 50;
     knapSack(W, wt, val, N);
