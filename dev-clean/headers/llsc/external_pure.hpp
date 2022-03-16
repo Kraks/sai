@@ -194,12 +194,12 @@ inline std::monostate llvm_memset(SS state, List<PtrVal> args, Cont k) {
 /******************************************************************************/
 inline int64_t getIntArg(PtrVal x) {
   auto x_i = std::dynamic_pointer_cast<IntV>(x);
-  //if (!x_i) {
-  //  std::cout << "non int arg: " << *x <<std::endl;
-  //  if (std::dynamic_pointer_cast<SymV>(x)) {
-  //    return 0;
-  //  }
-  //}
+  if (!x_i) {
+    std::cout << "non int arg: " << *x <<std::endl;
+    if (std::dynamic_pointer_cast<SymV>(x)) {
+      return 0;
+    }
+  }
   ASSERT(x_i, "Non integer argument!");
   return x_i->as_signed();
 }
@@ -418,7 +418,7 @@ inline T __syscall(SS& state, List<PtrVal>& args, __Cont<T> k) {
       break;
   }
 
-  //std::cout << "syscall_num: " << syscall_number << "  retval: " << retval << std::endl;
+  std::cout << "syscall_num: " << syscall_number << "  retval: " << retval << std::endl;
 
   return k(res, make_IntV(retval, 64));
 }
