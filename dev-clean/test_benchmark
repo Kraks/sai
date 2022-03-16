@@ -5,24 +5,28 @@
 
 # /some/path/to/xyz.ll
 LL=$1
+HEAD=$2
+shift
 shift
 OPT="$@"
 echo -n "[test_benchmark] "
 date
 echo -e "[test_benchmark] input:\t\t$LL"
+echo -e "[test_benchmark] head:\t\t$HEAD"
 echo -e "[test_benchmark] options:\t$OPT"
 
 # Xyz
-HEAD=$LL
-HEAD=${HEAD##*/}
-HEAD=${HEAD%.ll}
-HEAD=${HEAD^}
+# HEAD=$LL
+# HEAD=${HEAD##*/}
+# HEAD=${HEAD%.ll}
+# HEAD=${HEAD^}
 
 export SBT_OPTS="-Xms4G -Xmx32G -Xss1024M -XX:MaxMetaspaceSize=8G -XX:ReservedCodeCacheSize=2048M"
-/usr/bin/time --format "[test_benchmark] scala compilation time => real: %E,\tuser: %U,\tsys: %S" \
+/usr/bin/time --format "[test_benchmark] scala compilation time => real: %e,\tuser: %U,\tsys: %S" \
 	sbt "runMain sai.llsc.RunLLSC ${LL} ${HEAD} @main 0"
 { cd llsc_gen/${HEAD};
-	# make clean;
-	/usr/bin/time --format "[test_benchmark] c++ compilation time => real: %E,\tuser: %U,\tsys: %S" \
-		make -j4; 
+	echo -n "[test_benchmark] "
+	pwd
+	/usr/bin/time --format "[test_benchmark] c++ compilation time => real: %e,\tuser: %U,\tsys: %S" \
+		make -j4;
 } && timeout 300 ./${HEAD} "${OPT}";
