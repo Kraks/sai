@@ -158,7 +158,7 @@ struct FunV : Value {
     return ss.str();
   }
   virtual std::shared_ptr<IntV> to_IntV() override {
-    //ABORT("to_IntV: TODO for FunV?");
+    //return std::make_shared<IntV>(IntData(f), 64);
     return std::static_pointer_cast<IntV>(make_IntV(0, 64));
   }
   virtual bool is_conc() const override { return true; }
