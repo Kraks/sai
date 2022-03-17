@@ -25,4 +25,18 @@ int main() {
     llsc_assert_eager(p1[i] == p2[i]);
     llsc_assert_eager(0 == p1[i]);
   }
+  int c = 0;
+  llsc_assume(z == 4);
+  switch (z)
+  {
+  case 0:
+    c = 1;
+    break;
+  case 1:
+    c = 2;
+  case 2:
+    c = 3;
+  default:
+    break;
+  }
 }

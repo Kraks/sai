@@ -66,8 +66,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
         if (!FunFuns.contains(id)) compile(funMap(id))
         ret(FunV[Id](FunFuns(id)))
       case GlobalId(id) if funDeclMap.contains(id) =>
-        val t = funDeclMap(id).header.returnType
-        ret(ExternalFun.get(id, Some(t)))
+        ret(ExternalFun.get(id))
       case GlobalId(id) if globalDefMap.contains(id) =>
         ret(LocV(heapEnv(id), LocV.kHeap))
       case GlobalId(id) if globalDeclMap.contains(id) =>
@@ -366,14 +365,55 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
               u <- execBlock(funName, default)
             } yield u)
           else {
+            //val headPC = IntOp2("eq", v, IntV(table.head.n))
+            //for {
+            //  ss <- getState
+            //  cpc = ss.pc
+            //  t_sat = checkPC(cpc + headPC.toSMTBool)
+            //  f_sat = checkPC(cpc + headPC.toSMTBoolNeg)
+            //  u = if (t_sat && f_sat) {
+            //      Coverage.incPath(1)
+            //      val ss_t = ss.addPC(headPC.toSMTBool)
+            //      val ss_f = ss.addPC(headPC.toSMTBoolNeg)
+            //      choice(
+            //        reflect(execBlock(funName, table.head.label, ss_t)),
+            //        reflect(switchSym(v, ss_f, table.tail, pc ++ List[SMTBool](headPC.toSMTBoolNeg))))
+            //    } else if (t_sat) {
+            //      val ss_t = ss.addPC(headPC.toSMTBool)
+            //      reify(ss_t)(execBlock(funName, table.head.label))
+            //    } else {
+            //      //if (f_sat) {
+            //      //  val ss_f = ss.addPC(headPC.toSMTBoolNeg)
+            //      //  reflect(switchSym(v, ss_f, table.tail, pc ++ List[SMTBool](headPC.toSMTBoolNeg)))
+            //      //} else {
+            //      //  reflect(List[(SS, Value)]())
+            //      //}
+            //    }
+            //} yield u
             val headPC = IntOp2("eq", v, IntV(table.head.n))
-            reify(s)(choice(
-              for {
-                _ <- updatePC(headPC.toSMTBool)
-                u <- execBlock(funName, table.head.label)
-              } yield u,
-              reflect(switchSym(v, s, table.tail, pc ++ List[SMTBool](headPC.toSMTBoolNeg)))
-            ))
+            val t_sat = checkPC(s.pc.addPC(headPC.toSMTBool))
+            val f_sat = checkPC(s.pc.addPC(headPC.toSMTBoolNeg))
+            if (t_sat && f_sat) {
+              Coverage.incPath(1)
+            }
+            val m = reflect {
+              if (t_sat) {
+                reify(s)(for {
+                  _ <- updatePC(headPC.toSMTBool)
+                  u <- execBlock(funName, table.head.label)
+                } yield u)
+              } else {
+                List[(SS, Value)]()
+              }
+            }
+            val next = reflect {
+              if (f_sat) {
+                switchSym(v, s.addPC(headPC.toSMTBoolNeg), table.tail, pc ++ List[SMTBool](headPC.toSMTBoolNeg))
+              } else {
+                List[(SS, Value)]()
+              }
+            }
+            reify(s)(choice(m, next))
           }
         }
 
@@ -384,7 +424,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           r <- reflect {
             if (v.isConc) switch(v.int, s, table)
             else {
-              Coverage.incPath(table.size)
+              //Coverage.incPath(table.size)
               switchSym(v, s, table)
             }
           }

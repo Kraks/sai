@@ -258,7 +258,7 @@ class Playground extends TestLLSC {
   //testLLSC(llsc, TestPrg(mp1048576, "mp1mTest", "@f", symArg(20), "--disable-solver", nPath(1048576)))
   //testLLSC(llsc, TestPrg(parseFile("benchmarks/demo_benchmarks/nqueen_opt.ll"), "nQueensOpt", "@main", noArg, None, nPath(1363)))
   //testLLSC(new PureLLSC, List(TestPrg(assumeTest, "assume", "@main", useArgv, "--argv=\"./true.bc --sym-arg 3\"", nPath(10)++status(0))))
-  //testLLSC(new PureLLSC, List(TestPrg(true_linked, "true_linked", "@main", useArgv, "--argv=./true.bc --sym-arg 3", nPath(16)++status(0))))
+  testLLSC(new PureLLSC, List(TestPrg(true_linked, "true_linked", "@main", useArgv, "--argv=./true.bc --sym-arg 3", nPath(16)++status(0))))
   //testLLSC(new PureLLSC, List(TestPrg(false_linked, "false_linked", "@main", useArgv, "--argv=./false.bc --sym-arg 3", nPath(16)++status(0))))
   //testLLSC(new PureLLSC, List(TestPrg(base32_linked, "base32_linked", "@main", useArgv, "--argv=./base32.bc --sym-arg 3", nPath(16)++status(0))))
   testLLSC(new PureLLSC, List(TestPrg(echo_linked, "echo_linked", "@main", useArgv, "--argv=./true.bc --sym-arg 3", nPath(10)++status(0))))

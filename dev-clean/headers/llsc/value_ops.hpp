@@ -222,6 +222,16 @@ inline PtrVal make_IntV(IntData i, int bw, bool toMSB) {
   return std::make_shared<IntV>(toMSB ? (i << (addr_bw - bw)) : i, bw);
 }
 
+inline IntData proj_IntV(const PtrVal& v) {
+  if (v->get_bw() == 1) return std::dynamic_pointer_cast<IntV>(v)->i ? 1 : 0;
+  return std::dynamic_pointer_cast<IntV>(v)->as_signed();
+}
+
+inline char proj_IntV_char(const PtrVal& v) {
+  std::shared_ptr<IntV> intV = v->to_IntV();
+  ASSERT(intV->get_bw() == 8, "proj_IntV_char: Bitwidth mismatch");
+  return static_cast<char>(proj_IntV(intV));
+}
 
 struct FloatV : Value {
   long double f;
@@ -467,27 +477,6 @@ inline std::map<size_t, PtrVal> symv_cache;
   auto v = ...
   symv_cache[v->hashval] = v;
 */
-
-inline IntData proj_IntV(const PtrVal& v) {
-  if (v->get_bw() == 1) return std::dynamic_pointer_cast<IntV>(v)->i ? 1 : 0;
-  if (std::dynamic_pointer_cast<IntV>(v)) {
-    return std::dynamic_pointer_cast<IntV>(v)->as_signed();
-  } else {
-    std::cout << "non-intv: " << *v << std::endl;
-    //std::shared_ptr<SymV> s1= v->to_SymV();
-    auto s1 = std::dynamic_pointer_cast<SymV>(v);
-    ASSERT(s1 != nullptr, "has to be sym");
-    return 0;
-    //ABORT("fuck");
-  }
-}
-
-inline char proj_IntV_char(const PtrVal& v) {
-  //std::shared_ptr<IntV> intV = v->to_IntV();
-  //ASSERT(intV->get_bw() == 8, "proj_IntV_char: Bitwidth mismatch");
-  ASSERT(v->get_bw() == 8, "proj_IntV_char: Bitwidth mismatch");
-  return static_cast<char>(proj_IntV(v));
-}
 
 inline PtrVal make_SymV(const String& n) {
   auto v = std::make_shared<SymV>(n, bitwidth);

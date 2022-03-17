@@ -68,7 +68,9 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
       _ <- put[Rep[SS], E](ssu._1)
     } yield ssu._2
   }
-
+  implicit class PCOps(pc: Rep[PC]) {
+    def addPC(e: Rep[SMTBool]): Rep[PC] = "add-pc".reflectWith[PC](pc, e)
+  }
   class SSOps(ss: Rep[SS]) {
     private def assignSeq(xs: List[Int], vs: Rep[List[Value]]): Rep[SS] =
       "ss-assign-seq".reflectWith[SS](ss, xs, vs)

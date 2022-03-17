@@ -28,11 +28,12 @@ trait BasicDefs { self: SAIOps =>
   trait Stack
   trait SS
   trait FS
+  trait PC
 
   type IntData = Long
   type BlockLabel = Int
   type Addr = Long
-  type PC = Set[SMTBool]
+  //type PC = Set[SMTBool]
   type Id[T] = T
   type Fd = Int
   val bConst = Backend.Const

@@ -435,11 +435,11 @@ class SS: public Printable {
       return heap.at(loc->l);
     }
     PtrVal at(const PtrVal& addr, int size) {
-      auto i1 = std::dynamic_pointer_cast<IntV>(addr);
-      if (i1) {
-        ASSERT(0 == i1->as_signed(), "can only write to erro_location");
-        return make_IntV(0, size * 8);
-      }
+      //auto i1 = std::dynamic_pointer_cast<IntV>(addr);
+      //if (i1) {
+      //  ASSERT(0 == i1->as_signed(), "can only write to erro_location");
+      //  return make_IntV(0, size * 8);
+      //}
       auto loc = std::dynamic_pointer_cast<LocV>(addr);
       ASSERT(loc != nullptr, "Lookup an non-address value");
       if (loc->k == LocV::kStack) return stack.at(loc->l, size);
@@ -467,11 +467,11 @@ class SS: public Printable {
       return SS(heap.update(loc->l, val), stack, pc, bb, fs);
     }
     SS update(const PtrVal& addr, const PtrVal& val, int size) {
-      auto i1 = std::dynamic_pointer_cast<IntV>(addr);
-      if (i1) {
-        ASSERT(0 == i1->as_signed(), "can only write to erro_location");
-        return *this;
-      }
+      //auto i1 = std::dynamic_pointer_cast<IntV>(addr);
+      //if (i1) {
+      //  ASSERT(0 == i1->as_signed(), "can only write to erro_location");
+      //  return *this;
+      //}
 
       auto loc = std::dynamic_pointer_cast<LocV>(addr);
       ASSERT(loc != nullptr, "Lookup an non-address value");

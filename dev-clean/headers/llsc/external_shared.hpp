@@ -205,21 +205,25 @@ inline std::monostate llsc_assume(SS state, List<PtrVal> args, Cont k) {
 /******************************************************************************/
 
 inline List<SSVal> _exit(SS state, List<PtrVal> args) {
-  return sym_exit(state, args);
+  //ABORT("unreachable");
+  return stop(state, args);
 }
 
 inline std::monostate _exit(SS state, List<PtrVal> args, Cont k) {
-  return sym_exit(state, args, k);
+  //ABORT("unreachable");
+  return stop(state, args, k);
 }
 
 /******************************************************************************/
 
 inline List<SSVal> abort(SS state, List<PtrVal> args) {
-  return sym_exit(state, List<PtrVal>{make_IntV(-1)});
+  //ABORT("unreachable");
+  return stop(state, List<PtrVal>{make_IntV(-1)});
 }
 
 inline std::monostate abort(SS state, List<PtrVal> args, Cont k) {
-  return sym_exit(state, List<PtrVal>{make_IntV(-1)}, k);
+  //ABORT("unreachable");
+  return stop(state, List<PtrVal>{make_IntV(-1)}, k);
 }
 
 /******************************************************************************/
