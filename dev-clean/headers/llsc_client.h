@@ -71,6 +71,10 @@ static inline void llsc_warning(const char *message) {
 
 static inline void __VERIFIER_error(void) { llsc_assert_eager(0); }
 static inline void __VERIFIER_assert(int cond) { llsc_assert_eager(cond); }
+static inline void reach_error() {
+  std::cerr << "error reached" << std::endl;
+  llsc_assert_eager(0);
+}
 static inline void __VERIFIER_assume(int x) { /* TODO */ }
 
 static inline int __VERIFIER_nondet_int(void) {
