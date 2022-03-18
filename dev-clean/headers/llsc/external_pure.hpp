@@ -466,7 +466,7 @@ inline T __llvm_va_start(SS& state, List<PtrVal>& args, __Cont<T> k) {
   PtrVal va_arg = state.getVarargLoc();
   SS res = state;
   res = res.update(va_list + 0, IntV0, 4);
-  res = res.update(va_list + 4, IntV0), 4;
+  res = res.update(va_list + 4, IntV0, 4);
   res = res.update(va_list + 8, va_arg + 48, 8);
   res = res.update(va_list + 16, va_arg, 8);
   return k(res, IntV0);

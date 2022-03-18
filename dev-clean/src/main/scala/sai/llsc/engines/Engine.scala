@@ -65,12 +65,12 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
       case GlobalId(id) if funMap.contains(id) =>
         if (!FunFuns.contains(id)) compile(funMap(id))
         ret(FunV[Id](FunFuns(id)))
-      case GlobalId(id) if funDeclMap.contains(id) => 
+      case GlobalId(id) if funDeclMap.contains(id) =>
         val t = funDeclMap(id).header.returnType
         ret(ExternalFun.get(id, Some(t)))
       case GlobalId(id) if globalDefMap.contains(id) =>
         ret(LocV(heapEnv(id), LocV.kHeap))
-      case GlobalId(id) if globalDeclMap.contains(id) => 
+      case GlobalId(id) if globalDeclMap.contains(id) =>
         System.out.println(s"Warning: globalDecl $id is ignored")
         ty match {
           case PtrType(_, _) => ret(LocV.nullloc)
@@ -360,12 +360,18 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
         }
 
         def switchSym(v: Rep[Value], s: Rep[SS], table: List[LLVMCase], pc: Rep[List[SMTBool]] = List[SMTBool]()): Rep[List[(SS, Value)]] = {
-          if (table.isEmpty)
-            reify(s)(for {
-              _ <- updatePCSet(pc)
-              u <- execBlock(funName, default)
-            } yield u)
-          else {
+          if (table.isEmpty) {
+            val t_sat = checkPC(s.pc)
+            if (t_sat) {
+              reify(s)(for {
+                //_ <- updatePCSet(pc)
+                u <- execBlock(funName, default)
+              } yield u)
+            } else {
+              List[(SS, Value)]()
+            }
+
+          } else {
             //val headPC = IntOp2("eq", v, IntV(table.head.n))
             //for {
             //  ss <- getState
@@ -393,8 +399,8 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
             //} yield u
             val headPC = IntOp2("eq", v, IntV(table.head.n))
             val t_sat = checkPC(s.pc.addPC(headPC.toSMTBool))
-            val f_sat = checkPC(s.pc.addPC(headPC.toSMTBoolNeg))
-            if (t_sat && f_sat) {
+            //val f_sat = checkPC(s.pc.addPC(headPC.toSMTBoolNeg))
+            if (t_sat) {
               Coverage.incPath(1)
             }
             val m = reflect {
@@ -408,11 +414,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
               }
             }
             val next = reflect {
-              if (f_sat) {
                 switchSym(v, s.addPC(headPC.toSMTBoolNeg), table.tail, pc ++ List[SMTBool](headPC.toSMTBoolNeg))
-              } else {
-                List[(SS, Value)]()
-              }
             }
             reify(s)(choice(m, next))
           }

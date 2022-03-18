@@ -274,8 +274,8 @@ inline PtrVal make_FloatV(long double f, size_t bw) {
 }
 
 inline PtrVal make_FloatV_fp80(std::array<unsigned char, 10> buf) {
-  std::cout << "*(__float80*)&buf: " << *(__float80*)&buf << std::endl;
-  return make_FloatV((long double)*(__float80*)&buf, 80);
+  std::cout << "*(__float80*)&buf: " << *(double*)&buf << std::endl;
+  return make_FloatV((long double)*(double*)&buf, 80);
 }
 
 inline long double proj_FloatV(PtrVal v) {
