@@ -96,10 +96,8 @@ inline T __realloc(SS& state, List<PtrVal>& args, __Cont<T> k) {
   Addr src = proj_LocV(args.at(0));
   IntData bytes = proj_IntV(args.at(1));
   auto emptyMem = List<PtrVal>(bytes, nullptr);
-  std::cout << "realloc size: " << emptyMem.size() << std::endl;
   PtrVal memLoc = make_LocV(state.heap_size(), LocV::kHeap, bytes);
   IntData prevBytes = proj_LocV_size(args.at(0));
-  std::cout << "prev size: " << prevBytes << std::endl;
   SS res = state.heap_append(emptyMem);
   for (int i = 0; i < prevBytes; i++) {
     res = res.update(memLoc + i, res.heap_lookup(src + i));
@@ -446,7 +444,6 @@ template<typename T>
 inline T __llvm_va_end(SS& state, List<PtrVal>& args, __Cont<T> k) {
   PtrVal va_list = args.at(0);
   ASSERT(std::dynamic_pointer_cast<LocV>(va_list) != nullptr, "Non-location value");
-  PtrVal va_arg = state.getVarargLoc();
   SS res = state;
   for (int i = 0; i<24; i++) {
     res = res.update(va_list + i, nullptr);

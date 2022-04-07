@@ -65,11 +65,12 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
       case GlobalId(id) if funMap.contains(id) =>
         if (!FunFuns.contains(id)) compile(funMap(id))
         ret(FunV[Id](FunFuns(id)))
-      case GlobalId(id) if funDeclMap.contains(id) =>
-        ret(ExternalFun.get(id))
+      case GlobalId(id) if funDeclMap.contains(id) => 
+        val t = funDeclMap(id).header.returnType
+        ret(ExternalFun.get(id, Some(t)))
       case GlobalId(id) if globalDefMap.contains(id) =>
-        ret(LocV(heapEnv(id), LocV.kHeap))
-      case GlobalId(id) if globalDeclMap.contains(id) =>
+        ret(heapEnv(id)())
+      case GlobalId(id) if globalDeclMap.contains(id) => 
         System.out.println(s"Warning: globalDecl $id is ignored")
         ty match {
           case PtrType(_, _) => ret(LocV.nullloc)
@@ -84,10 +85,10 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
         } yield {
           val indexValue = vs.map(v => v.int)
           val offset = calculateOffset(ptrType, indexValue)
-          const match {
-            case GlobalId(id) => LocV(heapEnv(id) + offset, LocV.kHeap)
-            case _ => LocV(lV.loc + offset, lV.kind)
-          }
+          (const match {
+            case GlobalId(id) => heapEnv(id)()
+            case _ => lV
+          }) + offset
         }
       case IntToPtrExpr(from, value, to) =>
         for { v <- eval(value, from) } yield v.toLocV
@@ -126,7 +127,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           ss <- getState
           ss2 <- ret(ss.allocStack(typeSize, align.n))
           _ <- putState(ss2)
-        } yield LocV(ss2.stackSize - typeSize, LocV.kStack)
+        } yield LocV(ss2.stackSize - typeSize, LocV.kStack, typeSize.toLong)
       case LoadInst(valTy, ptrTy, value, align) =>
         val isStruct = getRealType(valTy) match {
           case Struct(types) => 1
@@ -154,10 +155,10 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
             } yield {
               val indexValue = vs.map(v => v.int)
               val offset = calculateOffset(ptrType, indexValue)
-              ptrValue match {
-                case GlobalId(id) => LocV(heapEnv(id) + offset, LocV.kHeap)
-                case _ => LocV(lV.loc + offset, lV.kind)
-              }
+              (ptrValue match {
+                case GlobalId(id) => heapEnv(id)()
+                case _ => lV
+              }) + offset
             }
         }
       // Arith Binary Operations

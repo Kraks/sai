@@ -85,20 +85,20 @@ trait Opaques { self: SAIOps with BasicDefs =>
       "sym_print", "print_string", "malloc", "realloc",
       "llsc_assert", "llsc_assert_eager", "__assert_fail", "sym_exit",
       "make_symbolic", "make_symbolic_whole",
-      "open", "close", "read", "write", "stat", "stop", "syscall", "llsc_assume"
+      "open", "close", "read", "write", "lseek", "stat", "stop", "syscall", "llsc_assume"
     )
-    def apply(f: String): Rep[Value] = {
+    def apply(f: String, ret: Option[LLVMType] = None): Rep[Value] = {
       if (!used.contains(f)) {
         System.out.println(s"Use external function $f.")
         used.add(f)
       }
-      "llsc-external-wrapper".reflectWith[Value](f)
+      "llsc-external-wrapper".reflectWith[Value](f, ret)
     }
-    def unapply(v: Rep[Value]): Option[String] = Unwrap(v) match {
-      case gNode("llsc-external-wrapper", bConst(f: String)::Nil) => Some(f)
+    def unapply(v: Rep[Value]): Option[(String, Option[LLVMType])] = Unwrap(v) match {
+      case gNode("llsc-external-wrapper", bConst(f: String)::bConst(ret: Option[LLVMType])::Nil) => Some((f, ret))
       case _ => None
     }
-    def get(id: String): Rep[Value] =
+    def get(id: String, ret: Option[LLVMType] = None): Rep[Value] =
       if (modeled.contains(id.tail)) ExternalFun(id.tail)
       else if (id.startsWith("@llvm.va_start")) ExternalFun("llvm_va_start")
       else if (id.startsWith("@llvm.va_end")) ExternalFun("llvm_va_end")
@@ -111,7 +111,7 @@ trait Opaques { self: SAIOps with BasicDefs =>
           System.out.println(s"External function ${id.tail} is treated as a noop.")
           warned.add(id)
         }
-        ExternalFun("noop")
+        ExternalFun("noop", ret)
       }
   }
 }
@@ -153,11 +153,11 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
     def nullloc: Rep[Value] = "make_LocV_null".reflectMutableWith[Value]()
     def kStack: Rep[Kind] = "kStack".reflectMutableWith[Kind]()
     def kHeap: Rep[Kind] = "kHeap".reflectMutableWith[Kind]()
-    def apply(l: Rep[Addr], kind: Rep[Kind], size: Rep[Int] = unit(-1)): Rep[Value] =
+    def apply(l: Rep[Addr], kind: Rep[Kind], size: Rep[Long]): Rep[Value] =
       "make_LocV".reflectMutableWith[Value](l, kind, size)
-    def unapply(v: Rep[Value]): Option[(Rep[Addr], Rep[Kind], Rep[Int])] = Unwrap(v) match {
+    def unapply(v: Rep[Value]): Option[(Rep[Addr], Rep[Kind], Rep[Long])] = Unwrap(v) match {
       case gNode("make_LocV", (a: bExp)::(k: bExp)::(size: bExp)::_) =>
-        Some((Wrap[Addr](a), Wrap[Kind](k), Wrap[Int](size)))
+        Some((Wrap[Addr](a), Wrap[Kind](k), Wrap[Long](size)))
       case _ => None
     }
   }
@@ -286,8 +286,15 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
     def structAt(i: Rep[Long]) = "structV_at".reflectWith[Value](v, i)
     def apply[W[_]](s: Rep[W[SS]], args: Rep[List[Value]])(implicit m: Manifest[W[SS]]): Rep[List[(SS, Value)]] = {
       v match {
-        case ExternalFun(f) =>
-          if (f == "noop" && Config.opt) List((s.asRepOf[SS], IntV(0)))
+        case ExternalFun(f, ty) =>
+          if (f == "noop" && Config.opt) {
+            val retval = ty match {
+              case Some(IntType(size)) => IntV(0, size)
+              case Some(PtrType(_, _)) => IntV(0, 64)
+              case _ => IntV(0)
+            }
+            List((s.asRepOf[SS], retval))
+          }
           else f.reflectWith[List[(SS, Value)]](s, args)
         case FunV(f) => f(s, args)
         case _ => "direct_apply".reflectWith[List[(SS, Value)]](v, s, args)
@@ -297,8 +304,14 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
     // W[_] is parameterized over pass-by-value (Id) or pass-by-ref (Ref) of SS
     def apply[W[_]](s: Rep[W[SS]], args: Rep[List[Value]], k: Rep[PCont[W]])(implicit m: Manifest[W[SS]]): Rep[Unit] =
       v match {
-        case ExternalFun(f) =>
-          if (f == "noop" && Config.opt) k(s, IntV(0))
+        case ExternalFun(f, ty) =>
+          if (f == "noop" && Config.opt) {
+            val retval = ty match {
+              case Some(IntType(size)) => IntV(0, size)
+              case Some(PtrType(_, _)) => IntV(0, 64)
+              case _ => IntV(0)
+            }
+            k(s, retval)
           else f.reflectWith[Unit](s, args, k)
         case CPSFunV(f) => f(s, args, k)                       // direct call
         case _ => "cps_apply".reflectWith[Unit](v, s, args, k) // indirect call
@@ -324,6 +337,8 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
     def trunc(from: Int, to: Int): Rep[Value] = "trunc".reflectWith[Value](v, from, to)
     def toIntV: Rep[Value] = "to-IntV".reflectWith[Value](v)
     def toLocV: Rep[Value] = "to-LocV".reflectWith[Value](v)
+
+    def +(off: Rep[Long]): Rep[Value] = "ptroff".reflectWith[Value](v, off)
 
     def toBytes: Rep[List[Value]] = v match {
       case ShadowV() => List[Value](v)
