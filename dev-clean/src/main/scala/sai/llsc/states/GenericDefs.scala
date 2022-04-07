@@ -294,8 +294,7 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
               case _ => IntV(0)
             }
             List((s.asRepOf[SS], retval))
-          }
-          else f.reflectWith[List[(SS, Value)]](s, args)
+          } else f.reflectWith[List[(SS, Value)]](s, args)
         case FunV(f) => f(s, args)
         case _ => "direct_apply".reflectWith[List[(SS, Value)]](v, s, args)
       }
@@ -312,7 +311,7 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
               case _ => IntV(0)
             }
             k(s, retval)
-          else f.reflectWith[Unit](s, args, k)
+          } else f.reflectWith[Unit](s, args, k)
         case CPSFunV(f) => f(s, args, k)                       // direct call
         case _ => "cps_apply".reflectWith[Unit](v, s, args, k) // indirect call
       }
