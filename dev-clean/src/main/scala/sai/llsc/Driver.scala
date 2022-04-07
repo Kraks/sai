@@ -233,7 +233,7 @@ case class Config(nSym: Int, argv: Boolean) {
 }
 
 object Config {
-  var opt: Boolean = false
+  var opt: Boolean = true
   def disableOpt: Unit = opt = false
   def enableOpt: Unit = opt = true
 
