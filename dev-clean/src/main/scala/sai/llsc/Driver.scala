@@ -57,23 +57,6 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     //       refactor to the right place.
     val g = Adapter.g
     g.addRewrite {
-      // Note: we cannot naive do this stack alloc coealeasing since
-      //       it needs to maintain the right value of each reading of stack_size.
-      /*
-      case ("ss-alloc-stack", StaticList(s: bExp, bConst(n: Mut[Int])))
-          if Adapter.g.curEffects.allEff.contains(s) =>
-        def aux: Option[bExp] = {
-          for ((k, _) <- g.curEffects.allEff(s)) {
-            g.findDefinition(k) collect {
-              case Node(_, "ss-alloc-stack", StaticList(s2: bExp, bConst(m: Mut[Int])), _) =>
-                m.x = m.x + n.x
-                return Some(bConst(()))
-            }
-          }
-          None
-        }
-        aux
-       */
       // omg...
       case ("ss-stack-size", StaticList(s: bExp)) if g.curEffects.allEff.contains(s) =>
         def aux: Option[bExp] = {
@@ -81,7 +64,6 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
           for ((k, _) <- g.curEffects.allEff(s)) {
             g.findDefinition(k) collect {
               case Node(_, "ss-alloc-stack", StaticList(_, bConst(n: Mut[Int])), _) =>
-                System.out.println("All")
                 sz = sz + n.x
             }
           }
@@ -89,7 +71,6 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
             for (k <- lrs) {
               g.findDefinition(k) collect {
                 case Node(n, "ss-stack-size", StaticList(_), _) =>
-                  System.out.println("Sz")
                   return Some(g.reflect("+", n, bConst(sz)))
               }
             }

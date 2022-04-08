@@ -6,6 +6,8 @@ import lms.core.stub.{While => _, _}
 import scala.collection.immutable.{List => StaticList}
 import scala.collection.mutable.{HashMap,HashSet}
 
+import sai.llsc.imp.Mut
+
 object AssignElim {
   type Subst = HashMap[Sym, Exp]
 
@@ -41,6 +43,16 @@ object AssignElim {
         Const(())
       case Node(s, "ss-assign", StaticList(ss: Sym, Const(x: Int), v), _) if eliminable(x) =>
         Const(())
+      case Node(s, "ss-alloc-stack", StaticList(ss: Exp, Const(n1: Mut[Int])), _) 
+          if g.curEffects.allEff.contains(transform(ss)) =>
+        for ((k, _) <- g.curEffects.allEff(transform(ss))) {
+          g.findDefinition(k) collect {
+            case Node(_, "ss-alloc-stack", StaticList(_: Exp, Const(n2: Mut[Int])), _) =>
+              n2.x = n2.x + n1.x
+              return Const(())
+          }
+        }
+        super.transform(n)
       case _ => super.transform(n)
     }
   }
