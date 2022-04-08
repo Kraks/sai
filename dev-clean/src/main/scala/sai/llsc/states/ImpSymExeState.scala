@@ -27,6 +27,10 @@ import scala.collection.mutable.{Map => MutableMap, Set => MutableSet}
      not a valid use of identifiers.
  */
 
+class Mut[T](var x: T) {
+  override def toString: String = x.toString
+}
+
 @virtualize
 trait ImpSymExeDefs extends SAIOps with BasicDefs with ValueDefs with Opaques with Coverage {
   import Constants._
@@ -94,7 +98,8 @@ trait ImpSymExeDefs extends SAIOps with BasicDefs with ValueDefs with Opaques wi
     def update(a: Rep[Value], v: Rep[Value], sz: Int): Rep[Unit] =
       reflectCtrl[Unit]("ss-update", ss, a, v, sz)
       //reflectWrite[Unit]("ss-update", ss, a, v)(ss)
-    def allocStack(n: Rep[Int], align: Int): Rep[Unit] = reflectWrite[Unit]("ss-alloc-stack", ss, n)(ss)
+    def allocStack(n: Int, align: Int): Rep[Unit] =
+      reflectWrite[Unit]("ss-alloc-stack", ss, new Mut[Int](n))(ss)
 
     def heapLookup(addr: Rep[Addr]): Rep[Value] = reflectRead[Value]("ss-lookup-heap", ss, addr)(ss)
     def heapSize: Rep[Int] = reflectRead[Int]("ss-heap-size", ss)(ss)

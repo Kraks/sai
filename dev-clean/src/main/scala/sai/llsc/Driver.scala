@@ -15,6 +15,7 @@ import sai.utils.Utils.time
 import scala.collection.immutable.{List => StaticList}
 import scala.collection.mutable.HashMap
 
+import sai.llsc.imp.Mut
 import sai.llsc.imp.ImpLLSCEngine
 import sai.llsc.imp.ImpCPSLLSCEngine
 
@@ -52,17 +53,60 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
   def addRewrite: Unit = {
     val bConst = Backend.Const
     type bExp = Backend.Exp
-    Adapter.g.addRewrite {
-      case ("ss-lookup-env", StaticList(s: bExp, bConst(x: Int)))
+    // Note: these are transformation for the imperative version; should be
+    //       refactor to the right place.
+    val g = Adapter.g
+    g.addRewrite {
+      // Note: we cannot naive do this stack alloc coealeasing since
+      //       it needs to maintain the right value of each reading of stack_size.
+      /*
+      case ("ss-alloc-stack", StaticList(s: bExp, bConst(n: Mut[Int])))
           if Adapter.g.curEffects.allEff.contains(s) =>
+        def aux: Option[bExp] = {
+          for ((k, _) <- g.curEffects.allEff(s)) {
+            g.findDefinition(k) collect {
+              case Node(_, "ss-alloc-stack", StaticList(s2: bExp, bConst(m: Mut[Int])), _) =>
+                m.x = m.x + n.x
+                return Some(bConst(()))
+            }
+          }
+          None
+        }
+        aux
+       */
+      // omg...
+      case ("ss-stack-size", StaticList(s: bExp)) if g.curEffects.allEff.contains(s) =>
+        def aux: Option[bExp] = {
+          var sz: Int = 0
+          for ((k, _) <- g.curEffects.allEff(s)) {
+            g.findDefinition(k) collect {
+              case Node(_, "ss-alloc-stack", StaticList(_, bConst(n: Mut[Int])), _) =>
+                System.out.println("All")
+                sz = sz + n.x
+            }
+          }
+          for ((_, lrs) <- g.curEffects.allEff(s)) {
+            for (k <- lrs) {
+              g.findDefinition(k) collect {
+                case Node(n, "ss-stack-size", StaticList(_), _) =>
+                  System.out.println("Sz")
+                  return Some(g.reflect("+", n, bConst(sz)))
+              }
+            }
+          }
+          None
+        }
+        aux
+      case ("ss-lookup-env", StaticList(s: bExp, bConst(x: Int)))
+          if g.curEffects.allEff.contains(s) =>
         def findAssignment: Option[bExp] = {
-          for ((k, _) <- Adapter.g.curEffects.allEff(s)) {
-            Adapter.g.findDefinition(k) collect {
+          for ((k, _) <- g.curEffects.allEff(s)) {
+            g.findDefinition(k) collect {
               case Node(_, "ss-assign", StaticList(_, bConst(y: Int), v: bExp), _) if x == y =>
                 return Some(v)
               case Node(_, "ss-assign-seq", StaticList(_, bConst(vars: List[Int]), vals: bExp), _) =>
                 val idx = vars.indexOf(x)
-                if (idx != -1) return Some(Adapter.g.reflect("list-apply", vals, bConst(idx)))
+                if (idx != -1) return Some(g.reflect("list-apply", vals, bConst(idx)))
             }
           }
           None
@@ -239,7 +283,7 @@ abstract class ImpCPSLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName
 
   override def transform(g0: Graph): Graph = {
     if (Config.opt) {
-      val (g1, subst1) = AssignElim.transform(g0)
+      val (g1, subst1) = AssignElim.impTransform(g0)
       codegen.reconsMapping(subst1)
       g1
     } else g0
