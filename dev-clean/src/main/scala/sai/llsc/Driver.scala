@@ -236,6 +236,13 @@ abstract class ImpLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: S
     setFunMap(q.funNameMap)
     setBlockMap(q.blockNameMap)
   }
+  override def transform(g0: Graph): Graph = {
+    if (Config.opt) {
+      val (g1, subst1) = AssignElim.impTransform(g0)
+      codegen.reconsMapping(subst1)
+      g1
+    } else g0
+  }
 }
 
 // Using C++ std containers for internal state/memory representation,

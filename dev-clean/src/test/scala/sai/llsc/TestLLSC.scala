@@ -276,7 +276,7 @@ class Playground extends TestLLSC {
 }
 
 class Optimization extends TestLLSC {
-  val llsc = new ImpCPSLLSC
+  val llsc = new ImpLLSC
   testLLSC(llsc, TestPrg(mergesort, "mergeSortTest", "@main", noArg, None, nPath(720)))
   //testLLSC(llsc, TestPrg(kmpmatcher, "kmp", "@main", noArg, None, nPath(1287)))
 }
