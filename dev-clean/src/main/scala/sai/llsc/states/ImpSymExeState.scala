@@ -12,6 +12,7 @@ import lms.core.stub.{While => _, _}
 
 import sai.lmsx._
 import sai.lmsx.smt.SMTBool
+import sai.llsc.Config
 
 import scala.collection.immutable.{List => StaticList, Map => StaticMap, Set => StaticSet}
 import scala.collection.mutable.{Map => MutableMap, Set => MutableSet}
@@ -76,8 +77,8 @@ trait ImpSymExeDefs extends SAIOps with BasicDefs with ValueDefs with Opaques wi
       reflectRead[Value]("ss-lookup-env", ss, x.hashCode)(ss)
     }
     def assign(x: String, v: Rep[Value]): Rep[Unit] =
-      reflectCtrl[Unit]("ss-assign", ss, x.hashCode, v)
-      //reflectWrite[Unit]("ss-assign", ss, x.hashCode, v)(ss)
+      //reflectCtrl[Unit]("ss-assign", ss, x.hashCode, v)
+      reflectWrite[Unit]("ss-assign", ss, x.hashCode, v)(ss)
     def assign(xs: List[String], vs: Rep[List[Value]]): Rep[Unit] = assignSeq(xs.map(_.hashCode), vs)
     def lookup(addr: Rep[Value], size: Int = 1, isStruct: Int = 0): Rep[Value] = {
       require(size > 0)
@@ -117,15 +118,20 @@ trait ImpSymExeDefs extends SAIOps with BasicDefs with ValueDefs with Opaques wi
   }
 
   implicit class SSOpsOpt(ss: Rep[SS]) extends SSOps(ss) {
-    private def lookupOpt(x: Int, s: Backend.Def, default: => Rep[Value], bound: Int): Rep[Value] =
-      if (bound == 0) default
-      else s match {
-        case Adapter.g.Def("ss-assign", ss0::Backend.Const(y)::(v: Backend.Sym)::Nil) if y == x => Wrap[Value](v)
-        case Adapter.g.Def("ss-assign", ss0::Backend.Const(y)::(v: Backend.Sym)::Nil) => lookupOpt(x, ss0, default, bound-1)
-        // TODO: ss-assign-seq?
-        case _ => default
-      }
-    override def lookup(x: String): Rep[Value] = lookupOpt(x.hashCode, Unwrap(ss), super.lookup(x), 5)
+    override def stackSize: Rep[Int] =
+      // TODO FIXME
+      if (Config.opt) {
+        Unwrap(ss) match {
+          case gNode("ss-alloc-stack", StaticList(ss0: bExp, bConst(inc: Int))) =>
+            Wrap[SS](ss0).stackSize + inc
+          case gNode("ss-assign", StaticList(ss0: bExp, _, _)) =>
+            Wrap[SS](ss0).stackSize
+          case _ => super.stackSize
+        }
+      } else { super.stackSize }
+
   }
+
   implicit class RefSSOps(ss: Rep[Ref[SS]]) extends SSOpsOpt(ss.asRepOf[SS])
+
 }
