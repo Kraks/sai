@@ -156,32 +156,27 @@ object TestCases {
 import TestCases._
 
 abstract class TestLLSC extends FunSuite {
-  case class TestResult(engine: String, testName: String, solverTime: Double,
-    wholeTime: Double, blockCov: Double, pathNum: Int,
-    brQueryNum: Int, testQueryNum: Int, cexCacheHit: Int)
+  import java.time.LocalDateTime
+
+  case class TestResult(time: LocalDateTime, commit: String, engine: String, testName: String,
+    solverTime: Double, wholeTime: Double, blockCov: Double,
+    pathNum: Int, brQueryNum: Int, testQueryNum: Int, cexCacheHit: Int) {
+    override def toString() =
+      s"$time,$commit,$engine,$testName,$solverTime,$wholeTime,$blockCov,$pathNum,$brQueryNum,$testQueryNum,$cexCacheHit"
+  }
+
+  val gitCommit = Process("git rev-parse --short HEAD").!!.trim
 
   def parseOutput(engine: String, testName: String, output: String): TestResult = {
     // example:
     // [43.4s/46.0s] #blocks: 12/12; #paths: 1666; #threads: 1; #task-in-q: 0; #queries: 7328/1666 (1996)
-    val lastLine = output.split("\n").last
-    val groups = lastLine.split(" ")
-    val (solverTime, wholeTime) = {
-      val t = groups(0).drop(1).split("/")
-      val solverTime = t(0).dropRight(1).toDouble
-      val wholeTime = t(1).dropRight(2).toDouble
-      (solverTime, wholeTime)
+    val pattern = raw"\[([^s]+)s/([^s]+)s\] #blocks: (\d+)/(\d+); #paths: (\d+); .+; #queries: (\d+)/(\d+) \((\d+)\)".r
+    output.split("\n").last match {
+      case pattern(solverTime, wholeTime, blockCnt, blockAll, pathNum, brQuerynum, testQueryNum, cexCacheHit) =>
+        TestResult(LocalDateTime.now(), gitCommit, engine, testName,
+                   solverTime.toDouble, wholeTime.toDouble, blockCnt.toDouble / blockAll.toDouble,
+                   pathNum.toInt, brQuerynum.toInt, testQueryNum.toInt, cexCacheHit.toInt)
     }
-    val blockCov = {
-      val t = groups(2).dropRight(1).split("/")
-      t(0).toDouble / t(1).toDouble
-    }
-    val pathNum = groups(4).dropRight(1).toInt
-    val (brQueryNum, testQueryNum) = {
-      val t = groups(10).split("/")
-      (t(0).toInt, t(1).toInt)
-    }
-    val cexCacheHit = groups(11).drop(1).dropRight(1).toInt
-    TestResult(engine, testName, solverTime, wholeTime, blockCov, pathNum, brQueryNum, testQueryNum, cexCacheHit)
   }
 
   def testLLSC(llsc: LLSC, tst: TestPrg): Unit = {
@@ -276,7 +271,49 @@ class Playground extends TestLLSC {
 }
 
 class Optimization extends TestLLSC {
-  val llsc = new ImpLLSC
-  testLLSC(llsc, TestPrg(mergesort, "mergeSortTest", "@main", noArg, None, nPath(720)))
-  //testLLSC(llsc, TestPrg(kmpmatcher, "kmp", "@main", noArg, None, nPath(1287)))
+  import scala.collection.mutable.ListBuffer
+  import java.io.{File, FileWriter}
+  val writer = new FileWriter(new File("opt_exp.csv"), true)
+
+  def testLLSC(N: Int, llsc: LLSC, tst: TestPrg): Unit = {
+    val TestPrg(m, name, f, config, cliArgOpt, exp) = tst
+    test(llsc.insName + "_" + name) {
+      val code = llsc.newInstance(m, llsc.insName + "_" + name, f, config)
+      code.genAll
+      val mkRet = code.make(4)
+      assert(mkRet == 0, "make failed")
+      for (i <- 1 to N) {
+        Thread.sleep(1 * 1000)
+        val numactl = ""//"numactl -N1 -m1"
+        val (output, ret) = code.runWithStatus(cliArgOpt.getOrElse(""), numactl)
+        val resStat = parseOutput(llsc.insName, name, output)
+        System.out.println(resStat)
+        writer.append(s"$resStat\n")
+        writer.flush()
+      }
+    }
+  }
+  val N = 10
+}
+
+class TestImpCPSOpt extends Optimization {
+  val llsc = new ImpCPSLLSC
+  Config.enableOpt
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/mergesort.ll"), "mergeSort_Opt", "@main", noArg, None, nPath(5040)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/bubblesort.ll"), "bubbleSort_Opt", "@main", noArg, None, nPath(720)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/knapsack.ll"), "knapsack_Opt", "@main", noArg, None, nPath(1666)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/kmpmatcher.ll"), "kmp_Opt", "@main", noArg, None, nPath(4181)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/nqueen.ll"), "nqueen_Opt", "@main", noArg, None, nPath(1363)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/quicksort.ll"), "quicksort_Opt", "@main", noArg, None, nPath(5040)))
+}
+
+class TestImpCPSNoOpt extends Optimization {
+  val llsc = new ImpCPSLLSC
+  Config.disableOpt
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/mergesort.ll"), "mergeSort_NoOpt", "@main", noArg, None, nPath(5040)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/bubblesort.ll"), "bubbleSort_NoOpt", "@main", noArg, None, nPath(720)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/knapsack.ll"), "knapsack_NoOpt", "@main", noArg, None, nPath(1666)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/kmpmatcher.ll"), "kmp_NoOpt", "@main", noArg, None, nPath(4181)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/nqueen.ll"), "nqueen_NoOpt", "@main", noArg, None, nPath(1363)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/quicksort.ll"), "quicksort_NoOpt", "@main", noArg, None, nPath(5040)))
 }
