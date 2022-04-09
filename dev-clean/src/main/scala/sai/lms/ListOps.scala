@@ -284,10 +284,15 @@ trait CppCodeGen_List extends ExtendedCCodeGen {
       emit(remap(mA))
       emit(">")
       emit("{")
-      xs.zipWithIndex.map { case (x, i) =>
+      xs.map { case x =>
         shallow(x)
-        if (i != xs.length-1) emit(", ")
+        emit(", ")
+        //if (i != xs.length-1) emit(", ")
       }
+      //xs.zipWithIndex.map { case (x, i) =>
+      //  shallow(x)
+      //  if (i != xs.length-1) emit(", ")
+      //}
       emit("}")
     case Node(s, "list-fill", List(Const(mA: Manifest[_]), x, e), _) =>
       emit(s"${ns}flex_vector<")
@@ -316,7 +321,7 @@ trait CppCodeGen_List extends ExtendedCCodeGen {
     case Node(s, "list-toArray", List(xs), _) =>
       ???
     case Node(s, "list-toSeq", List(xs), _) =>
-      ???  
+      ???
     case Node(s, "list-map", List(xs, b: Block), _) =>
       val retType = remap(typeBlockRes(b.res))
       emit(s"Vec::vmap<$retType>(")

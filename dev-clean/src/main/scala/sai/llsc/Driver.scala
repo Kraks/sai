@@ -49,21 +49,35 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
 
   def transform(g0: Graph): Graph = g0
 
+
+  def cgcustomtime[R](isprint: Boolean)(task: String)(block: => R): R = {
+    if (isprint) {
+      val t0 = System.currentTimeMillis()
+      scala.Predef.println("before: "+task)
+      val result = block
+      scala.Predef.println("after: "+task+": "+"Elapsed time: " + (System.currentTimeMillis() - t0)/1000 + "s")
+      result
+    }else {
+      block
+    }
+  }
+
   def genSource: Unit = {
     val folderFile = new File(folder)
     if (!folderFile.exists()) folderFile.mkdir
     createNewDir
     val mainStream = new PrintStream(s"$folder/$appName/$appName.cpp")
 
-    val g0 = Adapter.genGraph1(manifest[A], manifest[B])(x => Unwrap(wrapper(Wrap[A](x))))
-    val g1 = transform(g0)
+    // generate geaph
+    val g0 = cgcustomtime(true)("gengraph1")(Adapter.genGraph1(manifest[A], manifest[B])(x => Unwrap(wrapper(Wrap[A](x)))))
+    val g1 = cgcustomtime(true)("transformgraph")(transform(g0))
 
-    val statics = lms.core.utils.time("codegen") {
+    val statics = cgcustomtime(true)("emitall")(lms.core.utils.time("codegen") {
       codegen.typeMap = Adapter.typeMap
       codegen.stream = mainStream
       codegen.emitAll(g1, appName)(manifest[A], manifest[B])
       codegen.extractAllStatics
-    }
+    })
     mainStream.close
   }
 

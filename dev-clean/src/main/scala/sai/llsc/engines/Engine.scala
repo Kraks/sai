@@ -69,7 +69,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
         ret(ExternalFun.get(id))
       case GlobalId(id) if globalDefMap.contains(id) =>
         ret(LocV(heapEnv(id), LocV.kHeap))
-      case GlobalId(id) if globalDeclMap.contains(id) => 
+      case GlobalId(id) if globalDeclMap.contains(id) =>
         System.out.println(s"Warning: globalDecl $id is ignored")
         ty match {
           case PtrType(_, _) => ret(LocV.nullloc)
@@ -475,19 +475,39 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
     (fn, n)
   }
 
+
+  def customtime[R](isprint: Boolean)(task: String)(block: => R): R = {
+    if (isprint) {
+      val t0 = System.currentTimeMillis()
+      scala.Predef.println("before: "+task)
+      val result = block
+      scala.Predef.println("after: "+task+": "+"Elapsed time: " + (System.currentTimeMillis() - t0)/1000 + "s")
+      result
+    }else {
+      block
+    }
+  }
+
   override def wrapFunV(f: FFTy): Rep[Value] = FunV[Id](f)
 
   def exec(fname: String, args: Rep[List[Value]]): Rep[List[(SS, Value)]] = {
-    val preHeap: Rep[List[Value]] = List(precompileHeapLists(m::Nil):_*)
+    //if (fname == "@main") {
+    //  scala.Predef.println("before preCompileHeapLists")
+    //}
+    val preHeap: Rep[List[Value]] = customtime(fname == "@main")("preheap")(List(precompileHeapLists(m::Nil):_*))
+    //if (fname == "@main") {
+    //  scala.Predef.println("after preCompileHeapLists")
+    //}
     val heap0 = preHeap.asRepOf[Mem]
-    val comp = for {
+    val comp = customtime(fname == "@main")("evalcomp")(for {
       fv <- eval(GlobalId(fname), VoidType)(fname)
       _ <- pushFrame
       _ <- initializeArg
       s <- getState
       v <- reflect(fv[Id](s, args))
     } yield v
+    )
     Coverage.incPath(1)
-    reify[Value](initState(heap0))(comp)
+    customtime(fname == "@main")("evalreify")(reify[Value](initState(heap0))(comp))
   }
 }

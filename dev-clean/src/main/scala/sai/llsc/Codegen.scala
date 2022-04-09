@@ -34,21 +34,54 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     blockMap = newBlockMap
   }
 
-  override def quote(s: Def): String = s match {
+  class Mut(var value: Long) {}
+  class Interval(var start: Long, var end: Long, var value:Long) {}
+
+  def calctime[R](sum:Mut)(block: => R): R = {
+    val t0 = System.currentTimeMillis()
+    val result = block
+    val t1 = System.currentTimeMillis() - t0
+    sum.value+=t1
+    result
+  }
+
+  def calctime[R](sum:Interval)(block: => R): R = {
+
+    val t0 = System.currentTimeMillis()
+    if (sum.end == -1) {
+      block
+    } else {
+      sum.end = -1
+      val result = block
+      val t1 = System.currentTimeMillis() - t0
+      sum.value+=t1
+      sum.end = 0
+      result
+    }
+  }
+
+
+  var quote_time = new Mut(0)
+  var mayInline_time = new Mut(0)
+  var remap_time = new Mut(0)
+  var traverse_time = new Mut(0)
+  //var shallow_time = new Mut(0)
+  var shallow_time = new Interval(0, 0, 0)
+  override def quote(s: Def): String = calctime(quote_time)(s match {
     case Sym(n) =>
       funMap.getOrElse(n, blockMap.getOrElse(n, super.quote(s)))
     case _ => super.quote(s)
-  }
+  })
 
-  override def mayInline(n: Node): Boolean = n match {
+  override def mayInline(n: Node): Boolean = calctime(mayInline_time)(n match {
     case Node(_, "list-new", _, _) => true
     case Node(_, "make_SymV", _, _) => true
     case Node(_, "make_IntV", _, _) => true
     case Node(_, "null-v", _, _) => true
     case _ => super.mayInline(n)
-  }
+  })
 
-  override def remap(m: Manifest[_]): String = {
+  override def remap(m: Manifest[_]): String = calctime(remap_time)({
     if (m.toString == "java.lang.String") "String"
     else if (m.toString.endsWith("$Value")) "PtrVal"
     else if (m.toString.endsWith("$Addr")) "Addr"
@@ -62,93 +95,94 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     else if (m.runtimeClass.getName.endsWith("Future"))
       s"std::future<${remap(m.typeArguments(0))}>"
     else super.remap(m)
-  }
+  })
 
-  def quoteOp(op: String, ec: String): String = ec + "::" + "op_" + op 
+  def quoteOp(op: String, ec: String): String = ec + "::" + "op_" + op
 
-  override def traverse(n: Node): Unit = n match {
+  override def traverse(n: Node): Unit = calctime(traverse_time)(n match {
     case Node(s, "make_CPSFunV", _, _) if !dce.live(n.n) =>
     case Node(s, "make_FunV", _, _) if !dce.live(n.n) =>
     case _ => super.traverse(n)
-  }
+  })
 
-  override def shallow(n: Node): Unit = n match {
-    case n @ Node(s, "P", List(x), _) => es"std::cout << $x << std::endl"
-    case Node(s,"kStack", _, _) => emit("LocV::kStack")
-    case Node(s,"kHeap", _, _) => emit("LocV::kHeap")
-    case Node(s, "int_op_2", List(Backend.Const(op: String), x, y), _) =>
-      es"int_op_2(${quoteOp(op, "iOP")}, $x, $y)"
-    case Node(s, "float_op_2", List(Backend.Const(op: String), x, y), _) =>
-      es"float_op_2(${quoteOp(op, "fOP")}, $x, $y)"
-    case Node(s, "init-ss", List(), _) => es"mt_ss"
-    case Node(s, "init-ss", List(m), _) => es"SS($m, mt_stack, mt_pc, mt_bb)"
-
-    case Node(s, "ss-lookup-env", List(ss, x), _) => es"$ss.env_lookup($x)"
-    case Node(s, "ss-lookup-addr", List(ss, a, sz), _) => es"$ss.at($a, $sz)"
-    case Node(s, "ss-lookup-addr-struct", List(ss, a, sz), _) => es"$ss.at_struct($a, $sz)"
-    case Node(s, "ss-lookup-addr-seq", List(ss, a, sz), _) => es"$ss.at_seq($a, $sz)"
-    case Node(s, "ss-lookup-heap", List(ss, a), _) => es"$ss.heap_lookup($a)"
-    case Node(s, "ss-array-lookup", List(ss, base, off, es, ns, k), _) => es"array_lookup_k($ss, $base, $off, $es, $ns, $k)"
-    case Node(s, "ss-array-lookup", List(ss, base, off, es, ns), _) => es"array_lookup($ss, $base, $off, $es, $ns)"
-    case Node(s, "ss-assign", List(ss, k, v), _) => es"$ss.assign($k, $v)"
-    case Node(s, "ss-assign-seq", List(ss, ks, vs), _) => es"$ss.assign_seq($ks, $vs)"
-    case Node(s, "ss-heap-size", List(ss), _) => es"$ss.heap_size()"
-    case Node(s, "ss-heap-append", List(ss, vs), _) => es"$ss.heap_append($vs)"
-    case Node(s, "ss-stack-size", List(ss), _) => es"$ss.stack_size()"
-    case Node(s, "ss-alloc-stack", List(ss, n), _) => es"$ss.alloc_stack($n)"
-    case Node(s, "ss-update", List(ss, k, v, sz), _) => es"$ss.update($k, $v, $sz)"
-    case Node(s, "ss-update-seq", List(ss, k, v), _) => es"$ss.update_seq($k, $v)"
-    case Node(s, "ss-push", List(ss), _) => es"$ss.push()"
-    case Node(s, "ss-pop", List(ss, n), _) => es"$ss.pop($n)"
-    case Node(s, "ss-addpc", List(ss, e), _) => es"$ss.add_PC($e)"
-    case Node(s, "ss-addpcset", List(ss, es), _) => es"$ss.add_PC_set($es)"
-    case Node(s, "ss-add-incoming-block", List(ss, bb), _) => es"$ss.add_incoming_block($bb)"
-    case Node(s, "ss-incoming-block", List(ss), _) => es"$ss.incoming_block()"
-    case Node(s, "ss-arg", List(ss), _) => es"$ss.init_arg()"
-    case Node(s, "ss-get-fs", List(ss), _) => es"$ss.get_fs()"
-    case Node(s, "ss-set-fs", List(ss, fs), _) => es"$ss.set_fs($fs)"
-    case Node(s, "get-pc", List(ss), _) => es"$ss.get_PC()"
-
-    case Node(s, "is-conc", List(v), _) => es"$v->is_conc()"
-    case Node(s, "to-SMTNeg", List(v), _) => es"to_SMTNeg($v)"
-    case Node(s, "ValPtr-deref", List(v), _) => es"*$v"
-    case Node(s, "to-IntV", List(v), _) => es"$v->to_IntV()"
-    case Node(s, "to-LocV", List(v), _) => es"make_LocV($v)"
-    case Node(s, "nullptr", _, _) => es"nullptr"
-    case Node(s, "to-bytes", List(v), _) => es"$v->to_bytes()"
-    case Node(s, "to-bytes-shadow", List(v), _) => es"$v->to_bytes_shadow()"
-    case Node(s, "make_FloatV", List(Const(l: String), Const(80)), _) =>
-      val byteArr = l.substring(3).grouped(2).toList
-      val litRep = "{" + byteArr.reverse.map(v => "0x" ++ v).mkString(", ") + "}"
-      es"make_FloatV_fp80($litRep)"
-    case Node(s, "make_FloatV", List(f, bw), _) => es"make_FloatV($f, $bw)"
-    case Node(s, "get-bw", List(v), _) => es"$v->get_bw()"
-
-    case Node(s, "cov-set-blocknum", List(n), _) => es"cov().set_num_blocks($n)"
-    case Node(s, "cov-inc-block", List(id), _) => es"cov().inc_block($id)"
-    case Node(s, "cov-inc-path", List(n), _) => es"cov().inc_path($n)"
-    case Node(s, "cov-start-mon", _, _) => es"cov().start_monitor()"
-    case Node(s, "print-block-cov", _, _) => es"cov().print_block_cov()"
-    case Node(s, "print-time", _, _) => es"cov().print_time()"
-    case Node(s, "print-path-cov", _, _) => es"cov().print_path_cov()"
-
-    case Node(s, "fs-open-file", List(fs, p, f), _) => es"$fs.open_file($p, $f)"
-    case Node(s, "fs-close-file", List(fs, fd), _) => es"$fs.close_file($fd)"
-    case Node(s, "fs-read-file", List(fs, fd, n), _) => es"$fs.read_file($fd, $n)"
-    case Node(s, "fs-write-file", List(fs, fd, c, n), _) => es"$fs.write_file($fd, $c, $n)"
-    case Node(s, "fs-stat-file", List(fs, ptr), _) => es"$fs.stat_file($ptr)"
-
+  override def shallow(n: Node): Unit = calctime(shallow_time)(
+  n match {
+  //  case n @ Node(s, "P", List(x), _) => es"std::cout << $x << std::endl"
+  //  case Node(s,"kStack", _, _) => emit("LocV::kStack")
+  //  case Node(s,"kHeap", _, _) => emit("LocV::kHeap")
+  //  case Node(s, "int_op_2", List(Backend.Const(op: String), x, y), _) =>
+  //    es"int_op_2(${quoteOp(op, "iOP")}, $x, $y)"
+  //  case Node(s, "float_op_2", List(Backend.Const(op: String), x, y), _) =>
+  //    es"float_op_2(${quoteOp(op, "fOP")}, $x, $y)"
+  //  case Node(s, "init-ss", List(), _) => es"mt_ss"
+  //  case Node(s, "init-ss", List(m), _) => es"SS($m, mt_stack, mt_pc, mt_bb)"
+//
+  //  case Node(s, "ss-lookup-env", List(ss, x), _) => es"$ss.env_lookup($x)"
+  //  case Node(s, "ss-lookup-addr", List(ss, a, sz), _) => es"$ss.at($a, $sz)"
+  //  case Node(s, "ss-lookup-addr-struct", List(ss, a, sz), _) => es"$ss.at_struct($a, $sz)"
+  //  case Node(s, "ss-lookup-addr-seq", List(ss, a, sz), _) => es"$ss.at_seq($a, $sz)"
+  //  case Node(s, "ss-lookup-heap", List(ss, a), _) => es"$ss.heap_lookup($a)"
+  //  case Node(s, "ss-array-lookup", List(ss, base, off, es, ns, k), _) => es"array_lookup_k($ss, $base, $off, $es, $ns, $k)"
+  //  case Node(s, "ss-array-lookup", List(ss, base, off, es, ns), _) => es"array_lookup($ss, $base, $off, $es, $ns)"
+  //  case Node(s, "ss-assign", List(ss, k, v), _) => es"$ss.assign($k, $v)"
+  //  case Node(s, "ss-assign-seq", List(ss, ks, vs), _) => es"$ss.assign_seq($ks, $vs)"
+  //  case Node(s, "ss-heap-size", List(ss), _) => es"$ss.heap_size()"
+  //  case Node(s, "ss-heap-append", List(ss, vs), _) => es"$ss.heap_append($vs)"
+  //  case Node(s, "ss-stack-size", List(ss), _) => es"$ss.stack_size()"
+  //  case Node(s, "ss-alloc-stack", List(ss, n), _) => es"$ss.alloc_stack($n)"
+  //  case Node(s, "ss-update", List(ss, k, v, sz), _) => es"$ss.update($k, $v, $sz)"
+  //  case Node(s, "ss-update-seq", List(ss, k, v), _) => es"$ss.update_seq($k, $v)"
+  //  case Node(s, "ss-push", List(ss), _) => es"$ss.push()"
+  //  case Node(s, "ss-pop", List(ss, n), _) => es"$ss.pop($n)"
+  //  case Node(s, "ss-addpc", List(ss, e), _) => es"$ss.add_PC($e)"
+  //  case Node(s, "ss-addpcset", List(ss, es), _) => es"$ss.add_PC_set($es)"
+  //  case Node(s, "ss-add-incoming-block", List(ss, bb), _) => es"$ss.add_incoming_block($bb)"
+  //  case Node(s, "ss-incoming-block", List(ss), _) => es"$ss.incoming_block()"
+  //  case Node(s, "ss-arg", List(ss), _) => es"$ss.init_arg()"
+  //  case Node(s, "ss-get-fs", List(ss), _) => es"$ss.get_fs()"
+  //  case Node(s, "ss-set-fs", List(ss, fs), _) => es"$ss.set_fs($fs)"
+  //  case Node(s, "get-pc", List(ss), _) => es"$ss.get_PC()"
+//
+  //  case Node(s, "is-conc", List(v), _) => es"$v->is_conc()"
+  //  case Node(s, "to-SMTNeg", List(v), _) => es"to_SMTNeg($v)"
+  //  case Node(s, "ValPtr-deref", List(v), _) => es"*$v"
+  //  case Node(s, "to-IntV", List(v), _) => es"$v->to_IntV()"
+  //  case Node(s, "to-LocV", List(v), _) => es"make_LocV($v)"
+  //  case Node(s, "nullptr", _, _) => es"nullptr"
+  //  case Node(s, "to-bytes", List(v), _) => es"$v->to_bytes()"
+  //  case Node(s, "to-bytes-shadow", List(v), _) => es"$v->to_bytes_shadow()"
+  //  case Node(s, "make_FloatV", List(Const(l: String), Const(80)), _) =>
+  //    val byteArr = l.substring(3).grouped(2).toList
+  //    val litRep = "{" + byteArr.reverse.map(v => "0x" ++ v).mkString(", ") + "}"
+  //    es"make_FloatV_fp80($litRep)"
+  //  case Node(s, "make_FloatV", List(f, bw), _) => es"make_FloatV($f, $bw)"
+  //  case Node(s, "get-bw", List(v), _) => es"$v->get_bw()"
+//
+  //  case Node(s, "cov-set-blocknum", List(n), _) => es"cov().set_num_blocks($n)"
+  //  case Node(s, "cov-inc-block", List(id), _) => es"cov().inc_block($id)"
+  //  case Node(s, "cov-inc-path", List(n), _) => es"cov().inc_path($n)"
+  //  case Node(s, "cov-start-mon", _, _) => es"cov().start_monitor()"
+  //  case Node(s, "print-block-cov", _, _) => es"cov().print_block_cov()"
+  //  case Node(s, "print-time", _, _) => es"cov().print_time()"
+  //  case Node(s, "print-path-cov", _, _) => es"cov().print_path_cov()"
+//
+  //  case Node(s, "fs-open-file", List(fs, p, f), _) => es"$fs.open_file($p, $f)"
+  //  case Node(s, "fs-close-file", List(fs, fd), _) => es"$fs.close_file($fd)"
+  //  case Node(s, "fs-read-file", List(fs, fd, n), _) => es"$fs.read_file($fd, $n)"
+  //  case Node(s, "fs-write-file", List(fs, fd, c, n), _) => es"$fs.write_file($fd, $c, $n)"
+  //  case Node(s, "fs-stat-file", List(fs, ptr), _) => es"$fs.stat_file($ptr)"
+//
     case Node(s, "add_tp_task", List(b: Block), _) =>
-      es"tp.add_task("
-      quoteTypedBlock(b, false, true, capture = "=")
-      es")"
+      //es"tp.add_task("
+      //quoteTypedBlock(b, false, true, capture = "=")
+      //es")"
     case Node(s, "async_exec_block", List(b: Block), _) =>
-      es"async_exec_block("
-      quoteTypedBlock(b, false, true, capture = "=")
-      es")"
+      //es"async_exec_block("
+      //quoteTypedBlock(b, false, true, capture = "=")
+      //es")"
 
     case _ => super.shallow(n)
-  }
+  })
 
   override def registerTopLevelFunction(id: String, streamId: String = "general")(f: => Unit) =
     if (!registeredFunctions(id)) {
@@ -207,16 +241,39 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     }
   }
 
+
+  def cgcustomtime[R](isprint: Boolean)(task: String)(block: => R): R = {
+    if (isprint) {
+      val t0 = System.currentTimeMillis()
+      scala.Predef.println("before: "+task)
+      val result = block
+      scala.Predef.println("after: "+task+": "+"Elapsed time: " + (System.currentTimeMillis() - t0)/1000 + "s")
+      result
+    }else {
+      block
+    }
+  }
+
   override def emitAll(g: Graph, name: String)(m1: Manifest[_], m2: Manifest[_]): Unit = {
-    val ng = init(g)
+    val ng = cgcustomtime(true)("initg")(init(g))
     val efs = ""
     val stt = dce.statics.toList.map(quoteStatic).mkString(", ")
 
-    val src = run(name, ng)
+    val src = cgcustomtime(true)("run")(run(name, ng))
 
-    emitHeaderFile
-    emitFunctionFiles
-    emitInit(stream)
+    cgcustomtime(true)("emit header file")(emitHeaderFile)
+    cgcustomtime(true)("emit function files")(emitFunctionFiles)
+    cgcustomtime(true)("emit init")(emitInit(stream))
+
+
+    scala.Predef.println("quotetypedblocktime: "+"Elapsed time: " + (quotetypedblocktime)/1000 + "s")
+
+
+    scala.Predef.println("quote_time: "+"Elapsed time: " + (quote_time.value)/1000 + "s")
+    scala.Predef.println("mayInline_time: "+"Elapsed time: " + (mayInline_time.value)/1000 + "s")
+    scala.Predef.println("remap_time: "+"Elapsed time: " + (remap_time.value)/1000 + "s")
+    scala.Predef.println("traverse_time: "+"Elapsed time: " + (traverse_time.value)/1000 + "s")
+    scala.Predef.println("shallow_time: "+"Elapsed time: " + (shallow_time.value)/1000 + "s")
 
     emitln(s"/* Generated main file: $name */")
     emitln("#include \"common.h\"")

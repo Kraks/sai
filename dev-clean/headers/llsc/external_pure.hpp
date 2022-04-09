@@ -473,6 +473,7 @@ inline T __llvm_va_copy(SS& state, List<PtrVal>& args, __Cont<T> k) {
 template<typename T>
 inline T __llsc_assume(SS& state, List<PtrVal>& args, __Cont<T> k, __Halt<T> h) {
   auto v = args.at(0);
+  //std::cout << *v <<std::endl;
   auto i = v->to_IntV();
   if (i) {
     if (i->i == 0) {
