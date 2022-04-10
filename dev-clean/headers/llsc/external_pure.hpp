@@ -119,6 +119,7 @@ template<typename T>
 inline T __calloc(SS& state, List<PtrVal>& args, __Cont<T> k) {
   IntData nmemb = proj_IntV(args.at(0));
   IntData size = proj_IntV(args.at(1));
+  ASSERT(size > 0 && nmemb > 0, "Invalid nmemb and size");
   auto emptyMem = List<PtrVal>(nmemb * size, make_IntV(0, 8));
 
   PtrVal memLoc = make_LocV(state.heap_size(), LocV::kHeap, nmemb * size);
@@ -458,7 +459,7 @@ inline T __llvm_va_start(SS& state, List<PtrVal>& args, __Cont<T> k) {
   PtrVal va_arg = state.getVarargLoc();
   SS res = state;
   res = res.update(va_list + 0, IntV0, 4);
-  res = res.update(va_list + 4, IntV0), 4;
+  res = res.update(va_list + 4, IntV0, 4);
   res = res.update(va_list + 8, va_arg + 48, 8);
   res = res.update(va_list + 16, va_arg, 8);
   return k(res, IntV0);

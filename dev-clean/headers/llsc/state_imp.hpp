@@ -189,7 +189,7 @@ class Stack {
       auto error_addr = mem.size();
       mem.alloc(8);
       mem.update(error_addr, make_IntV(0, 32), 4);
-      errno_location = make_LocV(error_addr, LocV::kStack);
+      errno_location = make_LocV(error_addr, LocV::kStack, 4);
       return std::move(*this);
     }
     PtrVal getErrorLoc() { return errno_location; }
@@ -222,7 +222,7 @@ class Stack {
           }
           if (mem.size() == msize) mem.alloc(8);
           vals.resize(id_size - 1);
-          vals.push_back(make_LocV(msize, LocV::kStack));
+          vals.push_back(make_LocV(msize, LocV::kStack, mem.size() - msize));
         }
         env.back().assign_seq(ids, vals);
       }
