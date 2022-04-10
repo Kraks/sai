@@ -51,13 +51,18 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
   def transform(g0: Graph): Graph = g0
 
   def addRewrite: Unit = {
+    if (!Config.opt) return ()
     val bConst = Backend.Const
     type bExp = Backend.Exp
     // Note: these are transformation for the imperative version; should be
     //       refactor to the right place.
     val g = Adapter.g
     g.addRewrite {
-      // omg...
+      // val sz = s.stackSize
+      // s.alloc(8)
+      // val a1 = StackLocV(sz)
+      // s.alloc(4)
+      // val a2 = StackLocV(sz + 8)
       case ("ss-stack-size", StaticList(s: bExp)) if g.curEffects.allEff.contains(s) =>
         def aux: Option[bExp] = {
           var sz: Int = 0

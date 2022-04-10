@@ -274,12 +274,16 @@ class Optimization extends TestLLSC {
   import scala.collection.mutable.ListBuffer
   import java.io.{File, FileWriter}
   val writer = new FileWriter(new File("opt_exp.csv"), true)
+  val N = 10
 
   def testLLSC(N: Int, llsc: LLSC, tst: TestPrg): Unit = {
     val TestPrg(m, name, f, config, cliArgOpt, exp) = tst
     test(llsc.insName + "_" + name) {
-      val code = llsc.newInstance(m, llsc.insName + "_" + name, f, config)
-      code.genAll
+      val (_, t) = time {
+        val code = llsc.newInstance(m, llsc.insName + "_" + name, f, config)
+        code.genAll
+      }
+      System.out.println(s"Generated ${llsc.insName} - $name - $t")
       val mkRet = code.make(4)
       assert(mkRet == 0, "make failed")
       for (i <- 1 to N) {
@@ -293,7 +297,6 @@ class Optimization extends TestLLSC {
       }
     }
   }
-  val N = 10
 }
 
 class TestImpCPSOpt extends Optimization {
