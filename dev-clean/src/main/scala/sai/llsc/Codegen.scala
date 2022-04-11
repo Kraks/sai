@@ -266,7 +266,7 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     cgcustomtime(true)("emit init")(emitInit(stream))
 
 
-    scala.Predef.println("quotetypedblocktime: "+"Elapsed time: " + (quotetypedblocktime)/1000 + "s")
+    //scala.Predef.println("quotetypedblocktime: "+"Elapsed time: " + (quotetypedblocktime)/1000 + "s")
 
 
     scala.Predef.println("quote_time: "+"Elapsed time: " + (quote_time.value)/1000 + "s")

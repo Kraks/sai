@@ -70,6 +70,18 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
   type BFTy // Block-function type
   type FFTy // Function-function type
 
+  def customtime[R](isprint: Boolean)(task: String)(block: => R): R = {
+    if (isprint) {
+      val t0 = System.currentTimeMillis()
+      scala.Predef.println("before: "+task)
+      val result = block
+      scala.Predef.println("after: "+task+": "+"Elapsed time: " + (System.currentTimeMillis() - t0)/1000 + "s")
+      result
+    }else {
+      block
+    }
+  }
+
   def repBlockFun(funName: String, b: BB): (BFTy, Int)
   def repFunFun(f: FunctionDef): (FFTy, Int)
   def wrapFunV(f: FFTy): Rep[Value]
@@ -326,7 +338,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
   }
 
   def evalHeapComplexConst(v: Constant, real_ty: LLVMType): (List[Rep[Value]], Int) = {
-    v match {
+    customtime(false)("HeapComplexConst"+" ty: "+real_ty)(v match {
       case StructConst(cs) => {
         real_ty match {
           case Struct(types) =>
@@ -337,10 +349,13 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
         }
       }
       case ArrayConst(cs) =>
-        cs.foldLeft((StaticList[Rep[Value]](), 0)) { case ((l0, a0), c) =>
-          val va = evalHeapConstWithAlign(c.const, c.ty)
-          (l0 ++ va._1, va._2)
-        }
+        (cs.map(c => evalHeapConstWithAlign(c.const, c.ty)._1).flatten, getTySizeAlign(real_ty)._2)
+        //scala.Predef.println(res)
+       // res
+        //cs.foldLeft((StaticList[Rep[Value]](), 0)) { case ((l0, a0), c) =>
+        //  val va = evalHeapConstWithAlign(c.const, c.ty)
+        //  (l0 ++ va._1, va._2)
+        //}
       case CharArrayConst(s) =>
         val (size, align) = getTySizeAlign(real_ty)
         (s.map(c => IntV(c.toInt, 8)).toList ++ StaticList.fill(size-s.length)(uninitValue), align)
@@ -371,7 +386,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
           (StaticList.fill(size)(uninitValue), align)
       }
       case _ => throw new Exception("Not complex heap constant: " + v)
-    }
+    })
   }
 
   // FIXME: Alignment: CharArrayConst, ArrayConst
@@ -402,19 +417,19 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
       //   }
       // }
       // heapTmp ++= StaticList.fill(heapSize)(NullPtr())
-      module.globalDeclMap.foreach { case (k, v) =>
+      customtime(true)("globalDeclMap")(module.globalDeclMap.foreach { case (k, v) =>
         val realname = module.mname + "_" + v.id
         heapEnv += realname -> unit(heapSize)
         heapSize += getTySize(v.typ)
         heapTmp ++= evalHeapConst(ZeroInitializerConst, v.typ)
-      }
-      module.globalDefMap.foreach { case (k, v) =>
+      })
+      customtime(true)("globalDefMap1")(module.globalDefMap.foreach { case (k, v) =>
         heapEnv += k -> unit(heapSize)
         heapSize += getTySize(v.typ)
-      }
-      module.globalDefMap.foreach { case (k, v) =>
+      })
+      customtime(true)("globalDefMap2")(module.globalDefMap.foreach { case (k, v) =>
         heapTmp ++= evalHeapConst(v.const, getRealType(v.typ))
-      }
+      })
     }
     heapTmp
   }

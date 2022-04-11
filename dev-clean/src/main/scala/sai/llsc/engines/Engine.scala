@@ -476,18 +476,6 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
   }
 
 
-  def customtime[R](isprint: Boolean)(task: String)(block: => R): R = {
-    if (isprint) {
-      val t0 = System.currentTimeMillis()
-      scala.Predef.println("before: "+task)
-      val result = block
-      scala.Predef.println("after: "+task+": "+"Elapsed time: " + (System.currentTimeMillis() - t0)/1000 + "s")
-      result
-    }else {
-      block
-    }
-  }
-
   override def wrapFunV(f: FFTy): Rep[Value] = FunV[Id](f)
 
   def exec(fname: String, args: Rep[List[Value]]): Rep[List[(SS, Value)]] = {
@@ -495,6 +483,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
     //  scala.Predef.println("before preCompileHeapLists")
     //}
     val preHeap: Rep[List[Value]] = customtime(fname == "@main")("preheap")(List(precompileHeapLists(m::Nil):_*))
+
     //if (fname == "@main") {
     //  scala.Predef.println("after preCompileHeapLists")
     //}
