@@ -273,7 +273,7 @@ class Playground extends TestLLSC {
 class Optimization extends TestLLSC {
   import scala.collection.mutable.ListBuffer
   import java.io.{File, FileWriter}
-  val writer = new FileWriter(new File("opt_exp.csv"), true)
+  val writer = new FileWriter(new File("pure_opt_exp.csv"), true)
   val N = 10
 
   def testLLSC(N: Int, llsc: LLSC, tst: TestPrg): Unit = {
@@ -298,6 +298,17 @@ class Optimization extends TestLLSC {
       }
     }
   }
+}
+
+class TestPureCPSOpt extends Optimization {
+  val llsc = new PureCPSLLSC
+  Config.enableOpt
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/mergesort.ll"), "mergeSort_Opt", "@main", noArg, None, nPath(5040)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/bubblesort.ll"), "bubbleSort_Opt", "@main", noArg, None, nPath(720)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/knapsack.ll"), "knapsack_Opt", "@main", noArg, None, nPath(1666)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/kmpmatcher.ll"), "kmp_Opt", "@main", noArg, None, nPath(4181)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/nqueen.ll"), "nqueen_Opt", "@main", noArg, None, nPath(1363)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/quicksort.ll"), "quicksort_Opt", "@main", noArg, None, nPath(5040)))
 }
 
 class TestImpCPSOpt extends Optimization {
