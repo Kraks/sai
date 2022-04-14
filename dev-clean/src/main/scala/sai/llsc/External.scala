@@ -90,7 +90,7 @@ trait GenExternal extends SymExeDefs {
     val count: Rep[Int] = args(2).int.asRepOf[Int]
     val fs: Rep[FS] = ss.getFs
     // val (content, size): (Rep[List[Value]], Rep[Int]) = fs.readFile(fd, count).unlift
-    if (!fs.hasStream(fd)) k(ss, IntV(-1, 32))
+    if (!fs.hasStream(fd)) k(ss, IntV(-1, 64))
     else {
       val strm = fs.getStream(fd)
       val content: Rep[List[Value]] = strm.read(count)
@@ -105,17 +105,22 @@ trait GenExternal extends SymExeDefs {
     }
   }
 
-
   def write[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
     val fd: Rep[Int] = args(0).int.asRepOf[Int]
     val buf: Rep[Value] = args(1)
     val count: Rep[Int] = args(2).int.asRepOf[Int]
     val fs: Rep[FS] = ss.getFs
     val content: Rep[List[Value]] = ss.lookupSeq(buf, count)
-    val size = fs.writeFile(fd, content, count)
-    ss.setFs(fs)
-    k(ss, IntV(size, 64))
+    if (!fs.hasStream(fd)) k(ss, IntV(-1, 64))
+    else {
+      val strm = fs.getStream(fd)
+      val size = strm.write(content, count)
+      fs.setStream(fd, strm)
+      ss.setFs(fs)
+      k(ss, IntV(size, 64))
+    }
   }
+
   def lseek[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
     val fd: Rep[Fd] = args(0).int.asRepOf[Fd]
     val o: Rep[Long] = args(1).int.asRepOf[Long]
