@@ -288,42 +288,6 @@ class FS: public Printable {
       return opened_files.find(fd) != nullptr;
     }
 
-    Fd open_file(std::string name, int mode = O_RDONLY) {
-      /* TODO: handle different mode <2021-10-12, David Deng> */
-      if (!has_file(name)) return -1;
-      Fd fd = get_fresh_fd();
-      opened_files = opened_files.set(fd, Stream(get_file(name)));
-      return fd;
-    }
-
-    int close_file(Fd fd) {
-      // remove the stream associated with fd,
-      // write content to the actual file if the file still exists.
-      if (!has_stream(fd)) return -1;
-      auto strm = get_stream(fd);
-      auto name = strm.get_name();
-      if (!has_file(name)) return 0;
-      files = files.set(name, strm.get_file());
-      opened_files = opened_files.erase(fd);
-      return 0;
-    }
-
-    std::pair<immer::flex_vector<PtrVal>, ssize_t> read_file(Fd fd, size_t nbytes) {
-      if (!has_stream(fd)) return std::make_pair(immer::flex_vector<PtrVal>{}, -1);
-      auto strm = get_stream(fd);
-      auto content = strm.read(nbytes);
-      opened_files = opened_files.set(fd, strm);
-      return std::make_pair(content, content.size());
-    }
-
-    ssize_t write_file(Fd fd, immer::flex_vector<PtrVal> content, size_t nbytes) {
-      if (!has_stream(fd)) return -1;
-      auto strm = get_stream(fd);
-      auto written = strm.write(content, nbytes);
-      opened_files = opened_files.set(fd, strm);
-      return written;
-    }
-
     std::pair<immer::flex_vector<PtrVal>, int> stat_file(std::string name) {
       if (!has_file(name)) return std::make_pair(immer::flex_vector<PtrVal>{}, -1);
       auto file = files.at(name);
