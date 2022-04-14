@@ -152,11 +152,12 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
 
   }
 
+  implicit class StreamOps(strm: Rep[Stream]) {
+    def getName(): Rep[String] = "method-@".reflectCtrlWith[String](strm, "get_name")
+    def getFile(): Rep[File]   = "method-@".reflectCtrlWith[File](strm, "get_file")
+  }
+
   implicit class FSOps(fs: Rep[FS]) {
-    def openFile(path: Rep[String], flag: Rep[Int]): Rep[Fd] =
-      "fs-open-file".reflectCtrlWith[Fd](fs, path, flag)
-    def closeFile(fd: Rep[Fd]): Rep[Int] =
-      "fs-close-file".reflectCtrlWith[Int](fs, fd)
     def readFile(fd: Rep[Fd], nbytes: Rep[Int]): Rep[(List[Value], Int)] =
       "fs-read-file".reflectCtrlWith[(List[Value], Int)](fs, fd, nbytes)
     def writeFile(fd: Rep[Fd], content: Rep[List[Value]], nbytes: Rep[Int]): Rep[Int] =

@@ -71,9 +71,17 @@ trait GenExternal extends SymExeDefs {
     // Only cast by asRepOf when deemed safe
     val fd: Rep[Int] = args(0).toIntV.int.asRepOf[Int]
     val fs: Rep[FS] = ss.getFs
-    val ret: Rep[Int] = fs.closeFile(fd)
-    ss.setFs(fs)
-    k(ss, IntV(ret, 32))
+    if (!fs.hasStream(fd)) k(ss, IntV(-1, 32))
+    else {
+      val strm = fs.getStream(fd)
+      val name = strm.getName()
+      if (fs.hasFile(name)) {
+        // remove the stream associated with fd, write content to the actual file if the file still exists.
+        fs.setFile(name, strm.getFile())
+        fs.removeStream(fd)
+      }
+      k(ss, IntV(0, 32))
+    }
   }
 
   def read[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {

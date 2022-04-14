@@ -262,9 +262,8 @@ class FS: public Printable {
       opened_files = opened_files.set(fd, s);
     }
 
-    void add_file(File file) {
-      ASSERT(!has_file(file.get_name()), "FS::add_file: File already exists");
-      files = files.set(file.get_name(), file);
+    void set_file(std::string name, File file) {
+      files = files.set(name, file);
     }
 
     void remove_file(std::string name) {
@@ -272,6 +271,13 @@ class FS: public Printable {
       // NOTE: should behave correctly if the file is open,
       // because the file in opened_files is not removed until it is close_file is called.
       files = files.erase(name);
+    };
+
+    void remove_stream(Fd fd) {
+      ASSERT(has_stream(fd), "FS::remove_stream: stream does not exist");
+      // NOTE: should behave correctly if the file is open,
+      // because the file in opened_files is not removed until it is close_file is called.
+      opened_files = opened_files.erase(fd);
     };
 
     inline bool has_file(std::string name) const {
