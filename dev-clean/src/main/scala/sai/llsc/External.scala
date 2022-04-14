@@ -55,7 +55,7 @@ trait GenExternal extends SymExeDefs {
     val ptr = args(0)
     val name: Rep[String] = getString(ptr, ss)
     val flags = args(1)
-    // val mode = args(2) // how to handle optional argument?
+    /* TODO: handle different mode <2021-10-12, David Deng> */
     val fs: Rep[FS] = ss.getFs
     if (!fs.hasFile(name)) k(ss, IntV(-1, 32))
     else {
@@ -86,14 +86,25 @@ trait GenExternal extends SymExeDefs {
 
   def read[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
     val fd: Rep[Int] = args(0).int.asRepOf[Int]
-    val buf: Rep[Value] = args(1)
+    val loc: Rep[Value] = args(1)
     val count: Rep[Int] = args(2).int.asRepOf[Int]
     val fs: Rep[FS] = ss.getFs
-    val (content, size): (Rep[List[Value]], Rep[Int]) = fs.readFile(fd, count).unlift
-    val ss1 = ss.updateSeq(buf, content)
-    ss1.setFs(fs)
-    k(ss1, IntV(size, 64))
+    // val (content, size): (Rep[List[Value]], Rep[Int]) = fs.readFile(fd, count).unlift
+    if (!fs.hasStream(fd)) k(ss, IntV(-1, 32))
+    else {
+      val strm = fs.getStream(fd)
+      val content: Rep[List[Value]] = strm.read(count)
+      // will update the cursor in strm
+      // Thought: use a reference so that we don't have to set it back? 
+      // But then we will have to manually make copies upon branches <2022-04-14, David Deng> //
+      fs.setStream(fd, strm)
+      val size = content.size
+      val ss1 = ss.updateSeq(loc, content)
+      ss1.setFs(fs)
+      k(ss1, IntV(size, 64))
+    }
   }
+
 
   def write[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
     val fd: Rep[Int] = args(0).int.asRepOf[Int]
