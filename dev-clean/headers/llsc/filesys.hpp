@@ -223,12 +223,12 @@ class FS: public Printable {
      * <2022-02-08, David Deng> */
     immer::map<std::string, File> files;
     Fd next_fd;
+
+  public:
     Fd get_fresh_fd() {
       /* TODO: traverse through opened files to find the lowest available fd <2022-01-25, David Deng> */
       return next_fd++;
     }
-
-  public:
     std::string toString() const override {
       std::ostringstream ss;
       ss << "FS(nfiles=" << files.size() << ", nstreams=" << opened_files.size() << ", files=[";
@@ -257,6 +257,9 @@ class FS: public Printable {
     }
     inline Stream get_stream(Fd fd) {
       return opened_files.at(fd);
+    }
+    inline void set_stream(Fd fd, Stream s) {
+      opened_files = opened_files.set(fd, s);
     }
 
     void add_file(File file) {

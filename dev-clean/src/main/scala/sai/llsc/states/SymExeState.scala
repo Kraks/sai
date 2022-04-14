@@ -165,6 +165,18 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
       "fs-seek-file".reflectCtrlWith[Long](fs, fd, o, w)
     def statFile(ptr: Rep[String]): Rep[(List[Value], Int)] =
       "fs-stat-file".reflectCtrlWith[(List[Value], Int)](fs, ptr)
+
+    def getFreshFd(): Rep[Fd]                               = "method-@".reflectCtrlWith[Fd](fs, "get_fresh_fd")
+
+    def hasFile(name: Rep[String]): Rep[Boolean]            = "method-@".reflectCtrlWith[Boolean](fs, "has_file", name)
+    def getFile(name: Rep[String]): Rep[File]               = "method-@".reflectCtrlWith[File](fs, "get_file", name)
+    def setFile(name: Rep[String], f: Rep[File]): Rep[Unit] = "method-@".reflectCtrlWith[Unit](fs, "set_file", name, f)
+    def removeFile(name: Rep[String]): Rep[File]            = "method-@".reflectCtrlWith[File](fs, "remove_file", name)
+
+    def hasStream(fd: Rep[Fd]): Rep[Boolean]                = "method-@".reflectCtrlWith[Boolean](fs, "has_stream", fd)
+    def getStream(fd: Rep[Fd]): Rep[Stream]                 = "method-@".reflectCtrlWith[Stream](fs, "get_stream", fd)
+    def setStream(fd: Rep[Fd], s: Rep[Stream]): Rep[Unit]   = "method-@".reflectCtrlWith[Unit](fs, "set_stream", fd, s)
+    def removeStream(fd: Rep[Fd]): Rep[Stream]              = "method-@".reflectCtrlWith[Stream](fs, "remove_stream", fd)
   }
 
   def putState(s: Rep[SS]): Comp[E, Rep[Unit]] = for { _ <- put[Rep[SS], E](s) } yield ()

@@ -49,15 +49,22 @@ trait GenExternal extends SymExeDefs {
     }
   }
 
+  def new_stream[T: Manifest](f: Rep[File]): Rep[Stream] = "Stream".reflectWith[Stream](f)
+
   def open[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
     val ptr = args(0)
     val name: Rep[String] = getString(ptr, ss)
     val flags = args(1)
     // val mode = args(2) // how to handle optional argument?
     val fs: Rep[FS] = ss.getFs
-    val ret: Rep[Fd] = fs.openFile(name, 0)
-    ss.setFs(fs)
-    k(ss, IntV(ret, 32))
+    if (!fs.hasFile(name)) k(ss, IntV(-1, 32))
+    else {
+      val fd: Rep[Fd] = fs.getFreshFd()
+      val file = fs.getFile(name)
+      fs.setStream(fd, new_stream(file))
+      ss.setFs(fs)
+      k(ss, IntV(fd, 32))
+    }
   }
 
   def close[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
