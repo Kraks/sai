@@ -50,11 +50,11 @@ trait CppSAICodeGenBase extends ExtendedCPPCodeGen
     case n @ Node(s, "P", List(x), _) => es"std::cout << $x << std::endl"
     case n @ Node(s, "print", List(x), _) => es"std::cout << $x"
     case n @ Node(s, "method-@", obj::method::args, _) =>
-      shallowP(obj)
+      shallow(obj)
       emit(s".$method(")
       args.headOption.foreach(h => {
-        shallowP(h, 0)
-        args.tail.foreach(a => { emit(", "); shallowP(a, 0) })
+        shallow(h)
+        args.tail.foreach(a => { emit(", "); shallow(a) })
       })
       emit(")")
     case _ => super.shallow(n)
