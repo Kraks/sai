@@ -144,6 +144,7 @@ bool x27 = x22.has_file(x26);
 if (x27) {
 x22.set_file(x26, x25.get_file());
 x22.remove_stream(x21);
+x18.set_fs(x22);
 }
 immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x18, make_IntV(0L, 32))};
 });
@@ -161,6 +162,7 @@ bool x38 = x33.has_file(x37);
 if (x38) {
 x33.set_file(x37, x36.get_file());
 x33.remove_stream(x32);
+x28.set_fs(x33);
 }
 x30(x28, make_IntV(0L, 32));
 });

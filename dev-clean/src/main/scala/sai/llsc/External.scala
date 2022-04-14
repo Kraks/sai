@@ -79,6 +79,7 @@ trait GenExternal extends SymExeDefs {
         // remove the stream associated with fd, write content to the actual file if the file still exists.
         fs.setFile(name, strm.getFile())
         fs.removeStream(fd)
+        ss.setFs(fs)
       }
       k(ss, IntV(0, 32))
     }
