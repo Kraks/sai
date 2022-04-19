@@ -66,7 +66,7 @@ trait ImpSymExeDefs extends SAIOps with BasicDefs with ValueDefs with Opaques wi
 
   def currentMethodName: String = Thread.currentThread.getStackTrace()(2).getMethodName
 
-  class SSOps(ss: Rep[SS]) {
+  implicit class SSOps(ss: Rep[SS]) {
     // Caveat: in the presence of higher-order function (e.g. flatMap, fold),
     // since we currently lack of aliases information, simply using reflectWrite
     // might not be enough to preserve some operation, rendering undesired DCE.
