@@ -11,11 +11,14 @@ import sai.llsc.imp.Mut
 object AssignElim {
   type Subst = HashMap[Sym, Exp]
 
-  class CollectLookup extends Traverser {
+  class CollectLookup {
     val ids = new HashSet[Int]()
-    override def traverse(n: Node): Unit = n match {
-      case Node(s, "ss-lookup-env", StaticList(ss, Const(x: Int)), _) => ids.add(x)
-      case _ => super.traverse(n)
+
+    def apply(g: Graph) {
+      g.nodes.foreach(n => n match {
+        case Node(s, "ss-lookup-env", StaticList(ss, Const(x: Int)), _) => ids.add(x)
+        case _ =>
+      })
     }
   }
 
