@@ -135,11 +135,6 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
       if (Config.opt) lookupOpt(x.hashCode, Unwrap(ss), super.lookup(x), 30)
       else super.lookup(x)
 
-    override def assign(x: String, v: Rep[Value]): Rep[SS] = Unwrap(ss) match {
-      // Idea: coalesce multiple subsequent assign into assign-seq
-      case _ => super.assign(x, v)
-    }
-
     override def stackSize: Rep[Int] =
       if (Config.opt) {
         Unwrap(ss) match {
