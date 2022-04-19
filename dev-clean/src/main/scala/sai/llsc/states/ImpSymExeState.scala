@@ -122,21 +122,6 @@ trait ImpSymExeDefs extends SAIOps with BasicDefs with ValueDefs with Opaques wi
     def copy: Rep[SS] = reflectRead[SS]("ss-copy", ss)(ss)
   }
 
-  implicit class SSOpsOpt(ss: Rep[SS]) extends SSOps(ss) {
-    override def stackSize: Rep[Int] =
-      // TODO FIXME
-      if (Config.opt) {
-        Unwrap(ss) match {
-          case gNode("ss-alloc-stack", StaticList(ss0: bExp, bConst(inc: Int))) =>
-            Wrap[SS](ss0).stackSize + inc
-          case gNode("ss-assign", StaticList(ss0: bExp, _, _)) =>
-            Wrap[SS](ss0).stackSize
-          case _ => super.stackSize
-        }
-      } else { super.stackSize }
-
-  }
-
-  implicit class RefSSOps(ss: Rep[Ref[SS]]) extends SSOpsOpt(ss.asRepOf[SS])
+  implicit class RefSSOps(ss: Rep[Ref[SS]]) extends SSOps(ss.asRepOf[SS])
 
 }
