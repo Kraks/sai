@@ -7,10 +7,8 @@ inline PtrVal make_SymV_fs(int bw = 8) {
   return make_SymV("fs_x" + std::to_string(fs_var_name++), bw);
 }
 
-class Stat: Printable {
-  private:
+struct Stat: Printable {
     immer::flex_vector<PtrVal> content;
-  public:
     /***************
     *  constants  *
     ***************/
@@ -83,12 +81,11 @@ class Stat: Printable {
     }
 };
 
-class File: public Printable {
-  private:
+struct File: public Printable {
     std::string name;
     immer::flex_vector<PtrVal> content;
     Stat stat;
-  public:
+
     std::string toString() const override {
       std::ostringstream ss;
       ss << "File(name=" << name << ", content=[";
@@ -124,17 +121,8 @@ class File: public Printable {
     void clear() {
       content = immer::flex_vector<PtrVal>();
     }
-    size_t get_size() const {
-      return content.size();
-    }
-    std::string get_name() const {
-      return name;
-    }
     immer::flex_vector<PtrVal> read_at(size_t pos, size_t length) const {
       return content.drop(pos).take(length);
-    }
-    immer::flex_vector<PtrVal> get_content() const {
-      return read_at(0, content.size());
     }
 };
 
@@ -157,14 +145,13 @@ inline File make_SymFile(std::string name, size_t size) {
 
 // An opened file
 struct Stream: public Printable {
-  private:
     File file;
     int mode; // a combination of O_RDONLY, O_WRONLY, O_RDWR, etc.
     off_t cursor;
-  public:
+
     std::string toString() const override {
       std::ostringstream ss;
-      ss << "Stream(name=" << get_name() << ", mode=" << mode << ", cursor=" << cursor << ")";
+      ss << "Stream(name=" << file.name << ", mode=" << mode << ", cursor=" << cursor << ")";
       return ss.str();
     }
     Stream(const Stream &s): file(s.file), mode(s.mode), cursor(s.cursor) {}
@@ -178,7 +165,7 @@ struct Stream: public Printable {
       return cursor;
     }
     off_t seek_end(off_t offset) {
-      off_t new_cursor = file.get_size() + offset;
+      off_t new_cursor = file.content.size() + offset;
       if (new_cursor < 0) return -1;
       cursor = new_cursor;
       return cursor;
@@ -189,12 +176,6 @@ struct Stream: public Printable {
       cursor = new_cursor;
       return cursor;
     }
-    inline size_t get_cursor() const { return cursor; }
-
-    inline std::string get_name() const { return file.get_name(); }
-
-    // used for close. Return by value. Modification should be done through write and other interface function.
-    inline File get_file() const { return file; }
 
     immer::flex_vector<PtrVal> read(size_t nbytes) {
       // read from current position, up to nbytes
@@ -214,8 +195,7 @@ struct Stream: public Printable {
     }
 };
 
-class FS: public Printable {
-  private:
+struct FS: public Printable {
     immer::map<Fd, Stream> opened_files;
     /* TODO: implement directory structure
      * 1. change the string key to a fileId, similar to inode number 
@@ -224,7 +204,6 @@ class FS: public Printable {
     immer::map<std::string, File> files;
     Fd next_fd;
 
-  public:
     Fd get_fresh_fd() {
       /* TODO: traverse through opened files to find the lowest available fd <2022-01-25, David Deng> */
       return next_fd++;

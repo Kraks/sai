@@ -146,18 +146,35 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
 
   }
 
+  implicit class FileOps(file: Rep[File]) {
+    def name: Rep[String]                            = "field-@".reflectCtrlWith[String](file, "name")
+    def content: Rep[List[Value]]                    = "field-@".reflectCtrlWith[List[Value]](file, "content")
+    def size: Rep[Int] = content.size
+
+    def readAt(pos: Rep[Long], len: Rep[Long]): Rep[List[Value]] = content.drop(pos.toInt).take(len.toInt)
+    // TODO: writeAt, append, etc. needs assignment on field or mutable structures? <2022-04-21, David Deng> //
+  }
+
   implicit class StreamOps(strm: Rep[Stream]) {
-    def getName(): Rep[String]                            = "method-@".reflectCtrlWith[String](strm, "get_name")
-    def getFile(): Rep[File]                              = "method-@".reflectCtrlWith[File](strm, "get_file")
+    def name: Rep[String]                                 = strm.file.name
+    def file: Rep[File]                                   = "field-@".reflectCtrlWith[File](strm, "file")
+    def cursor: Rep[Long]                                 = "field-@".reflectCtrlWith[Long](strm, "cursor")
+    def mode: Rep[Int]                                    = "field-@".reflectCtrlWith[Int](strm, "mode")
     def read(n: Rep[Int]): Rep[List[Value]]               = "method-@".reflectCtrlWith[List[Value]](strm, "read", n)
+    // def read(n: Rep[Long]): Rep[List[Value]]               = {
+    //   val content = file.readAt(strm.cursor, n)
+    //   strm.cursor = strm.cursor + content.size // TODO: generate assignment expression? <2022-04-21, David Deng> //
+    //   content
+    // }
     def write(c: Rep[List[Value]], n: Rep[Int]): Rep[Int] = "method-@".reflectCtrlWith[Int](strm, "write", c, n)
   }
 
   implicit class FSOps(fs: Rep[FS]) {
-    def seekFile(fd: Rep[Fd], o: Rep[Long], w: Rep[Int]): Rep[Long] =
-      "method-@".reflectCtrlWith[Long](fs, "seek_file", fd, o, w)
-    def statFile(ptr: Rep[String]): Rep[(List[Value], Int)]         =
-      "method-@".reflectCtrlWith[(List[Value], Int)](fs, "stat_file", ptr)
+    def openedFiles: Rep[Map[Fd, Stream]] = "field-@".reflectCtrlWith[Map[Fd, Stream]](fs, "opened_files")
+    def files: Rep[Map[String, File]]     = "field-@".reflectCtrlWith[Map[String, File]](fs, "files")
+
+    def seekFile(fd: Rep[Fd], o: Rep[Long], w: Rep[Int]): Rep[Long] = "method-@".reflectCtrlWith[Long](fs, "seek_file", fd, o, w)
+    def statFile(ptr: Rep[String]): Rep[(List[Value], Int)]         = "method-@".reflectCtrlWith[(List[Value], Int)](fs, "stat_file", ptr)
 
     def getFreshFd(): Rep[Fd]                               = "method-@".reflectCtrlWith[Fd](fs, "get_fresh_fd")
 

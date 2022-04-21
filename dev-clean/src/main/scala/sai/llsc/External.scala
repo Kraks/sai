@@ -51,6 +51,7 @@ trait GenExternal extends SymExeDefs {
 
   def new_stream(f: Rep[File]): Rep[Stream] = "Stream".reflectWith[Stream](f)
 
+  // TODO: eliminate getfs and setfs in all syscall wrappers <2022-04-21, David Deng> //
   def open[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
     val ptr = args(0)
     val name: Rep[String] = getString(ptr, ss)
@@ -60,7 +61,7 @@ trait GenExternal extends SymExeDefs {
     if (!fs.hasFile(name)) k(ss, IntV(-1, 32))
     else {
       val fd: Rep[Fd] = fs.getFreshFd()
-      val file = fs.getFile(name)
+      val file = fs.files(name)
       fs.setStream(fd, new_stream(file))
       ss.setFs(fs)
       k(ss, IntV(fd, 32))
@@ -74,10 +75,11 @@ trait GenExternal extends SymExeDefs {
     if (!fs.hasStream(fd)) k(ss, IntV(-1, 32))
     else {
       val strm = fs.getStream(fd)
-      val name = strm.getName()
+      val name = strm.file.name
       if (fs.hasFile(name)) {
         // remove the stream associated with fd, write content to the actual file if the file still exists.
-        fs.setFile(name, strm.getFile())
+        // TODO: implement update in MapOpsOpt <2022-04-21, David Deng> //
+        fs.setFile(name, strm.file)
         fs.removeStream(fd)
         ss.setFs(fs)
       }

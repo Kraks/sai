@@ -57,6 +57,9 @@ trait CppSAICodeGenBase extends ExtendedCPPCodeGen
         args.tail.foreach(a => { emit(", "); shallow(a) })
       })
       emit(")")
+    case n @ Node(s, "field-@", obj::field::Nil, _) =>
+      shallow(obj)
+      emit(s".$field")
     case _ => super.shallow(n)
   }
 
