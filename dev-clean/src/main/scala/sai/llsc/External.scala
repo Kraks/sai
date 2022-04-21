@@ -49,7 +49,7 @@ trait GenExternal extends SymExeDefs {
     }
   }
 
-  def new_stream[T: Manifest](f: Rep[File]): Rep[Stream] = "Stream".reflectWith[Stream](f)
+  def new_stream(f: Rep[File]): Rep[Stream] = "Stream".reflectWith[Stream](f)
 
   def open[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
     val ptr = args(0)
