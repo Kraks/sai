@@ -51,28 +51,24 @@ trait GenExternal extends SymExeDefs {
 
   def new_stream(f: Rep[File]): Rep[Stream] = "Stream".reflectWith[Stream](f)
 
-  // TODO: eliminate getfs and setfs in all syscall wrappers <2022-04-21, David Deng> //
-  def open[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
+  def open[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
     val ptr = args(0)
     val name: Rep[String] = getString(ptr, ss)
     val flags = args(1)
     /* TODO: handle different mode <2021-10-12, David Deng> */
-    val fs: Rep[FS] = ss.getFs
-    if (!fs.hasFile(name)) k(ss, IntV(-1, 32))
+    if (!fs.hasFile(name)) k(ss, fs, IntV(-1, 32))
     else {
       val fd: Rep[Fd] = fs.getFreshFd()
       val file = fs.files(name)
       fs.setStream(fd, new_stream(file))
-      ss.setFs(fs)
-      k(ss, IntV(fd, 32))
+      k(ss, fs, IntV(fd, 32))
     }
   }
 
-  def close[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
+  def close[T: Manifest](fs: Rep[FS], args: Rep[List[Value]], k: (Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
     // Only cast by asRepOf when deemed safe
     val fd: Rep[Int] = args(0).toIntV.int.asRepOf[Int]
-    val fs: Rep[FS] = ss.getFs
-    if (!fs.hasStream(fd)) k(ss, IntV(-1, 32))
+    if (!fs.hasStream(fd)) k(fs, IntV(-1, 32))
     else {
       val strm = fs.getStream(fd)
       val name = strm.file.name
@@ -81,19 +77,17 @@ trait GenExternal extends SymExeDefs {
         // TODO: implement update in MapOpsOpt <2022-04-21, David Deng> //
         fs.setFile(name, strm.file)
         fs.removeStream(fd)
-        ss.setFs(fs)
       }
-      k(ss, IntV(0, 32))
+      k(fs, IntV(0, 32))
     }
   }
 
-  def read[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
+  def read[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
     val fd: Rep[Int] = args(0).int.asRepOf[Int]
     val loc: Rep[Value] = args(1)
     val count: Rep[Int] = args(2).int.asRepOf[Int]
-    val fs: Rep[FS] = ss.getFs
     // val (content, size): (Rep[List[Value]], Rep[Int]) = fs.readFile(fd, count).unlift
-    if (!fs.hasStream(fd)) k(ss, IntV(-1, 64))
+    if (!fs.hasStream(fd)) k(ss, fs, IntV(-1, 64))
     else {
       val strm = fs.getStream(fd)
       val content: Rep[List[Value]] = strm.read(count)
@@ -103,49 +97,42 @@ trait GenExternal extends SymExeDefs {
       fs.setStream(fd, strm)
       val size = content.size
       val ss1 = ss.updateSeq(loc, content)
-      ss1.setFs(fs)
-      k(ss1, IntV(size, 64))
+      k(ss1, fs, IntV(size, 64))
     }
   }
 
-  def write[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
+  def write[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
     val fd: Rep[Int] = args(0).int.asRepOf[Int]
     val buf: Rep[Value] = args(1)
     val count: Rep[Int] = args(2).int.asRepOf[Int]
-    val fs: Rep[FS] = ss.getFs
     val content: Rep[List[Value]] = ss.lookupSeq(buf, count)
-    if (!fs.hasStream(fd)) k(ss, IntV(-1, 64))
+    if (!fs.hasStream(fd)) k(ss, fs, IntV(-1, 64))
     else {
       val strm = fs.getStream(fd)
       val size = strm.write(content, count)
       fs.setStream(fd, strm)
-      ss.setFs(fs)
-      k(ss, IntV(size, 64))
+      k(ss, fs, IntV(size, 64))
     }
   }
 
-  def lseek[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
+  def lseek[T: Manifest](fs: Rep[FS], args: Rep[List[Value]], k: (Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
     val fd: Rep[Fd] = args(0).int.asRepOf[Fd]
     val o: Rep[Long] = args(1).int.asRepOf[Long]
     val w: Rep[Int] = args(2).int.asRepOf[Int]
-    val fs: Rep[FS] = ss.getFs
     val pos: Rep[Long] = fs.seekFile(fd, o, w)
-    ss.setFs(fs)
-    k(ss, IntV(pos, 64))
+    k(fs, IntV(pos, 64))
   }
 
-  def stat[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
+  def stat[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
     val ptr = args(0)
     val name: Rep[String] = getString(ptr, ss)
     val buf: Rep[Value] = args(1)
-    val fs: Rep[FS] = ss.getFs
     val (content, status): (Rep[List[Value]], Rep[Int]) = fs.statFile(name).unlift
     if (status == 0) {
       val ss1 = ss.updateSeq(buf, content)
-      ss1.setFs(fs)
-      k(ss1, IntV(status, 32))
+      k(ss1, fs, IntV(status, 32))
     } else {
-      k(ss, IntV(status, 32))
+      k(ss, fs, IntV(status, 32))
     }
   }
 
@@ -156,10 +143,27 @@ trait GenExternal extends SymExeDefs {
     k(ss, IntV(0, 32))
   }
 
+  // generate different return style
   def gen_k(gen: (Rep[SS], Rep[List[Value]], (Rep[SS], Rep[Value]) => Rep[Unit]) => Rep[Unit]): ((Rep[SS], Rep[List[Value]], Rep[Cont]) => Rep[Unit]) = { case (ss, l, k) => ( gen(ss, l, { case (s,v) => k(s,v) }))}
-
   def gen_p(gen: (Rep[SS], Rep[List[Value]], (Rep[SS], Rep[Value]) => Rep[List[(SS, Value)]]) => Rep[List[(SS, Value)]]): ((Rep[SS], Rep[List[Value]]) => Rep[List[(SS, Value)]]) = { case (ss, l) => ( gen(ss, l, { case (s,v) => List[(SS, Value)]((s,v)) }))}
 
+  // bridge SS and FS
+  def wrap[T: Manifest](f: (Rep[FS], Rep[List[Value]], ((Rep[FS], Rep[Value]) => Rep[T])) => Rep[T])
+  (ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): (Rep[T]) = {
+    def kp(fs: Rep[FS], ret: Rep[Value]): Rep[T] = {
+        ss.setFs(fs)
+        k(ss, ret)
+    }
+    f(ss.getFs, args, kp)
+  }
+  def wrap[T: Manifest](f: (Rep[SS], Rep[FS], Rep[List[Value]], ((Rep[SS], Rep[FS], Rep[Value]) => Rep[T])) => Rep[T])
+  (ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): (Rep[T]) = {
+    def kp(ss: Rep[SS], fs: Rep[FS], ret: Rep[Value]): Rep[T] = {
+        ss.setFs(fs)
+        k(ss, ret)
+    }
+    f(ss, ss.getFs, args, kp)
+  }
 }
 
 class ExternalLLSCDriver(folder: String = "./headers/llsc") extends SAISnippet[Int, Unit] with SAIOps with GenExternal { q =>
@@ -194,18 +198,18 @@ class ExternalLLSCDriver(folder: String = "./headers/llsc") extends SAISnippet[I
     // TODO: llsc_assert_k depends on sym_exit, which doesn't have a _k version right now <2022-01-23, David Deng> //
     // hardTopFun(gen_p(llsc_assert), "llsc_assert", "inline")
     // hardTopFun(gen_k(llsc_assert), "llsc_assert", "inline")
-    hardTopFun(gen_p(open), "open", "inline")
-    hardTopFun(gen_k(open), "open", "inline")
-    hardTopFun(gen_p(close), "close", "inline")
-    hardTopFun(gen_k(close), "close", "inline")
-    hardTopFun(gen_p(read), "read", "inline")
-    hardTopFun(gen_k(read), "read", "inline")
-    hardTopFun(gen_p(write), "write", "inline")
-    hardTopFun(gen_k(write), "write", "inline")
-    hardTopFun(gen_p(lseek), "lseek", "inline")
-    hardTopFun(gen_k(lseek), "lseek", "inline")
-    hardTopFun(gen_p(stat), "stat", "inline")
-    hardTopFun(gen_k(stat), "stat", "inline")
+    hardTopFun(gen_p(wrap(open(_,_,_,_))), "open", "inline")
+    hardTopFun(gen_k(wrap(open(_,_,_,_))), "open", "inline")
+    hardTopFun(gen_p(wrap(close(_,_,_))), "close", "inline")
+    hardTopFun(gen_k(wrap(close(_,_,_))), "close", "inline")
+    hardTopFun(gen_p(wrap(read(_,_,_,_))), "read", "inline")
+    hardTopFun(gen_k(wrap(read(_,_,_,_))), "read", "inline")
+    hardTopFun(gen_p(wrap(write(_,_,_,_))), "write", "inline")
+    hardTopFun(gen_k(wrap(write(_,_,_,_))), "write", "inline")
+    hardTopFun(gen_p(wrap(lseek(_,_,_))), "lseek", "inline")
+    hardTopFun(gen_k(wrap(lseek(_,_,_))), "lseek", "inline")
+    hardTopFun(gen_p(wrap(stat(_,_,_,_))), "stat", "inline")
+    hardTopFun(gen_k(wrap(stat(_,_,_,_))), "stat", "inline")
     // hardTopFun(gen_p(openat), "openat", "inline")
     // hardTopFun(gen_k(openat), "openat", "inline")
     ()
