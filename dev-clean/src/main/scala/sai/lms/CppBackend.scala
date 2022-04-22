@@ -60,8 +60,10 @@ trait CppSAICodeGenBase extends ExtendedCPPCodeGen
     case n @ Node(s, "field-@", obj::field::Nil, _) =>
       shallow(obj)
       emit(s".$field")
-    case n @ Node(s, "var-assign", lhs::rhs::Nil, _) =>
-      es"$lhs = $rhs"
+    case n @ Node(s, "field-assign", obj::field::rhs::Nil, _) =>
+      shallow(obj)
+      emit(s".$field = ")
+      shallow(rhs)
     case _ => super.shallow(n)
   }
 

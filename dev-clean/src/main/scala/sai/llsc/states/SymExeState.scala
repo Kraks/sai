@@ -147,23 +147,29 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
   }
 
   implicit class FileOps(file: Rep[File]) {
-    def name: Rep[String]                            = "field-@".reflectCtrlWith[String](file, "name")
-    def content: Rep[List[Value]]                    = "field-@".reflectCtrlWith[List[Value]](file, "content")
-    def size: Rep[Int] = content.size
-    def size_=(rhs: Rep[Int]): Rep[Int] = "var-assign".reflectCtrlWith(file.size, rhs)
+    // fields
+    def name: Rep[String]         = "field-@".reflectWith[String](file, "name")
+    def content: Rep[List[Value]] = "field-@".reflectWith[List[Value]](file, "content")
+    def size: Rep[Int]            = content.size
 
+    // assign field
+    def size_=(rhs: Rep[Int]): Rep[Int] = "field-assign".reflectCtrlWith(file, "size", rhs)
+
+    // methods
     def readAt(pos: Rep[Long], len: Rep[Long]): Rep[List[Value]] = content.drop(pos.toInt).take(len.toInt)
     // TODO: writeAt, append, etc. needs assignment on field or mutable structures? <2022-04-21, David Deng> //
   }
 
   implicit class StreamOps(strm: Rep[Stream]) {
-    def name: Rep[String]                                 = strm.file.name
-    def file: Rep[File]                                   = "field-@".reflectCtrlWith[File](strm, "file")
-    def cursor: Rep[Long]                                 = "field-@".reflectCtrlWith[Long](strm, "cursor")
-    def cursor_=(rhs: Rep[Long]): Rep[Long] = "var-assign".reflectCtrlWith(strm.cursor, rhs)
+    // fields
+    def name: Rep[String] = strm.file.name
+    def file: Rep[File]   = "field-@".reflectWith[File](strm, "file")
+    def cursor: Rep[Long] = "field-@".reflectWith[Long](strm, "cursor")
+    def mode: Rep[Int]    = "field-@".reflectWith[Int](strm, "mode")
 
-    def mode: Rep[Int]                                    = "field-@".reflectCtrlWith[Int](strm, "mode")
-    // def read(n: Rep[Int]): Rep[List[Value]]               = "method-@".reflectCtrlWith[List[Value]](strm, "read", n)
+    // assign field
+    def cursor_= (rhs: Rep[Long]): Rep[Long] = "field-assign".reflectCtrlWith(strm, "cursor", rhs)
+
     def read(n: Rep[Long]): Rep[List[Value]]               = {
         val content = file.readAt(strm.cursor, n)
         strm.cursor = strm.cursor + content.size // TODO: generate assignment expression? <2022-04-21, David Deng> //
