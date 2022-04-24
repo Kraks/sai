@@ -334,12 +334,10 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
     def fromUIntToFloat: Rep[Value] = "ui_tofp".reflectWith[Value](v)
     def fromSIntToFloat: Rep[Value] = "si_tofp".reflectWith[Value](v)
     def trunc(from: Int, to: Int): Rep[Value] = "trunc".reflectWith[Value](v, from, to)
-    def toIntV: Rep[Value] = "to-IntV".reflectWith[Value](v)
-    def toLocV: Rep[Value] = "to-LocV".reflectWith[Value](v)
 
     def +(off: Rep[Long]): Rep[Value] =
       v match {
-        case LocV(a, k, s, o) => LocV(a + off, k, s - off, o + off)
+        case LocV(a, k, s, o) => LocV(a, k, s, o + off)
         case _ => "ptroff".reflectWith[Value](v, off)
       }
 
