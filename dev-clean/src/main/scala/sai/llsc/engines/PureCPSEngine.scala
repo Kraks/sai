@@ -133,7 +133,7 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
                 TypedValue(_, IntConst(0))::TypedValue(iTy, LocalId(x))::Nil) =>
             val base = eval(ptrValue, ptrType, ss)
             val offset = eval(LocalId(x), iTy, ss)
-            ss.arrayLookup(base, offset, getTySize(ety), size, fun(k))
+            ss.arrayLookup(base, offset, getTySize(ety), fun(k))
           case _ =>
             val indexLLVMValue = typedValues.map(tv => tv.value)
             val vs = indexLLVMValue.map(v => eval(v, IntType(32), ss))

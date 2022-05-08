@@ -145,7 +145,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
               base <- eval(ptrValue, ptrType)
               offset <- eval(LocalId(x), iTy)
               ss <- getState
-              v <- reflect(ss.arrayLookup(base, offset, getTySize(ety), size))
+              v <- reflect(ss.arrayLookup(base, offset, getTySize(ety)))
             } yield v
           case _ =>
             val indexLLVMValue = typedValues.map(tv => tv.value)
