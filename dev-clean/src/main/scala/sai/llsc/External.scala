@@ -127,12 +127,12 @@ trait GenExternal extends SymExeDefs {
     val ptr = args(0)
     val name: Rep[String] = getString(ptr, ss)
     val buf: Rep[Value] = args(1)
-    val (content, status): (Rep[List[Value]], Rep[Int]) = fs.statFile(name).unlift
-    if (status == 0) {
-      val ss1 = ss.updateSeq(buf, content)
-      k(ss1, fs, IntV(status, 32))
+    if (!fs.hasFile(name)) {
+      k(ss, fs, IntV(-1, 32))
     } else {
-      k(ss, fs, IntV(status, 32))
+      val stat = fs.files(name).stat
+      val ss1 = ss.updateSeq(buf, stat)
+      k(ss1, fs, IntV(0, 32))
     }
   }
 

@@ -151,6 +151,7 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
     def name: Rep[String]         = "field-@".reflectWith[String](file, "name")
     def content: Rep[List[Value]] = "field-@".reflectWith[List[Value]](file, "content")
     def size: Rep[Int]            = content.size
+    def stat: Rep[List[Value]]    = "field-@".reflectWith[List[Value]](file, "stat")
 
     // assign field
     def size_=(rhs: Rep[Int]): Rep[Int] = "field-assign".reflectCtrlWith(file, "size", rhs)
@@ -183,15 +184,24 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
     def openedFiles: Rep[Map[Fd, Stream]] = "field-@".reflectCtrlWith[Map[Fd, Stream]](fs, "opened_files")
     def files: Rep[Map[String, File]]     = "field-@".reflectCtrlWith[Map[String, File]](fs, "files")
 
+    def files_= (rhs: Rep[Map[String, File]]): Rep[Map[String, File]] = "field-assign".reflectCtrlWith(fs, "files", rhs)
+
     def seekFile(fd: Rep[Fd], o: Rep[Long], w: Rep[Int]): Rep[Long] = "method-@".reflectCtrlWith[Long](fs, "seek_file", fd, o, w)
-    def statFile(ptr: Rep[String]): Rep[(List[Value], Int)]         = "method-@".reflectCtrlWith[(List[Value], Int)](fs, "stat_file", ptr)
 
     def getFreshFd(): Rep[Fd]                               = "method-@".reflectCtrlWith[Fd](fs, "get_fresh_fd")
 
-    def hasFile(name: Rep[String]): Rep[Boolean]            = "method-@".reflectCtrlWith[Boolean](fs, "has_file", name)
+    // TODO: override this when supporting directory structure <2022-05-07, David Deng> //
+    def hasFile(name: Rep[String]): Rep[Boolean] = fs.files.contains(name)
     def getFile(name: Rep[String]): Rep[File]               = "method-@".reflectCtrlWith[File](fs, "get_file", name)
     def setFile(name: Rep[String], f: Rep[File]): Rep[Unit] = "method-@".reflectCtrlWith[Unit](fs, "set_file", name, f)
-    def removeFile(name: Rep[String]): Rep[File]            = "method-@".reflectCtrlWith[File](fs, "remove_file", name)
+
+    def removeFile(name: Rep[String]): Rep[Boolean] = {
+      if (fs.hasFile(name)) {
+          fs.files = fs.files - name
+          true
+      }
+      else false
+    }
 
     def hasStream(fd: Rep[Fd]): Rep[Boolean]                = "method-@".reflectCtrlWith[Boolean](fs, "has_stream", fd)
     def getStream(fd: Rep[Fd]): Rep[Stream]                 = "method-@".reflectCtrlWith[Stream](fs, "get_stream", fd)

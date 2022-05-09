@@ -3,8 +3,18 @@
 
 inline unsigned int fs_var_name = 0;
 inline int default_sym_file_size = 5;
+inline const int stat_size = 144;
 inline PtrVal make_SymV_fs(int bw = 8) {
   return make_SymV("fs_x" + std::to_string(fs_var_name++), bw);
+}
+
+/* TODO: generate this function and other utilties <2022-05-08, David Deng> */
+inline List<PtrVal> get_sym_stat() {
+  immer::flex_vector_transient<PtrVal> stat;
+  for (int i = 0; i < stat_size; ++i) {
+    stat.push_back(make_SymV(fresh("fs_x"), 8));
+  }
+  return stat.persistent();
 }
 
 struct Stat: Printable {
@@ -84,7 +94,7 @@ struct Stat: Printable {
 struct File: public Printable {
     std::string name;
     immer::flex_vector<PtrVal> content;
-    Stat stat;
+    immer::flex_vector<PtrVal> stat;
 
     std::string toString() const override {
       std::ostringstream ss;
@@ -92,16 +102,20 @@ struct File: public Printable {
       for (auto ptrval: content) {
         ss << ptrval_to_string(ptrval) << ", ";
       }
+      ss << "], stat=[";
+      for (auto ptrval: stat) {
+        ss << ptrval_to_string(ptrval) << ", ";
+      }
       ss << "])";
       return ss.str();
     }
-    File(std::string name): name(name) {}
-    File(std::string name, immer::flex_vector<PtrVal> content): name(name), content(content) {}
-    File(const File& f): name(f.name), content(f.content) {}
-
-    Stat& get_stat() {
-      return stat;
-    }
+    File(std::string name): 
+      name(name), content(), stat(stat_size) {}
+    File(std::string name, immer::flex_vector<PtrVal> content): 
+      name(name), content(content), stat(stat_size) {}
+    File(std::string name, immer::flex_vector<PtrVal> content, immer::flex_vector<PtrVal> stat): 
+      name(name), content(content), stat(stat) {}
+    File(const File& f): name(f.name), content(f.content), stat(f.stat) {}
 
     // if writing beyond the last byte, will simply append to the end without filling
     void write_at_no_fill(immer::flex_vector<PtrVal> new_content, size_t pos) {
@@ -136,7 +150,8 @@ inline File make_SymFile(std::string name, size_t size) {
   for (int i = 0; i < size; i++) {
     content = content.push_back(make_SymV_fs());
   }
-  return File(name, content);
+  auto stat = get_sym_stat();
+  return File(name, content, stat);
 };
 
 /* TODO: what is the rule about the lowest file descriptor guarantee?
@@ -245,13 +260,6 @@ struct FS: public Printable {
       files = files.set(name, file);
     }
 
-    void remove_file(std::string name) {
-      ASSERT(has_file(name), "FS::remove_file: File does not exist");
-      // NOTE: should behave correctly if the file is open,
-      // because the file in opened_files is not removed until it is close_file is called.
-      files = files.erase(name);
-    };
-
     void remove_stream(Fd fd) {
       ASSERT(has_stream(fd), "FS::remove_stream: stream does not exist");
       // NOTE: should behave correctly if the file is open,
@@ -259,19 +267,8 @@ struct FS: public Printable {
       opened_files = opened_files.erase(fd);
     };
 
-    inline bool has_file(std::string name) const {
-      return files.find(name) != nullptr;
-    }
-
     inline bool has_stream(Fd fd) const {
       return opened_files.find(fd) != nullptr;
-    }
-
-    std::pair<immer::flex_vector<PtrVal>, int> stat_file(std::string name) {
-      if (!has_file(name)) return std::make_pair(immer::flex_vector<PtrVal>{}, -1);
-      auto file = files.at(name);
-      auto stat = file.get_stat();
-      return std::make_pair(stat.get_struct(), 0);
     }
 
     off_t seek_file(Fd fd, off_t offset, int whence) {
