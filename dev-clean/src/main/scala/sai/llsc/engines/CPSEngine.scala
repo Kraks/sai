@@ -49,15 +49,21 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
       case GlobalId(id) if symDefMap.contains(id) =>
         System.out.println(s"Alias: $id => ${symDefMap(id).const}")
         eval(symDefMap(id).const, ty, ss)
-      case GlobalId(id) if funMap.contains(id) =>
-        if (!FunFuns.contains(id)) compile(funMap(id))
-        CPSFunV[Ref](FunFuns(id))
-      case GlobalId(id) if funDeclMap.contains(id) => 
+      case GlobalId(id) if funMap.contains(id) => {
+        if (ExternalFun.rederict.contains(id)) {
+          val t = funMap(id).header.returnType
+          ExternalFun.get(id, Some(t))
+        } else {
+          if (!FunFuns.contains(id)) compile(funMap(id))
+          CPSFunV[Ref](FunFuns(id))
+        }
+      }
+      case GlobalId(id) if funDeclMap.contains(id) =>
         val t = funDeclMap(id).header.returnType
         ExternalFun.get(id, Some(t))
       case GlobalId(id) if globalDefMap.contains(id) =>
         heapEnv(id)()
-      case GlobalId(id) if globalDeclMap.contains(id) => 
+      case GlobalId(id) if globalDeclMap.contains(id) =>
         System.out.println(s"Warning: globalDecl $id is ignored")
         ty match {
           case PtrType(_, _) => LocV.nullloc
@@ -100,8 +106,9 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
       // Memory Access Instructions
       case AllocaInst(ty, align) =>
         val typeSize = getTySize(ty)
+        val sz = ss.stackSize
         ss.allocStack(typeSize, align.n)
-        k(ss, LocV(ss.stackSize - typeSize, LocV.kStack, typeSize.toLong))
+        k(ss, LocV(sz, LocV.kStack, typeSize.toLong))
       case LoadInst(valTy, ptrTy, value, align) =>
         val isStruct = getRealType(valTy) match {
           case Struct(types) => 1
@@ -278,18 +285,29 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
             s.addPCSet(pc)
             execBlock(funName, default, s, k)
           } else {
-            val s1 = s.copy
+            val st = s.copy
             val headPC = IntOp2("eq", v, IntV(table.head.n))
-            s1.addPC(headPC.toSMTBool)
-            execBlock(funName, table.head.label, s1, k)
-            switchSym(v, s, table.tail, pc ++ List[SMTBool](headPC.toSMTBoolNeg))
+            st.addPC(headPC.toSMTBool)
+            val t_sat = checkPC(st.pc)
+            s.addPC(headPC.toSMTBoolNeg)
+            val f_sat = checkPC(s.pc)
+            if (t_sat && f_sat) {
+              Coverage.incPath(1)
+            }
+
+            if (t_sat) {
+              execBlock(funName, table.head.label, st, k)
+            }
+
+            if (f_sat) {
+              switchSym(v, s, table.tail, pc ++ List[SMTBool](headPC.toSMTBoolNeg))
+            }
           }
 
         ss.addIncomingBlock(incomingBlock)
         val v = eval(cndVal, cndTy, ss)
         if (v.isConc) switch(v.int, ss, table)
         else {
-          Coverage.incPath(table.size)
           switchSym(v, ss, table)
         }
     }
@@ -383,6 +401,7 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
     val fv = eval(GlobalId(fname), VoidType, ss)(fname)
     ss.push
     ss.updateArg
+    ss.updateErrorLoc
     fv[Ref](ss, args, k)
   }
 }

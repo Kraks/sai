@@ -55,7 +55,10 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     else if (m.toString.endsWith("$BlockLabel")) "BlockLabel"
     else if (m.toString.endsWith("$Mem")) "Mem"
     else if (m.toString.endsWith("$SS")) "SS"
+    else if (m.toString.endsWith("$PC")) "PC"
     else if (m.toString.endsWith("$FS")) "FS"
+    else if (m.toString.endsWith("$File")) "File"
+    else if (m.toString.endsWith("$Stream")) "Stream"
     else if (m.toString.endsWith("$Kind")) "LocV::Kind"
     else if (m.toString.endsWith("SMTExpr")) "PtrVal"
     else if (m.toString.endsWith("SMTBool")) "PtrVal"
@@ -64,7 +67,22 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     else super.remap(m)
   }
 
-  def quoteOp(op: String, ec: String): String = ec + "::" + "op_" + op 
+  def quoteOp(op: String, ec: String): String = ec + "::" + "op_" + op
+
+  override def quoteBlockP(prec: Int)(f: => Unit) = {
+    def wraper(numStms: Int, l: Option[Node], y: Block)(f: => Unit) = {
+      val paren = numStms > 0 || l.map(n => precedence(n) < prec).getOrElse(false)
+      val brace = numStms > 0 // || (numStms == 0 ^ y.res != Const(()))
+      if (paren) emit("(")
+      if (brace) emitln("{")
+      f
+      shallow(y.res); emit(quoteEff(y.eff));
+      // if (numStms > 0) emitln(";")
+      if (brace) emit(";\n}")
+      if (paren) emit(")")
+    }
+    withWraper(wraper _)(f)
+  }
 
   override def traverse(n: Node): Unit = n match {
     case Node(s, "make_CPSFunV", _, _) if !dce.live(n.n) =>
@@ -101,10 +119,12 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     case Node(s, "ss-push", List(ss), _) => es"$ss.push()"
     case Node(s, "ss-pop", List(ss, n), _) => es"$ss.pop($n)"
     case Node(s, "ss-addpc", List(ss, e), _) => es"$ss.add_PC($e)"
+    case Node(s, "add-pc", List(pc, e), _) => es"$pc.add($e)"
     case Node(s, "ss-addpcset", List(ss, es), _) => es"$ss.add_PC_set($es)"
     case Node(s, "ss-add-incoming-block", List(ss, bb), _) => es"$ss.add_incoming_block($bb)"
     case Node(s, "ss-incoming-block", List(ss), _) => es"$ss.incoming_block()"
     case Node(s, "ss-arg", List(ss), _) => es"$ss.init_arg()"
+    case Node(s, "ss-error-loc", List(ss), _) => es"$ss.init_error_loc()"
     case Node(s, "ss-get-fs", List(ss), _) => es"$ss.get_fs()"
     case Node(s, "ss-set-fs", List(ss, fs), _) => es"$ss.set_fs($fs)"
     case Node(s, "get-pc", List(ss), _) => es"$ss.get_PC()"
@@ -121,7 +141,7 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
       es"make_FloatV_fp80($litRep)"
     case Node(s, "make_FloatV", List(f, bw), _) => es"make_FloatV($f, $bw)"
     case Node(s, "get-bw", List(v), _) => es"$v->get_bw()"
-    case Node(s, "ptroff", List(v, o), _) => es"$v + ($o)"
+    case Node(s, "ptroff", List(v, o), _) => es"($v + ($o))"
 
     case Node(s, "cov-set-blocknum", List(n), _) => es"cov().set_num_blocks($n)"
     case Node(s, "cov-inc-block", List(id), _) => es"cov().inc_block($id)"
@@ -130,13 +150,6 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     case Node(s, "print-block-cov", _, _) => es"cov().print_block_cov()"
     case Node(s, "print-time", _, _) => es"cov().print_time()"
     case Node(s, "print-path-cov", _, _) => es"cov().print_path_cov()"
-
-    case Node(s, "fs-open-file", List(fs, p, f), _) => es"$fs.open_file($p, $f)"
-    case Node(s, "fs-close-file", List(fs, fd), _) => es"$fs.close_file($fd)"
-    case Node(s, "fs-read-file", List(fs, fd, n), _) => es"$fs.read_file($fd, $n)"
-    case Node(s, "fs-write-file", List(fs, fd, c, n), _) => es"$fs.write_file($fd, $c, $n)"
-    case Node(s, "fs-seek-file", List(fs, fd, o, w), _) => es"$fs.seek_file($fd, $o, $w)"
-    case Node(s, "fs-stat-file", List(fs, ptr), _) => es"$fs.stat_file($ptr)"
 
     case Node(s, "add_tp_task", List(b: Block), _) =>
       es"tp.add_task("
@@ -282,9 +295,12 @@ trait StdVectorCodeGen extends ExtendedCPPCodeGen {
   override def shallow(n: Node): Unit = n match {
     case Node(s, "list-new", Const(mA: Manifest[_])::xs, _) =>
       es"std::vector<${remap(mA)}>{"
-      xs.zipWithIndex.map { case (x, i) =>
-        shallow(x)
-        if (i != xs.length-1) emit(", ")
+      if (!xs.isEmpty) {
+        shallow(xs.head)
+        xs.tail.map { x =>
+          emit(", ")
+          shallow(x)
+        }
       }
       es"}"
     case _ => super.shallow(n)

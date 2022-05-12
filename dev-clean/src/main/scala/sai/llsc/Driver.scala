@@ -15,12 +15,13 @@ import sai.utils.Utils.time
 import scala.collection.immutable.{List => StaticList}
 import scala.collection.mutable.HashMap
 
+import sai.llsc.imp.Mut
 import sai.llsc.imp.ImpLLSCEngine
 import sai.llsc.imp.ImpCPSLLSCEngine
 
 import sys.process._
 
-abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, folder: String = ".")
+abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, folder: String = ".", config: Config)
     extends SAISnippet[A, B] with SAIOps { q =>
   import java.io.{File, PrintStream}
 
@@ -49,13 +50,67 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
 
   def transform(g0: Graph): Graph = g0
 
+  def addRewrite: Unit = {
+    if (!Config.opt) return ()
+    val bConst = Backend.Const
+    type bExp = Backend.Exp
+    // Note: these are transformation for the imperative version; should be
+    //       refactor to the right place.
+    val g = Adapter.g
+    g.addRewrite {
+      // val sz = s.stackSize
+      // s.alloc(8)
+      // val a1 = StackLocV(sz)
+      // s.alloc(4)
+      // val a2 = StackLocV(sz + 8)
+      case ("ss-stack-size", StaticList(s: bExp)) if g.curEffects.allEff.contains(s) =>
+        def aux: Option[bExp] = {
+          var sz: Int = 0
+          for ((k, _) <- g.curEffects.allEff(s)) {
+            g.findDefinition(k) collect {
+              case Node(_, "ss-alloc-stack", StaticList(_, bConst(n: Mut[Int])), _) =>
+                sz = sz + n.x
+            }
+          }
+          for ((_, lrs) <- g.curEffects.allEff(s)) {
+            for (k <- lrs) {
+              g.findDefinition(k) collect {
+                case Node(n, "ss-stack-size", StaticList(_), _) =>
+                  return Some(g.reflect("+", n, bConst(sz)))
+              }
+            }
+          }
+          None
+        }
+        aux
+      case ("ss-lookup-env", StaticList(s: bExp, bConst(x: Int)))
+          if g.curEffects.allEff.contains(s) =>
+        def findAssignment: Option[bExp] = {
+          for ((k, _) <- g.curEffects.allEff(s)) {
+            g.findDefinition(k) collect {
+              case Node(_, "ss-assign", StaticList(_, bConst(y: Int), v: bExp), _) if x == y =>
+                return Some(v)
+              case Node(_, "ss-assign-seq", StaticList(_, bConst(vars: List[Int]), vals: bExp), _) =>
+                val idx = vars.indexOf(x)
+                if (idx != -1) return Some(g.reflect("list-apply", vals, bConst(idx)))
+            }
+          }
+          None
+        }
+        findAssignment
+    }
+  }
+
   def genSource: Unit = {
     val folderFile = new File(folder)
     if (!folderFile.exists()) folderFile.mkdir
     createNewDir
     val mainStream = new PrintStream(s"$folder/$appName/$appName.cpp")
 
-    val g0 = Adapter.genGraph1(manifest[A], manifest[B])(x => Unwrap(wrapper(Wrap[A](x))))
+    val g0 = Adapter.genGraph1(manifest[A], manifest[B]) { x =>
+      addRewrite
+      Unwrap(wrapper(Wrap[A](x)))
+    }
     val g1 = transform(g0)
 
     val statics = lms.core.utils.time("codegen") {
@@ -73,11 +128,12 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     val libraries = codegen.libraryFlags.mkString(" ")
     val includes = codegen.includePaths.map(s"-I $curDir/" + _).mkString(" ")
     val libraryPaths = codegen.libraryPaths.map(p => s"-L $curDir/$p -Wl,-rpath $curDir/$p").mkString(" ")
+    val main_file_opt = if (config.test_coreutil) "-O0" else "-O3"
 
     out.println(s"""|BUILD_DIR = build
-    |SRC_DIR = .
-    |SOURCES = $$(shell find $$(SRC_DIR)/ -name "*.cpp")
     |TARGET = $appName
+    |SRC_DIR = .
+    |SOURCES = $$(shell find $$(SRC_DIR)/ -name "*.cpp" ! -name "$${TARGET}.cpp")
     |OBJECTS = $$(SOURCES:$$(SRC_DIR)/%.cpp=$$(BUILD_DIR)/%.o)
     |CC = g++ -std=c++17 -O3
     |PERFFLAGS = -fno-omit-frame-pointer #-g
@@ -93,11 +149,15 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     |\tmkdir -p $$(@D)
     |\t$$(CC) -c -o $$@ $$< $$(CXXFLAGS)
     |
-    |$$(TARGET): $$(OBJECTS)
+    |$$(BUILD_DIR)/$${TARGET}.o : $${TARGET}.cpp
+    |\tmkdir -p $$(@D)
+    |\tg++ -std=c++17 $main_file_opt -c -o $$@ $$< $$(CXXFLAGS)
+    |
+    |$$(TARGET): $$(OBJECTS) $$(BUILD_DIR)/$${TARGET}.o
     |\t$$(CC) -o $$@ $$^ $$(LDFLAGS) $$(LDLIBS)
     |
     |clean:
-    |\t@rm $appName 2>/dev/null || true
+    |\t@rm $${TARGET} 2>/dev/null || true
     |\t@rm build -rf 2>/dev/null || true
     |\t@rm tests -rf 2>/dev/null || true
     |
@@ -115,6 +175,11 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     Process(s"make -j$j", new File(s"$folder/$appName")).!
   }
 
+  def make_all_cores: Int = {
+    val cores = Process("nproc", new File(s"$folder/$appName")).!!.replaceAll("[\\n\\t ]", "").toInt
+    Process(s"make -j$cores", new File(s"$folder/$appName")).!
+  }
+
   // returns the number of paths, obtained by parsing the output
   def run(opt: String = ""): Int = {
     val cmd = s"./$appName $opt"
@@ -122,10 +187,11 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     val ret = Process(cmd, new File(s"$folder/$appName")).!!
     ret.split("\n").last.split(" ").last.toInt
   }
+
   // returns the number of paths, and the return status of the process
-  def runWithStatus(opt: String = "", launcher: String = ""): (String, Int) = {
+  def runWithStatus(opt: Seq[String], launcher: String = ""): (String, Int) = {
     import collection.mutable.ListBuffer
-    val cmd = if (launcher.nonEmpty) s"$launcher ./$appName $opt" else s"./$appName $opt"
+    val cmd = if (launcher.nonEmpty) launcher.split("\\s+").toSeq++Seq(s"./$appName")++opt else Seq(s"./$appName")++opt
     System.out.println(s"running $cmd")
     val output = ListBuffer[String]()
     val ret = Process(cmd, new File(s"$folder/$appName")).run(ProcessLogger(r => output += r, e => output += e)).exitValue
@@ -137,8 +203,8 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
 //   1) internal state/memory representation
 //   2) function call argument list
 //   3) function return result list
-abstract class PureLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: String, folder: String = ".")
-   extends GenericLLSCDriver[A, B](appName, folder) with LLSCEngine { q =>
+abstract class PureLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: String, folder: String = ".", config: Config)
+   extends GenericLLSCDriver[A, B](appName, folder, config) with LLSCEngine { q =>
   val codegen = new PureLLSCCodeGen {
     val IR: q.type = q
     val codegenFolder = s"$folder/$appName/"
@@ -157,8 +223,8 @@ abstract class PureLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: 
 
 // Using immer data structures but generating CPS code,
 // avoding reifying the returned nondet list.
-abstract class PureCPSLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: String, folder: String = ".")
-    extends GenericLLSCDriver[A, B](appName, folder) with PureCPSLLSCEngine { q =>
+abstract class PureCPSLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: String, folder: String = ".", config: Config)
+    extends GenericLLSCDriver[A, B](appName, folder, config) with PureCPSLLSCEngine { q =>
   val codegen = new PureLLSCCodeGen {
     val IR: q.type = q
     val codegenFolder = s"$folder/$appName/"
@@ -177,21 +243,28 @@ abstract class PureCPSLLSCDriver[A: Manifest, B: Manifest](val m: Module, appNam
 
 // Using C++ std containers for internal state/memory representation,
 // but still using immer containers for function call argument lists and result lists.
-abstract class ImpLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: String, folder: String = ".")
-   extends GenericLLSCDriver[A, B](appName, folder) with ImpLLSCEngine { q =>
+abstract class ImpLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: String, folder: String = ".", config: Config)
+   extends GenericLLSCDriver[A, B](appName, folder, config) with ImpLLSCEngine { q =>
   val codegen = new ImpureLLSCCodeGen {
     val IR: q.type = q
     val codegenFolder = s"$folder/$appName/"
     setFunMap(q.funNameMap)
     setBlockMap(q.blockNameMap)
   }
+  override def transform(g0: Graph): Graph = {
+    if (Config.opt) {
+      val (g1, subst1) = AssignElim.impTransform(g0)
+      codegen.reconsMapping(subst1)
+      g1
+    } else g0
+  }
 }
 
 // Using C++ std containers for internal state/memory representation,
 // function call argument lists, and result lists.
 // Note the composition with `StdVectorCodeGen`.
-abstract class ImpVecLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: String, folder: String = ".")
-   extends GenericLLSCDriver[A, B](appName, folder) with ImpLLSCEngine { q =>
+abstract class ImpVecLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: String, folder: String = ".", config: Config)
+   extends GenericLLSCDriver[A, B](appName, folder, config) with ImpLLSCEngine { q =>
   val codegen = new ImpureLLSCCodeGen with StdVectorCodeGen {
     val IR: q.type = q
     val codegenFolder = s"$folder/$appName/"
@@ -202,20 +275,28 @@ abstract class ImpVecLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName
 
 // Generting CPS code with C++ containers for internal state/memory representation.
 // Function call argument lists and result lists still use immer containers.
-abstract class ImpCPSLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: String, folder: String = ".")
-   extends GenericLLSCDriver[A, B](appName, folder) with ImpCPSLLSCEngine { q =>
+abstract class ImpCPSLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: String, folder: String = ".", config: Config)
+   extends GenericLLSCDriver[A, B](appName, folder, config) with ImpCPSLLSCEngine { q =>
   val codegen = new ImpureLLSCCodeGen /* with StdVectorCodeGen */ {
     val IR: q.type = q
     val codegenFolder = s"$folder/$appName/"
     setFunMap(q.funNameMap)
     setBlockMap(q.blockNameMap)
   }
+
+  override def transform(g0: Graph): Graph = {
+    if (Config.opt) {
+      val (g1, subst1) = AssignElim.impTransform(g0)
+      codegen.reconsMapping(subst1)
+      g1
+    } else g0
+  }
 }
 
 trait LLSC {
   val insName: String
   def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit]
-  def runLLSC(m: Module, name: String, fname: String, config: Config = Config(0, true)): Unit = {
+  def runLLSC(m: Module, name: String, fname: String, config: Config = Config(0, true, false)): Unit = {
     BlockCounter.reset
     val (_, t) = time {
       val code = newInstance(m, name, fname, config)
@@ -225,7 +306,7 @@ trait LLSC {
   }
 }
 
-case class Config(nSym: Int, argv: Boolean) {
+case class Config(nSym: Int, argv: Boolean, test_coreutil: Boolean) {
   require(!(nSym > 0 && argv))
   def args(implicit d: ValueDefs) =
     if (argv) d.mainArgs
@@ -237,15 +318,16 @@ object Config {
   def disableOpt: Unit = opt = false
   def enableOpt: Unit = opt = true
 
-  def symArg(n: Int) = Config(n, false)
-  def useArgv = Config(0, true)
-  def noArg = Config(0, false)
+  def symArg(n: Int) = Config(n, false, false)
+  def useArgv = Config(0, true, false)
+  def noArg = Config(0, false, false)
+  def testcoreutil = Config(0, true, true)
 }
 
 class PureLLSC extends LLSC {
   val insName = "PureLLSC"
   def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit] =
-    new PureLLSCDriver[Int, Unit](m, name, "./llsc_gen") {
+    new PureLLSCDriver[Int, Unit](m, name, "./llsc_gen", config) {
       implicit val me: this.type = this
       @virtualize
       def snippet(u: Rep[Int]) = {
@@ -258,7 +340,7 @@ class PureLLSC extends LLSC {
 class PureCPSLLSC extends LLSC {
   val insName = "PureCPSLLSC"
   def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit] =
-    new PureCPSLLSCDriver[Int, Unit](m, name, "./llsc_gen") {
+    new PureCPSLLSCDriver[Int, Unit](m, name, "./llsc_gen", config) {
       implicit val me: this.type = this
       def snippet(u: Rep[Int]) = {
         exec(fname, config.args, fun { case sv => checkPCToFile(sv._1) })
@@ -280,7 +362,7 @@ class PureCPSLLSC_Z3 extends PureCPSLLSC {
 class ImpLLSC extends LLSC {
   val insName = "ImpLLSC"
   def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit] =
-    new ImpLLSCDriver[Int, Unit](m, name, "./llsc_gen") {
+    new ImpLLSCDriver[Int, Unit](m, name, "./llsc_gen", config) {
       implicit val me: this.type = this
       def snippet(u: Rep[Int]) = {
         exec(fname, config.args).foreach { s => checkPCToFile(s._1) }
@@ -292,7 +374,7 @@ class ImpLLSC extends LLSC {
 class ImpVecLLSC extends LLSC {
   val insName = "ImpLLSC"
   def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit] =
-    new ImpVecLLSCDriver[Int, Unit](m, name, "./llsc_gen") {
+    new ImpVecLLSCDriver[Int, Unit](m, name, "./llsc_gen", config) {
       implicit val me: this.type = this
       def snippet(u: Rep[Int]) = {
         exec(fname, config.args).foreach { s => checkPCToFile(s._1) }
@@ -304,7 +386,7 @@ class ImpVecLLSC extends LLSC {
 class ImpCPSLLSC extends LLSC {
   val insName = "ImpCPSLLSC"
   def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit] =
-    new ImpCPSLLSCDriver[Int, Unit](m, name, "./llsc_gen") {
+    new ImpCPSLLSCDriver[Int, Unit](m, name, "./llsc_gen", config) {
       implicit val me: this.type = this
       def snippet(u: Rep[Int]) = {
         exec(fname, config.args, fun { case sv => checkPCToFile(sv._1) })
@@ -332,7 +414,7 @@ object RunLLSC {
       val nSym = if (args.isDefinedAt(3)) args(3).toInt else 0
       val llsc = new PureLLSC
       // TODO: create Config value according to command-line arguments, pass to runLLSC/newInstance
-      llsc.runLLSC(parseFile(filepath), appName, fun, Config(nSym, true))
+      llsc.runLLSC(parseFile(filepath), appName, fun, Config(nSym, true, false))
     }
 
     //runLLSC(sai.llvm.OOPSLA20Benchmarks.mp1048576, "mp1m", "@f", 20)

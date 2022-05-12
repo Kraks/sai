@@ -27,12 +27,14 @@ trait BasicDefs { self: SAIOps =>
   trait Value
   trait Stack
   trait SS
+  trait PC
   trait FS
+  trait File
+  trait Stream
 
   type IntData = Long
   type BlockLabel = Int
   type Addr = Long
-  type PC = Set[SMTBool]
   type Id[T] = T
   type Fd = Int
   val bConst = Backend.Const
@@ -85,8 +87,10 @@ trait Opaques { self: SAIOps with BasicDefs =>
       "sym_print", "print_string", "malloc", "realloc",
       "llsc_assert", "llsc_assert_eager", "__assert_fail", "sym_exit",
       "make_symbolic", "make_symbolic_whole",
-      "open", "close", "read", "write", "lseek", "stat", "stop", "syscall", "llsc_assume"
+      "open", "close", "read", "write", "lseek", "stat", "stop", "syscall", "llsc_assume",
+      "__errno_location", "_exit", "abort", "calloc"
     )
+    val rederict = scala.collection.immutable.Set[String]("@memcpy", "@memset", "@memmove")
     def apply(f: String, ret: Option[LLVMType] = None): Rep[Value] = {
       if (!used.contains(f)) {
         System.out.println(s"Use external function $f.")
@@ -105,7 +109,10 @@ trait Opaques { self: SAIOps with BasicDefs =>
       else if (id.startsWith("@llvm.va_copy")) ExternalFun("llvm_va_copy")
       else if (id.startsWith("@llvm.memcpy")) ExternalFun("llvm_memcpy")
       else if (id.startsWith("@llvm.memset")) ExternalFun("llvm_memset")
-      else if (id.startsWith("@llvm.memmove")) ExternalFun("llvm_memset")
+      else if (id.startsWith("@llvm.memmove")) ExternalFun("llvm_memmove")
+      else if (id.startsWith("@memcpy")) ExternalFun("llvm_memcpy")
+      else if (id.startsWith("@memset")) ExternalFun("llvm_memset")
+      else if (id.startsWith("@memmove")) ExternalFun("llvm_memmove")
       else {
         if (!warned.contains(id)) {
           System.out.println(s"External function ${id.tail} is treated as a noop.")
