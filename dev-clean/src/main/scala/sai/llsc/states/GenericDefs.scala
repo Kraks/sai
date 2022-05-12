@@ -283,7 +283,7 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
     }
     def int: Rep[Long] = v match {
       case IntV(n, bw) if Config.opt => unit(n)
-      case _ => "proj_IntV".reflectWith[Int](v)
+      case _ => "proj_IntV".reflectWith[Long](v)
     }
     def float: Rep[Float] = "proj_FloatV".reflectWith[Float](v)
     def structAt(i: Rep[Long]) = "structV_at".reflectWith[Value](v, i)

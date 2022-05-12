@@ -18,193 +18,219 @@ immer::flex_vector<std::pair<SS, PtrVal>> stat(SS, immer::flex_vector<PtrVal>);
 std::monostate stat(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
 
 /************* Functions **************/
-inline immer::flex_vector<std::pair<SS, PtrVal>> stat(SS x118, immer::flex_vector<PtrVal> x119) {
-FS x120 = x118.get_fs();
-PtrVal x121 = x119.at(0);
-String x122 = get_string(x121, x118);
-immer::map<String, File> x123 = x120.files;
-bool x124 = Map::contains(x123, x122);
-immer::flex_vector<std::pair<SS, PtrVal>> x125 = !x124 ? ({
-x118.set_fs(x120);
-immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x118, make_IntV(-1L, 32))};
+inline immer::flex_vector<std::pair<SS, PtrVal>> stat(SS x142, immer::flex_vector<PtrVal> x143) {
+FS x144 = x142.get_fs();
+PtrVal x145 = x143.at(0);
+String x146 = get_string(x145, x142);
+immer::map<String, File> x147 = x144.files;
+bool x148 = Map::contains(x147, x146);
+immer::flex_vector<std::pair<SS, PtrVal>> x149 = !x148 ? ({
+x142.set_fs(x144);
+immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x142, make_IntV(-1L, 32))};
 }) : ({
-PtrVal x126 = x119.at(1);
-File x127 = x120.files.at(x122);
-SS x128 = x118.update_seq(x126, x127.stat);
-x128.set_fs(x120);
-immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x128, make_IntV(0L, 32))};
+PtrVal x150 = x143.at(1);
+File x151 = x144.files.at(x146);
+SS x152 = x142.update_seq(x150, x151.stat);
+x152.set_fs(x144);
+immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x152, make_IntV(0L, 32))};
 });
-return x125;
+return x149;
 }
-inline std::monostate stat(SS x129, immer::flex_vector<PtrVal> x130, std::function<std::monostate(SS, PtrVal)> x131) {
-FS x132 = x129.get_fs();
-PtrVal x133 = x130.at(0);
-String x134 = get_string(x133, x129);
-immer::map<String, File> x135 = x132.files;
-bool x136 = Map::contains(x135, x134);
-std::monostate x137 = !x136 ? ({
-x129.set_fs(x132);
-x131(x129, make_IntV(-1L, 32));
+inline std::monostate stat(SS x153, immer::flex_vector<PtrVal> x154, std::function<std::monostate(SS, PtrVal)> x155) {
+FS x156 = x153.get_fs();
+PtrVal x157 = x154.at(0);
+String x158 = get_string(x157, x153);
+immer::map<String, File> x159 = x156.files;
+bool x160 = Map::contains(x159, x158);
+std::monostate x161 = !x160 ? ({
+x153.set_fs(x156);
+x155(x153, make_IntV(-1L, 32));
 }) : ({
-PtrVal x138 = x130.at(1);
-File x139 = x132.files.at(x134);
-SS x140 = x129.update_seq(x138, x139.stat);
-x140.set_fs(x132);
-x131(x140, make_IntV(0L, 32));
+PtrVal x162 = x154.at(1);
+File x163 = x156.files.at(x158);
+SS x164 = x153.update_seq(x162, x163.stat);
+x164.set_fs(x156);
+x155(x164, make_IntV(0L, 32));
 });
-return x137;
+return x161;
 }
-inline immer::flex_vector<std::pair<SS, PtrVal>> lseek(SS x103, immer::flex_vector<PtrVal> x104) {
-FS x105 = x103.get_fs();
-PtrVal x106 = x104.at(0);
-PtrVal x107 = x104.at(1);
-PtrVal x108 = x104.at(2);
-int64_t x109 = x105.seek_file((int64_t)proj_IntV(x106), (int64_t)proj_IntV(x107), (int64_t)proj_IntV(x108));
-x103.set_fs(x105);
-return immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x103, make_IntV(x109, 64))};
+inline immer::flex_vector<std::pair<SS, PtrVal>> lseek(SS x127, immer::flex_vector<PtrVal> x128) {
+FS x129 = x127.get_fs();
+PtrVal x130 = x128.at(0);
+PtrVal x131 = x128.at(1);
+PtrVal x132 = x128.at(2);
+int64_t x133 = x129.seek_file(proj_IntV(x130), proj_IntV(x131), (int)proj_IntV(x132));
+x127.set_fs(x129);
+return immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x127, make_IntV(x133, 64))};
 }
-inline std::monostate lseek(SS x110, immer::flex_vector<PtrVal> x111, std::function<std::monostate(SS, PtrVal)> x112) {
-FS x113 = x110.get_fs();
-PtrVal x114 = x111.at(0);
-PtrVal x115 = x111.at(1);
-PtrVal x116 = x111.at(2);
-int64_t x117 = x113.seek_file((int64_t)proj_IntV(x114), (int64_t)proj_IntV(x115), (int64_t)proj_IntV(x116));
-x110.set_fs(x113);
-return x112(x110, make_IntV(x117, 64));
+inline std::monostate lseek(SS x134, immer::flex_vector<PtrVal> x135, std::function<std::monostate(SS, PtrVal)> x136) {
+FS x137 = x134.get_fs();
+PtrVal x138 = x135.at(0);
+PtrVal x139 = x135.at(1);
+PtrVal x140 = x135.at(2);
+int64_t x141 = x137.seek_file(proj_IntV(x138), proj_IntV(x139), (int)proj_IntV(x140));
+x134.set_fs(x137);
+return x136(x134, make_IntV(x141, 64));
 }
-inline immer::flex_vector<std::pair<SS, PtrVal>> write(SS x78, immer::flex_vector<PtrVal> x79) {
-FS x80 = x78.get_fs();
-PtrVal x81 = x79.at(0);
-int64_t x82 = (int64_t)proj_IntV(x81);
-bool x83 = x80.has_stream(x82);
-immer::flex_vector<std::pair<SS, PtrVal>> x84 = !x83 ? ({
-x78.set_fs(x80);
-immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x78, make_IntV(-1L, 64))};
+inline immer::flex_vector<std::pair<SS, PtrVal>> write(SS x92, immer::flex_vector<PtrVal> x93) {
+FS x94 = x92.get_fs();
+PtrVal x95 = x93.at(0);
+int x96 = (int)proj_IntV(x95);
+immer::map<int, Stream> x97 = x94.opened_files;
+bool x98 = Map::contains(x97, x96);
+immer::flex_vector<std::pair<SS, PtrVal>> x99 = !x98 ? ({
+x92.set_fs(x94);
+immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x92, make_IntV(-1L, 64))};
 }) : ({
-PtrVal x85 = x79.at(1);
-PtrVal x86 = x79.at(2);
-int64_t x87 = (int64_t)proj_IntV(x86);
-Stream x88 = x80.get_stream(x82);
-int x89 = x88.write(x78.at_seq(x85, x87), x87);
-x80.set_stream(x82, x88);
-x78.set_fs(x80);
-immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x78, make_IntV((int64_t)x89, 64))};
+PtrVal x100 = x93.at(1);
+PtrVal x101 = x93.at(2);
+int x102 = (int)proj_IntV(x101);
+Stream x103 = x94.opened_files.at(x96);
+immer::flex_vector<PtrVal> x104 = x92.at_seq(x100, x102).take((int)(int64_t)x102);
+int64_t x105 = x103.cursor;
+x103.file.write_at(x104, x105, IntV0);
+int x106 = x104.size();
+int64_t x107 = (int64_t)x106;
+x103.cursor = x105 + x107;
+immer::map<int, Stream> x108 = x94.opened_files.insert(std::make_pair(x96, x103));
+x94.opened_files = x108;
+x92.set_fs(x94);
+immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x92, make_IntV(x107, 64))};
 });
-return x84;
+return x99;
 }
-inline std::monostate write(SS x90, immer::flex_vector<PtrVal> x91, std::function<std::monostate(SS, PtrVal)> x92) {
-FS x93 = x90.get_fs();
-PtrVal x94 = x91.at(0);
-int64_t x95 = (int64_t)proj_IntV(x94);
-bool x96 = x93.has_stream(x95);
-std::monostate x97 = !x96 ? ({
-x90.set_fs(x93);
-x92(x90, make_IntV(-1L, 64));
+inline std::monostate write(SS x109, immer::flex_vector<PtrVal> x110, std::function<std::monostate(SS, PtrVal)> x111) {
+FS x112 = x109.get_fs();
+PtrVal x113 = x110.at(0);
+int x114 = (int)proj_IntV(x113);
+immer::map<int, Stream> x115 = x112.opened_files;
+bool x116 = Map::contains(x115, x114);
+std::monostate x117 = !x116 ? ({
+x109.set_fs(x112);
+x111(x109, make_IntV(-1L, 64));
 }) : ({
-PtrVal x98 = x91.at(1);
-PtrVal x99 = x91.at(2);
-int64_t x100 = (int64_t)proj_IntV(x99);
-Stream x101 = x93.get_stream(x95);
-int x102 = x101.write(x90.at_seq(x98, x100), x100);
-x93.set_stream(x95, x101);
-x90.set_fs(x93);
-x92(x90, make_IntV((int64_t)x102, 64));
+PtrVal x118 = x110.at(1);
+PtrVal x119 = x110.at(2);
+int x120 = (int)proj_IntV(x119);
+Stream x121 = x112.opened_files.at(x114);
+immer::flex_vector<PtrVal> x122 = x109.at_seq(x118, x120).take((int)(int64_t)x120);
+int64_t x123 = x121.cursor;
+x121.file.write_at(x122, x123, IntV0);
+int x124 = x122.size();
+int64_t x125 = (int64_t)x124;
+x121.cursor = x123 + x125;
+immer::map<int, Stream> x126 = x112.opened_files.insert(std::make_pair(x114, x121));
+x112.opened_files = x126;
+x109.set_fs(x112);
+x111(x109, make_IntV(x125, 64));
 });
-return x97;
+return x117;
 }
-inline immer::flex_vector<std::pair<SS, PtrVal>> read(SS x45, immer::flex_vector<PtrVal> x46) {
-FS x47 = x45.get_fs();
-PtrVal x48 = x46.at(0);
-int64_t x49 = (int64_t)proj_IntV(x48);
-bool x50 = x47.has_stream(x49);
-immer::flex_vector<std::pair<SS, PtrVal>> x51 = !x50 ? ({
-x45.set_fs(x47);
-immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x45, make_IntV(-1L, 64))};
+inline immer::flex_vector<std::pair<SS, PtrVal>> read(SS x55, immer::flex_vector<PtrVal> x56) {
+FS x57 = x55.get_fs();
+PtrVal x58 = x56.at(0);
+int x59 = (int)proj_IntV(x58);
+immer::map<int, Stream> x60 = x57.opened_files;
+bool x61 = Map::contains(x60, x59);
+immer::flex_vector<std::pair<SS, PtrVal>> x62 = !x61 ? ({
+x55.set_fs(x57);
+immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x55, make_IntV(-1L, 64))};
 }) : ({
-PtrVal x52 = x46.at(1);
-PtrVal x53 = x46.at(2);
-Stream x54 = x47.get_stream(x49);
-int64_t x55 = x54.cursor;
-immer::flex_vector<PtrVal> x56 = x54.file.content.drop((int)x55);
-immer::flex_vector<PtrVal> x57 = x56.take((int)(int64_t)(int64_t)proj_IntV(x53));
-int x58 = x57.size();
-int64_t x59 = (int64_t)x58;
-x54.cursor = x55 + x59;
-x47.set_stream(x49, x54);
-SS x60 = x45.update_seq(x52, x57);
-x60.set_fs(x47);
-immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x60, make_IntV(x59, 64))};
+PtrVal x63 = x56.at(1);
+PtrVal x64 = x56.at(2);
+Stream x65 = x57.opened_files.at(x59);
+int64_t x66 = x65.cursor;
+immer::flex_vector<PtrVal> x67 = x65.file.content.drop((int)x66);
+immer::flex_vector<PtrVal> x68 = x67.take((int)(int64_t)(int)proj_IntV(x64));
+int x69 = x68.size();
+int64_t x70 = (int64_t)x69;
+x65.cursor = x66 + x70;
+immer::map<int, Stream> x71 = x57.opened_files.insert(std::make_pair(x59, x65));
+x57.opened_files = x71;
+SS x72 = x55.update_seq(x63, x68);
+x72.set_fs(x57);
+immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x72, make_IntV(x70, 64))};
 });
-return x51;
+return x62;
 }
-inline std::monostate read(SS x61, immer::flex_vector<PtrVal> x62, std::function<std::monostate(SS, PtrVal)> x63) {
-FS x64 = x61.get_fs();
-PtrVal x65 = x62.at(0);
-int64_t x66 = (int64_t)proj_IntV(x65);
-bool x67 = x64.has_stream(x66);
-std::monostate x68 = !x67 ? ({
-x61.set_fs(x64);
-x63(x61, make_IntV(-1L, 64));
+inline std::monostate read(SS x73, immer::flex_vector<PtrVal> x74, std::function<std::monostate(SS, PtrVal)> x75) {
+FS x76 = x73.get_fs();
+PtrVal x77 = x74.at(0);
+int x78 = (int)proj_IntV(x77);
+immer::map<int, Stream> x79 = x76.opened_files;
+bool x80 = Map::contains(x79, x78);
+std::monostate x81 = !x80 ? ({
+x73.set_fs(x76);
+x75(x73, make_IntV(-1L, 64));
 }) : ({
-PtrVal x69 = x62.at(1);
-PtrVal x70 = x62.at(2);
-Stream x71 = x64.get_stream(x66);
-int64_t x72 = x71.cursor;
-immer::flex_vector<PtrVal> x73 = x71.file.content.drop((int)x72);
-immer::flex_vector<PtrVal> x74 = x73.take((int)(int64_t)(int64_t)proj_IntV(x70));
-int x75 = x74.size();
-int64_t x76 = (int64_t)x75;
-x71.cursor = x72 + x76;
-x64.set_stream(x66, x71);
-SS x77 = x61.update_seq(x69, x74);
-x77.set_fs(x64);
-x63(x77, make_IntV(x76, 64));
+PtrVal x82 = x74.at(1);
+PtrVal x83 = x74.at(2);
+Stream x84 = x76.opened_files.at(x78);
+int64_t x85 = x84.cursor;
+immer::flex_vector<PtrVal> x86 = x84.file.content.drop((int)x85);
+immer::flex_vector<PtrVal> x87 = x86.take((int)(int64_t)(int)proj_IntV(x83));
+int x88 = x87.size();
+int64_t x89 = (int64_t)x88;
+x84.cursor = x85 + x89;
+immer::map<int, Stream> x90 = x76.opened_files.insert(std::make_pair(x78, x84));
+x76.opened_files = x90;
+SS x91 = x73.update_seq(x82, x87);
+x91.set_fs(x76);
+x75(x91, make_IntV(x89, 64));
 });
-return x68;
+return x81;
 }
-inline immer::flex_vector<std::pair<SS, PtrVal>> close(SS x22, immer::flex_vector<PtrVal> x23) {
-FS x24 = x22.get_fs();
-PtrVal x25 = x23.at(0);
-int64_t x26 = (int64_t)proj_IntV(x25->to_IntV());
-bool x27 = x24.has_stream(x26);
-immer::flex_vector<std::pair<SS, PtrVal>> x28 = !x27 ? ({
-x22.set_fs(x24);
-immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x22, make_IntV(-1L, 32))};
+inline immer::flex_vector<std::pair<SS, PtrVal>> close(SS x24, immer::flex_vector<PtrVal> x25) {
+FS x26 = x24.get_fs();
+PtrVal x27 = x25.at(0);
+int x28 = (int)proj_IntV(x27);
+immer::map<int, Stream> x29 = x26.opened_files;
+bool x30 = Map::contains(x29, x28);
+immer::flex_vector<std::pair<SS, PtrVal>> x31 = !x30 ? ({
+x24.set_fs(x26);
+immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x24, make_IntV(-1L, 32))};
 }) : ({
-File x29 = x24.get_stream(x26).file;
-String x30 = x29.name;
-immer::map<String, File> x31 = x24.files;
-bool x32 = Map::contains(x31, x30);
-if (x32) {
-x24.set_file(x30, x29);
-x24.remove_stream(x26);
+Stream x32 = x26.opened_files.at(x28);
+File x33 = x32.file;
+String x34 = x33.name;
+immer::map<String, File> x35 = x26.files;
+bool x36 = Map::contains(x35, x34);
+if (x36) {
+immer::map<String, File> x37 = x26.files.insert(std::make_pair(x34, x33));
+x26.files = x37;
+immer::map<int, Stream> x38 = x26.opened_files.erase(x28);
+x26.opened_files = x38;
 }
-x22.set_fs(x24);
-immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x22, make_IntV(0L, 32))};
+x24.set_fs(x26);
+immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x24, make_IntV(0L, 32))};
 });
-return x28;
+return x31;
 }
-inline std::monostate close(SS x33, immer::flex_vector<PtrVal> x34, std::function<std::monostate(SS, PtrVal)> x35) {
-FS x36 = x33.get_fs();
-PtrVal x37 = x34.at(0);
-int64_t x38 = (int64_t)proj_IntV(x37->to_IntV());
-bool x39 = x36.has_stream(x38);
-std::monostate x40 = !x39 ? ({
-x33.set_fs(x36);
-x35(x33, make_IntV(-1L, 32));
+inline std::monostate close(SS x39, immer::flex_vector<PtrVal> x40, std::function<std::monostate(SS, PtrVal)> x41) {
+FS x42 = x39.get_fs();
+PtrVal x43 = x40.at(0);
+int x44 = (int)proj_IntV(x43);
+immer::map<int, Stream> x45 = x42.opened_files;
+bool x46 = Map::contains(x45, x44);
+std::monostate x47 = !x46 ? ({
+x39.set_fs(x42);
+x41(x39, make_IntV(-1L, 32));
 }) : ({
-File x41 = x36.get_stream(x38).file;
-String x42 = x41.name;
-immer::map<String, File> x43 = x36.files;
-bool x44 = Map::contains(x43, x42);
-if (x44) {
-x36.set_file(x42, x41);
-x36.remove_stream(x38);
+Stream x48 = x42.opened_files.at(x44);
+File x49 = x48.file;
+String x50 = x49.name;
+immer::map<String, File> x51 = x42.files;
+bool x52 = Map::contains(x51, x50);
+if (x52) {
+immer::map<String, File> x53 = x42.files.insert(std::make_pair(x50, x49));
+x42.files = x53;
+immer::map<int, Stream> x54 = x42.opened_files.erase(x44);
+x42.opened_files = x54;
 }
-x33.set_fs(x36);
-x35(x33, make_IntV(0L, 32));
+x39.set_fs(x42);
+x41(x39, make_IntV(0L, 32));
 });
-return x40;
+return x47;
 }
 inline immer::flex_vector<std::pair<SS, PtrVal>> open(SS x1, immer::flex_vector<PtrVal> x2) {
 FS x3 = x1.get_fs();
@@ -218,28 +244,30 @@ immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x1, make_IntV(-1L, 32))
 }) : ({
 int x9 = x3.get_fresh_fd();
 File x10 = x3.files.at(x5);
-x3.set_stream(x9, Stream(x10));
+immer::map<int, Stream> x11 = x3.opened_files.insert(std::make_pair(x9, Stream(x10)));
+x3.opened_files = x11;
 x1.set_fs(x3);
 immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x1, make_IntV((int64_t)x9, 32))};
 });
 return x8;
 }
-inline std::monostate open(SS x11, immer::flex_vector<PtrVal> x12, std::function<std::monostate(SS, PtrVal)> x13) {
-FS x14 = x11.get_fs();
-PtrVal x15 = x12.at(0);
-String x16 = get_string(x15, x11);
-immer::map<String, File> x17 = x14.files;
-bool x18 = Map::contains(x17, x16);
-std::monostate x19 = !x18 ? ({
-x11.set_fs(x14);
-x13(x11, make_IntV(-1L, 32));
+inline std::monostate open(SS x12, immer::flex_vector<PtrVal> x13, std::function<std::monostate(SS, PtrVal)> x14) {
+FS x15 = x12.get_fs();
+PtrVal x16 = x13.at(0);
+String x17 = get_string(x16, x12);
+immer::map<String, File> x18 = x15.files;
+bool x19 = Map::contains(x18, x17);
+std::monostate x20 = !x19 ? ({
+x12.set_fs(x15);
+x14(x12, make_IntV(-1L, 32));
 }) : ({
-int x20 = x14.get_fresh_fd();
-File x21 = x14.files.at(x16);
-x14.set_stream(x20, Stream(x21));
-x11.set_fs(x14);
-x13(x11, make_IntV((int64_t)x20, 32));
+int x21 = x15.get_fresh_fd();
+File x22 = x15.files.at(x17);
+immer::map<int, Stream> x23 = x15.opened_files.insert(std::make_pair(x21, Stream(x22)));
+x15.opened_files = x23;
+x12.set_fs(x15);
+x14(x12, make_IntV((int64_t)x21, 32));
 });
-return x19;
+return x20;
 }
 #endif // LLSC_EXTERNAL_HEADERS_GEN

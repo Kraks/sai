@@ -154,11 +154,20 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
     def stat: Rep[List[Value]]    = "field-@".reflectWith[List[Value]](file, "stat")
 
     // assign field
-    def size_=(rhs: Rep[Int]): Rep[Int] = "field-assign".reflectCtrlWith(file, "size", rhs)
+    // TODO: Is this valid? <2022-05-12, David Deng> //
+    // def size_=(rhs: Rep[Int]): Rep[Int] = "field-assign".reflectCtrlWith(file, "size", rhs)
+    def name_=(rhs: Rep[Int]): Rep[Int] = "field-assign".reflectCtrlWith(file, "name", rhs)
+    def content_=(rhs: Rep[Int]): Rep[Int] = "field-assign".reflectCtrlWith(file, "content", rhs)
+    def stat_=(rhs: Rep[Int]): Rep[Int] = "field-assign".reflectCtrlWith(file, "stat", rhs)
 
     // methods
     def readAt(pos: Rep[Long], len: Rep[Long]): Rep[List[Value]] = content.drop(pos.toInt).take(len.toInt)
-    // TODO: writeAt, append, etc. needs assignment on field or mutable structures? <2022-04-21, David Deng> //
+
+    // TODO: Eliminate the following methods-@ <2022-05-12, David Deng> //
+    def writeAtNoFill(c: Rep[List[Value]], pos: Rep[Long]): Rep[Unit] = "method-@".reflectCtrlWith[Unit](file, "write_at_no_fill", c, pos)
+    def writeAt(c: Rep[List[Value]], pos: Rep[Long], fill: Rep[Value]): Rep[Unit] = "method-@".reflectCtrlWith[Unit](file, "write_at", c, pos, fill)
+    def append(c: Rep[List[Value]]): Rep[Unit] = "method-@".reflectCtrlWith[Unit](file, "append", c)
+    def clear(): Rep[Unit] = "method-@".reflectCtrlWith[Unit](file, "clear")
   }
 
   implicit class StreamOps(strm: Rep[Stream]) {
@@ -169,15 +178,22 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
     def mode: Rep[Int]    = "field-@".reflectWith[Int](strm, "mode")
 
     // assign field
+    def file_= (rhs: Rep[Long]): Rep[Long] = "field-assign".reflectCtrlWith(strm, "file", rhs)
     def cursor_= (rhs: Rep[Long]): Rep[Long] = "field-assign".reflectCtrlWith(strm, "cursor", rhs)
+    def mode_= (rhs: Rep[Long]): Rep[Long] = "field-assign".reflectCtrlWith(strm, "mode", rhs)
 
-    def read(n: Rep[Long]): Rep[List[Value]]               = {
-        val content = file.readAt(strm.cursor, n)
-        strm.cursor = strm.cursor + content.size // TODO: generate assignment expression? <2022-04-21, David Deng> //
-        content
+    def read(n: Rep[Long]): Rep[List[Value]] = {
+      val content = file.readAt(strm.cursor, n)
+      strm.cursor = strm.cursor + content.size
+      content
     }
 
-    def write(c: Rep[List[Value]], n: Rep[Int]): Rep[Int] = "method-@".reflectCtrlWith[Int](strm, "write", c, n)
+    def write(c: Rep[List[Value]], n: Rep[Long]): Rep[Long] = {
+      val content = c.take(n.toInt)
+      file.writeAt(content, strm.cursor, unchecked("IntV0"))
+      strm.cursor = strm.cursor + content.size;
+      return content.size
+    }
   }
 
   implicit class FSOps(fs: Rep[FS]) {
@@ -185,28 +201,25 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
     def files: Rep[Map[String, File]]     = "field-@".reflectCtrlWith[Map[String, File]](fs, "files")
 
     def files_= (rhs: Rep[Map[String, File]]): Rep[Map[String, File]] = "field-assign".reflectCtrlWith(fs, "files", rhs)
+    def openedFiles_= (rhs: Rep[Map[Fd, Stream]]): Rep[Map[Fd, Stream]] = "field-assign".reflectCtrlWith(fs, "opened_files", rhs)
+
+    // Thought: we should eliminate all method-@ at the end, right? What is the rule about what to keep at the backend? 
+    // Maybe complicated algorithm (like branching) can be kept at the backend? <2022-05-12, David Deng> //
 
     def seekFile(fd: Rep[Fd], o: Rep[Long], w: Rep[Int]): Rep[Long] = "method-@".reflectCtrlWith[Long](fs, "seek_file", fd, o, w)
 
     def getFreshFd(): Rep[Fd]                               = "method-@".reflectCtrlWith[Fd](fs, "get_fresh_fd")
 
-    // TODO: override this when supporting directory structure <2022-05-07, David Deng> //
-    def hasFile(name: Rep[String]): Rep[Boolean] = fs.files.contains(name)
-    def getFile(name: Rep[String]): Rep[File]               = "method-@".reflectCtrlWith[File](fs, "get_file", name)
-    def setFile(name: Rep[String], f: Rep[File]): Rep[Unit] = "method-@".reflectCtrlWith[Unit](fs, "set_file", name, f)
+    // TODO: extend those methods when support for directory structure is added <2022-05-07, David Deng> //
+    def hasFile(name: Rep[String]): Rep[Boolean]            = fs.files.contains(name)
+    def getFile(name: Rep[String]): Rep[File]               = fs.files(name)
+    def setFile(name: Rep[String], f: Rep[File]): Rep[Unit] = fs.files = fs.files + (name, f)
+    def removeFile(name: Rep[String]): Rep[Unit]            = fs.files = fs.files - name
 
-    def removeFile(name: Rep[String]): Rep[Boolean] = {
-      if (fs.hasFile(name)) {
-          fs.files = fs.files - name
-          true
-      }
-      else false
-    }
-
-    def hasStream(fd: Rep[Fd]): Rep[Boolean]                = "method-@".reflectCtrlWith[Boolean](fs, "has_stream", fd)
-    def getStream(fd: Rep[Fd]): Rep[Stream]                 = "method-@".reflectCtrlWith[Stream](fs, "get_stream", fd)
-    def setStream(fd: Rep[Fd], s: Rep[Stream]): Rep[Unit]   = "method-@".reflectCtrlWith[Unit](fs, "set_stream", fd, s)
-    def removeStream(fd: Rep[Fd]): Rep[Stream]              = "method-@".reflectCtrlWith[Stream](fs, "remove_stream", fd)
+    def hasStream(fd: Rep[Fd]): Rep[Boolean]              = fs.openedFiles.contains(fd)
+    def getStream(fd: Rep[Fd]): Rep[Stream]               = fs.openedFiles(fd)
+    def setStream(fd: Rep[Fd], s: Rep[Stream]): Rep[Unit] = fs.openedFiles = fs.openedFiles + (fd, s)
+    def removeStream(fd: Rep[Fd]): Rep[Unit]              = fs.openedFiles = fs.openedFiles - fd
   }
 
   def putState(s: Rep[SS]): Comp[E, Rep[Unit]] = for { _ <- put[Rep[SS], E](s) } yield ()

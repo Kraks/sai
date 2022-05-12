@@ -33,7 +33,13 @@ trait GenExternal extends SymExeDefs {
   def sym_exit[T: Manifest](ss: Rep[SS], args: Rep[List[Value]]): Rep[T] =
     "sym_exit".reflectWith[T](ss, args)
 
+  // TODO: Utility functions
+  // 1. object constructors, factories (e.g. new_stream, new_stat) 
+  // <2022-05-12, David Deng> //
   def getString(ptr: Rep[Value], s: Rep[SS]): Rep[String] = "get_string".reflectWith[String](ptr, s)
+
+  def new_stream(f: Rep[File]): Rep[Stream] = "Stream".reflectWith[Stream](f)
+
 
   def llsc_assert[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
     val v = args(0)
@@ -48,8 +54,6 @@ trait GenExternal extends SymExeDefs {
       else k(ss.addPC(v.toSMTBool), IntV(1, 32))
     }
   }
-
-  def new_stream(f: Rep[File]): Rep[Stream] = "Stream".reflectWith[Stream](f)
 
   def open[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
     val ptr = args(0)
@@ -66,8 +70,7 @@ trait GenExternal extends SymExeDefs {
   }
 
   def close[T: Manifest](fs: Rep[FS], args: Rep[List[Value]], k: (Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
-    // Only cast by asRepOf when deemed safe
-    val fd: Rep[Int] = args(0).toIntV.int.asRepOf[Int]
+    val fd: Rep[Fd] = args(0).int.toInt
     if (!fs.hasStream(fd)) k(fs, IntV(-1, 32))
     else {
       val strm = fs.getStream(fd)
@@ -83,10 +86,9 @@ trait GenExternal extends SymExeDefs {
   }
 
   def read[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
-    val fd: Rep[Int] = args(0).int.asRepOf[Int]
+    val fd: Rep[Int] = args(0).int.toInt
     val loc: Rep[Value] = args(1)
-    val count: Rep[Int] = args(2).int.asRepOf[Int]
-    // val (content, size): (Rep[List[Value]], Rep[Int]) = fs.readFile(fd, count).unlift
+    val count: Rep[Int] = args(2).int.toInt
     if (!fs.hasStream(fd)) k(ss, fs, IntV(-1, 64))
     else {
       val strm = fs.getStream(fd)
@@ -102,9 +104,9 @@ trait GenExternal extends SymExeDefs {
   }
 
   def write[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
-    val fd: Rep[Int] = args(0).int.asRepOf[Int]
+    val fd: Rep[Int] = args(0).int.toInt // NOTE: .int => Rep[Long], .toInt => Rep[Int]
     val buf: Rep[Value] = args(1)
-    val count: Rep[Int] = args(2).int.asRepOf[Int]
+    val count: Rep[Int] = args(2).int.toInt
     val content: Rep[List[Value]] = ss.lookupSeq(buf, count)
     if (!fs.hasStream(fd)) k(ss, fs, IntV(-1, 64))
     else {
@@ -118,7 +120,7 @@ trait GenExternal extends SymExeDefs {
   def lseek[T: Manifest](fs: Rep[FS], args: Rep[List[Value]], k: (Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
     val fd: Rep[Fd] = args(0).int.asRepOf[Fd]
     val o: Rep[Long] = args(1).int.asRepOf[Long]
-    val w: Rep[Int] = args(2).int.asRepOf[Int]
+    val w: Rep[Int] = args(2).int.toInt
     val pos: Rep[Long] = fs.seekFile(fd, o, w)
     k(fs, IntV(pos, 64))
   }
