@@ -340,7 +340,7 @@ class Stack: public Printable {
           updated_mem = updated_mem.append(vals.at(i), 7);
         }
         if (updated_mem.size() == mem.size()) updated_mem = updated_mem.alloc(8);
-        auto updated_vals = vals.take(id_size - 1).push_back(make_LocV(mem.size(), LocV::kStack));
+        auto updated_vals = vals.take(id_size - 1).push_back(make_LocV(mem.size(), LocV::kStack, updated_mem.size() - mem.size()));
         auto stack = Stack(updated_mem, env.update(env.size()-1, [&](auto f) { return f.assign_seq(ids, updated_vals); }));
         return Stack(updated_mem, env.update(env.size()-1, [&](auto f) { return f.assign_seq(ids, updated_vals); }));
       } else {

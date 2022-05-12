@@ -303,10 +303,6 @@ inline PtrVal make_LocV(Addr i, LocV::Kind k, int size, int off = 0) {
   return std::make_shared<LocV>(i, k, size, off);
 }
 
-inline PtrVal make_LocV(Addr i, LocV::Kind k) {
-  return std::make_shared<LocV>(i, k, -1, 0);
-}
-
 inline unsigned int proj_LocV(const PtrVal& v) {
   return std::dynamic_pointer_cast<LocV>(v)->l;
 }
