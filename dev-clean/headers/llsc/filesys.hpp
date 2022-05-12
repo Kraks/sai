@@ -213,7 +213,7 @@ struct Stream: public Printable {
 struct FS: public Printable {
     immer::map<Fd, Stream> opened_files;
     /* TODO: implement directory structure
-     * 1. change the string key to a fileId, similar to inode number 
+     * 1. change the string key to a fileId, similar to inode number
      * 2. add a root directory file, with fileId=0
      * <2022-02-08, David Deng> */
     immer::map<std::string, File> files;
