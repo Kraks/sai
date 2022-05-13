@@ -79,6 +79,8 @@ trait SAIOps extends Base
       Wrap[T](Adapter.g.reflectMutable(op, rs.map(Unwrap):_*))
     def reflectCtrlWith[T: Manifest](rs: Rep[_]*): Rep[T] =
       Wrap[T](Adapter.g.reflectEffect(op, rs.map(Unwrap):_*)(Adapter.CTRL)(Adapter.CTRL))
+    def reflectUnsafeWith[T: Manifest](rs: Rep[_]*): Rep[T] =
+      Wrap[T](Adapter.g.reflectUnsafe(op, rs.map(Unwrap):_*))
   }
 
   def print(x: Rep[Any]): Unit = Adapter.g.reflectWrite("print",Unwrap(x))(Adapter.CTRL)

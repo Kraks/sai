@@ -150,6 +150,8 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
 
   }
 
+  def literal[T: Manifest](s: String): Rep[T] = "literal".reflectUnsafeWith[T](s)
+
   implicit class FileOps(file: Rep[File]) {
     // fields
     def name: Rep[String]         = "field-@".reflectWith[String](file, "name")
@@ -160,18 +162,31 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
     // assign field
     // TODO: Is this valid? <2022-05-12, David Deng> //
     // def size_=(rhs: Rep[Int]): Rep[Int] = "field-assign".reflectCtrlWith(file, "size", rhs)
-    def name_=(rhs: Rep[Int]): Rep[Int] = "field-assign".reflectCtrlWith(file, "name", rhs)
-    def content_=(rhs: Rep[Int]): Rep[Int] = "field-assign".reflectCtrlWith(file, "content", rhs)
-    def stat_=(rhs: Rep[Int]): Rep[Int] = "field-assign".reflectCtrlWith(file, "stat", rhs)
+    def name_=(rhs: Rep[String]): Rep[String] = "field-assign".reflectCtrlWith(file, "name", rhs)
+    def content_=(rhs: Rep[List[Value]]): Rep[List[Value]] = "field-assign".reflectCtrlWith(file, "content", rhs)
+    def stat_=(rhs: Rep[List[Value]]): Rep[List[Value]] = "field-assign".reflectCtrlWith(file, "stat", rhs)
 
     // methods
     def readAt(pos: Rep[Long], len: Rep[Long]): Rep[List[Value]] = content.drop(pos.toInt).take(len.toInt)
 
-    // TODO: Eliminate the following methods-@ <2022-05-12, David Deng> //
-    def writeAtNoFill(c: Rep[List[Value]], pos: Rep[Long]): Rep[Unit] = "method-@".reflectCtrlWith[Unit](file, "write_at_no_fill", c, pos)
-    def writeAt(c: Rep[List[Value]], pos: Rep[Long], fill: Rep[Value]): Rep[Unit] = "method-@".reflectCtrlWith[Unit](file, "write_at", c, pos, fill)
-    def append(c: Rep[List[Value]]): Rep[Unit] = "method-@".reflectCtrlWith[Unit](file, "append", c)
-    def clear(): Rep[Unit] = "method-@".reflectCtrlWith[Unit](file, "clear")
+    def writeAtNoFill(c: Rep[List[Value]], pos: Rep[Long]): Rep[File] = {
+      unchecked("// File.writeAtNoFill")
+      file.content = file.content.take(pos.toInt) ++ c ++ file.content.drop(pos.toInt + c.size)
+      file
+    }
+    def writeAt(c: Rep[List[Value]], pos: Rep[Long], fill: Rep[Value]): Rep[File] = {
+      unchecked("// File.writeAt")
+      val fillSize = pos.toInt - c.size
+      if (fillSize > 0) {
+        file.content = file.content ++ List.fill(fillSize)(fill)
+      }
+      file.writeAtNoFill(c, pos)
+    }
+    def append(c: Rep[List[Value]]): Rep[File] = file.writeAtNoFill(c, file.content.size)
+    def clear(): Rep[File] = { 
+      file.content = List() 
+      file
+    }
   }
 
   implicit class StreamOps(strm: Rep[Stream]) {
@@ -182,9 +197,9 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
     def mode: Rep[Int]    = "field-@".reflectWith[Int](strm, "mode")
 
     // assign field
-    def file_= (rhs: Rep[Long]): Rep[Long] = "field-assign".reflectCtrlWith(strm, "file", rhs)
+    def file_= (rhs: Rep[File]): Rep[File] = "field-assign".reflectCtrlWith(strm, "file", rhs)
     def cursor_= (rhs: Rep[Long]): Rep[Long] = "field-assign".reflectCtrlWith(strm, "cursor", rhs)
-    def mode_= (rhs: Rep[Long]): Rep[Long] = "field-assign".reflectCtrlWith(strm, "mode", rhs)
+    def mode_= (rhs: Rep[Int]): Rep[Int] = "field-assign".reflectCtrlWith(strm, "mode", rhs)
 
     def read(n: Rep[Long]): Rep[List[Value]] = {
       val content = file.readAt(strm.cursor, n)
@@ -194,7 +209,7 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
 
     def write(c: Rep[List[Value]], n: Rep[Long]): Rep[Long] = {
       val content = c.take(n.toInt)
-      file.writeAt(content, strm.cursor, unchecked("IntV0"))
+      strm.file = strm.file.writeAt(content, strm.cursor, literal("IntV0"))
       strm.cursor = strm.cursor + content.size;
       return content.size
     }

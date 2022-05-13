@@ -35,9 +35,11 @@ trait GenExternal extends SymExeDefs {
 
   // TODO: Utility functions
   // 1. object constructors, factories (e.g. new_stream, new_stat) 
+  // Use the apply() method on classes as constructors/factories
   // <2022-05-12, David Deng> //
   def getString(ptr: Rep[Value], s: Rep[SS]): Rep[String] = "get_string".reflectWith[String](ptr, s)
 
+  // TODO: refactor this into the apply method <2022-05-13, David Deng> //
   def new_stream(f: Rep[File]): Rep[Stream] = "Stream".reflectWith[Stream](f)
 
 
