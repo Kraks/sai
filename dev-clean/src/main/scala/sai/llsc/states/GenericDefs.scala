@@ -157,7 +157,7 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
   }
   object LocV {
     trait Kind
-    def nullloc: Rep[Value] = "make_LocV_null".reflectMutableWith[Value]()
+    def nullloc: Rep[Value] = IntV(0, ARCH_WORD_SIZE)
     def kStack: Rep[Kind] = "kStack".reflectMutableWith[Kind]()
     def kHeap: Rep[Kind] = "kHeap".reflectMutableWith[Kind]()
     def apply(l: Rep[Addr], kind: Rep[Kind], size: Rep[Long], off: Rep[Long] = 0L): Rep[Value] =
