@@ -191,14 +191,9 @@ class TopFunExperimentDriver(folder: String = "./headers/llsc") extends SAISnipp
 
   def read_dev_field(f: Rep[File]): Rep[Value] = f.readStatField("st_dev")
 
-  def add_top(a: Rep[Value], b: Rep[Value]): Rep[Value] = {
-    a.toLocV + b.int
-  }
-
   def snippet(u: Rep[Int]) = {
     hardTopFun(gen_p(wrap(open(_,_,_,_))), "open", "inline")
     hardTopFun(gen_k(wrap(open(_,_,_,_))), "open", "inline")
-    hardTopFun(add_top(_,_), "add", "inline")
     hardTopFun(read_dev_field(_), "read_dev_field", "inline")
     ()
   }
