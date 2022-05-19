@@ -137,6 +137,8 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     case Node(s, "nullptr", _, _) => es"nullptr"
     case Node(s, "to-bytes", List(v), _) => es"$v->to_bytes()"
     case Node(s, "to-bytes-shadow", List(v), _) => es"$v->to_bytes_shadow()"
+    case Node(s, "from-bytes", List(l), _) => es"Value::from_bytes($l)"
+    case Node(s, "from-bytes-shadow", List(l), _) => es"Value::from_bytes_shadow($l)"
     case Node(s, "make_FloatV", List(Const(l: String), Const(80)), _) =>
       val byteArr = l.substring(3).grouped(2).toList
       val litRep = "{" + byteArr.reverse.map(v => "0x" ++ v).mkString(", ") + "}"

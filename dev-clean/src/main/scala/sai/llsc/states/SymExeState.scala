@@ -151,7 +151,23 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
   }
 
   def literal[T: Manifest](s: String): Rep[T] = "literal".reflectUnsafeWith[T](s)
-
+  val statFieldMap: Map[String, (Int, Int)] = StaticMap(
+      "st_dev" -> (0, 8),
+      "st_ino" -> (8, 8),
+      "st_nlink" -> (16, 8),
+      "st_mode" -> (24, 4),
+      "st_uid" -> (28, 4),
+      "st_gid" -> (32, 4),
+      // padding,      {36,  4  }},
+      "st_rdev" -> (40, 8),
+      "st_size" -> (48, 8),
+      "st_blksi" -> (56, 8),
+      "st_block" -> (64, 8),
+      "st_atim" -> (72, 16),
+      "st_mtim" -> (88, 16),
+      "st_ctim" -> (104, 16),
+  )
+  
   implicit class FileOps(file: Rep[File]) {
     // fields
     def name: Rep[String]         = "field-@".reflectWith[String](file, "name")
@@ -169,12 +185,22 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
     // methods
     def readAt(pos: Rep[Long], len: Rep[Long]): Rep[List[Value]] = content.drop(pos.toInt).take(len.toInt)
 
-    def writeAtNoFill(c: Rep[List[Value]], pos: Rep[Long]): Rep[File] = {
+    def readStatField(f: String): Rep[Value] = {
+      val (pos, size) = statFieldMap(f)
+      "from-bytes".reflectWith[Value](file.stat.drop(pos).take(size))
+    }
+
+    def writeStatField(f: String, v: Rep[Value]): Rep[Unit] = {
+      val (pos, size) = statFieldMap(f)
+      val bytes = "to-bytes".reflectWith[List[Value]](v)
+      file.stat = file.stat.take(pos) ++ bytes ++ file.stat.drop(pos + bytes.size)
+    }
+
+    def writeAtNoFill(c: Rep[List[Value]], pos: Rep[Long]): Rep[Unit] = {
       unchecked("// File.writeAtNoFill")
       file.content = file.content.take(pos.toInt) ++ c ++ file.content.drop(pos.toInt + c.size)
-      file
     }
-    def writeAt(c: Rep[List[Value]], pos: Rep[Long], fill: Rep[Value]): Rep[File] = {
+    def writeAt(c: Rep[List[Value]], pos: Rep[Long], fill: Rep[Value]): Rep[Unit] = {
       unchecked("// File.writeAt")
       val fillSize = pos.toInt - c.size
       if (fillSize > 0) {
@@ -182,14 +208,19 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
       }
       file.writeAtNoFill(c, pos)
     }
-    def append(c: Rep[List[Value]]): Rep[File] = file.writeAtNoFill(c, file.content.size)
+    def append(c: Rep[List[Value]]): Rep[Unit] = file.writeAtNoFill(c, file.content.size)
     def clear(): Rep[File] = { 
       file.content = List() 
       file
     }
   }
 
+  object Stream {
+    def apply(f: Rep[File]) = "Stream".reflectWith[Stream](f)
+  }
+
   implicit class StreamOps(strm: Rep[Stream]) {
+
     // fields
     def name: Rep[String] = strm.file.name
     def file: Rep[File]   = "field-@".reflectWith[File](strm, "file")
@@ -209,7 +240,10 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
 
     def write(c: Rep[List[Value]], n: Rep[Long]): Rep[Long] = {
       val content = c.take(n.toInt)
-      strm.file = strm.file.writeAt(content, strm.cursor, literal("IntV0"))
+      val f = strm.file
+      f.writeAt(content, strm.cursor, literal("IntV0"))
+      strm.file = f
+      // strm.file = strm.file.writeAt(content, strm.cursor, literal("IntV0"))
       strm.cursor = strm.cursor + content.size;
       return content.size
     }
@@ -225,9 +259,10 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
     // Thought: we should eliminate all method-@ at the end, right? What is the rule about what to keep at the backend? 
     // Maybe complicated algorithm (like branching) can be kept at the backend? <2022-05-12, David Deng> //
 
+    // TODO: eliminate seek_file backend function <2022-05-18, David Deng> //
     def seekFile(fd: Rep[Fd], o: Rep[Long], w: Rep[Int]): Rep[Long] = "method-@".reflectCtrlWith[Long](fs, "seek_file", fd, o, w)
 
-    def getFreshFd(): Rep[Fd]                               = "method-@".reflectCtrlWith[Fd](fs, "get_fresh_fd")
+    def getFreshFd(): Rep[Fd] = "method-@".reflectCtrlWith[Fd](fs, "get_fresh_fd")
 
     // TODO: extend those methods when support for directory structure is added <2022-05-07, David Deng> //
     def hasFile(name: Rep[String]): Rep[Boolean]            = fs.files.contains(name)

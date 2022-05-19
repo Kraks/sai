@@ -39,10 +39,6 @@ trait GenExternal extends SymExeDefs {
   // <2022-05-12, David Deng> //
   def getString(ptr: Rep[Value], s: Rep[SS]): Rep[String] = "get_string".reflectWith[String](ptr, s)
 
-  // TODO: refactor this into the apply method <2022-05-13, David Deng> //
-  def new_stream(f: Rep[File]): Rep[Stream] = "Stream".reflectWith[Stream](f)
-
-
   def llsc_assert[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
     val v = args(0)
     if (v.isConc) {
@@ -66,7 +62,7 @@ trait GenExternal extends SymExeDefs {
     else {
       val fd: Rep[Fd] = fs.getFreshFd()
       val file = fs.files(name)
-      fs.setStream(fd, new_stream(file))
+      fs.setStream(fd, Stream(file))
       k(ss, fs, IntV(fd, 32))
     }
   }
@@ -167,6 +163,51 @@ trait GenExternal extends SymExeDefs {
         k(ss, ret)
     }
     f(ss, ss.getFs, args, kp)
+  }
+}
+
+class TopFunExperimentDriver(folder: String = "./headers/llsc") extends SAISnippet[Int, Unit] with SAIOps with GenExternal { q =>
+  import java.io.{File, PrintStream}
+  import scala.collection.mutable.HashMap
+
+  val codegen: GenericLLSCCodeGen = new GenericLLSCCodeGen {
+    val codegenFolder: String = folder
+    val blockNameMap: HashMap[Int, String] = new HashMap()
+    setFunMap(funNameMap)
+    setBlockMap(blockNameMap)
+    override def emitAll(g: Graph, name: String)(m1: Manifest[_], m2: Manifest[_]): Unit = {
+      val ng = init(g)
+      run(name, ng)
+      emitFunctionDecls(stream)
+      emitFunctions(stream)
+    }
+  }
+
+  def genHeader: Unit = {
+    val mainStream = new PrintStream(s"$folder/topfun.hpp")
+    val statics = Adapter.emitCommon1("header", codegen, mainStream)(manifest[Int], manifest[Unit])(x => Unwrap(wrapper(Wrap[Int](x))))
+    mainStream.close
+  }
+
+  def read_dev_field(f: Rep[File]): Rep[Value] = f.readStatField("st_dev")
+
+  def add_top(a: Rep[Value], b: Rep[Value]): Rep[Value] = {
+    a.toLocV + b.int
+  }
+
+  def snippet(u: Rep[Int]) = {
+    hardTopFun(gen_p(wrap(open(_,_,_,_))), "open", "inline")
+    hardTopFun(gen_k(wrap(open(_,_,_,_))), "open", "inline")
+    hardTopFun(add_top(_,_), "add", "inline")
+    hardTopFun(read_dev_field(_), "read_dev_field", "inline")
+    ()
+  }
+}
+
+object TopFunExperimentGen {
+  def main(args: Array[String]): Unit = {
+    val code = new TopFunExperimentDriver
+    code.genHeader
   }
 }
 
