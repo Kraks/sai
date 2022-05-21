@@ -175,7 +175,7 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
   implicit class FileOps(file: Rep[File]) {
     // fields
     def name: Rep[String]         = "field-@".reflectWith[String](file, "name")
-    def content: Rep[List[Value]] = "field-@".reflectWith[List[Value]](file, "content")
+    def content: Rep[List[Value]] = "field-@".reflectMutableWith[List[Value]](file, "content")
     def size: Rep[Int]            = content.size
     def stat: Rep[List[Value]]    = "field-@".reflectWith[List[Value]](file, "stat")
 
@@ -206,7 +206,7 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
     }
     def writeAt(c: Rep[List[Value]], pos: Rep[Long], fill: Rep[Value]): Rep[Unit] = {
       unchecked("// File.writeAt")
-      val fillSize = pos.toInt - c.size
+      val fillSize = pos.toInt - file.content.size
       if (fillSize > 0) {
         file.content = file.content ++ List.fill(fillSize)(fill)
       }
@@ -214,7 +214,7 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
     }
     def append(c: Rep[List[Value]]): Rep[Unit] = file.writeAtNoFill(c, file.content.size)
     def clear(): Rep[File] = { 
-      file.content = List() 
+      file.content = List[Value]() 
       file
     }
   }

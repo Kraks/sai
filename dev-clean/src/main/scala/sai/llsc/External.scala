@@ -153,7 +153,7 @@ trait GenExternal extends SymExeDefs {
     assert(e, msg)
   }
   def assert(cond: Rep[Boolean], msg: String = ""): Rep[Unit] = {
-    "ASSERT".reflectCtrlWith[Unit](cond, unit(msg))
+    "assert".reflectCtrlWith[Unit](cond, unit(msg))
   }
 
   // generate different return style
@@ -213,8 +213,8 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
       emit(src)
       emitln(s"""
         |int main(int argc, char *argv[]) {
-        |  test(0);
-        |  return 0;
+          |  test(0);
+          |  return 0;
         |} """.stripMargin)
     }
   }
@@ -228,200 +228,211 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
   }
 
   def testReadAt(): Rep[Unit] = {
-    unchecked("// test read_at")
-    val l = List(iv(0), iv(1), iv(2))
-    val f = File("A", l)
-    assertEq(f.readAt(unit(0), unit(2)), l.take(2), "read_at")
+    unchecked("/* test readAt */")
+    val f = File("A", List(iv(0), iv(1), iv(2)))
+    assertEq(f.readAt(unit(0), unit(2)), List(iv(0), iv(1)), "readAt")
+    assertEq(f.readAt(unit(1), unit(4)), List(iv(1), iv(2)), "readAt with more bytes")
+    assertEq(f.readAt(unit(0), unit(0)), List[Value](), "readAt with no bytes")
   }
 
-  // def testFile(): Rep[Unit] = {
+  def testSize(): Rep[Unit] = {
+    unchecked("/* test size */")
+    val f = File("A", List(iv(0), iv(1), iv(2)))
+    assertEq(f.content.size, 3, "size of non-empty file")
+    assertEq(File("B").content.size, 0, "size of an empty file")
+  }
 
-  //   unchecked("// test readAt")
-  //   val f = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2})
-  //   ASSERT((f.readAt(0, 2) == immer::flex_vector<PtrVal>{intV_0, intV_1}), "readAt")
-  //   ASSERT((f.readAt(1, 4) == immer::flex_vector<PtrVal>{intV_1, intV_2}), "readAt with more bytes")
-  //   ASSERT((f.readAt(0, 0) == immer::flex_vector<PtrVal>{}), "readAt with no bytes")
+  def testMake_SymFile(): Rep[Unit] = {
+    unchecked("/* test make_SymFile */")
+    // val f = makeSymFile("A", 5)
+    // assertEq(f.content.size, 5, "make_SymFile returns file of correct size")
+  }
 
-  //   unchecked("// test size")
-  //   val f = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2})
-  //   ASSERT(f.content.size() == 3, "size of non-empty file")
-  //   ASSERT(File("B").content.size() == 0, "size of an empty file")
+  def testClear(): Rep[Unit] = {
+    unchecked("/* test clear */")
+    val f = File("A", List(iv(0), iv(1), iv(2)))
+    f.clear()
+    assertEq(f.content.size, 0, "clear should result in empty file")
+  }
 
-  //   unchecked("// test make_SymFile")
-  //   val f = make_SymFile("A", 5)
-  //   ASSERT(f.content.size() == 5, "make_SymFile returns file of correct size")
+  def testWriteAtNoFill(): Rep[Unit] = {
+    unchecked("/* test writeAtNoFill */")
+    val f1 = File("A", List(iv(0), iv(1), iv(2)))
+    val f2 = File("A", List(iv(0), iv(1), iv(2)))
+    val f3 = File("A", List(iv(0), iv(1), iv(2)))
 
-  //   unchecked("// test clear")
-  //   val f = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2})
-  //   f.clear()
-  //   ASSERT((f.content.size() == 0), "clear should result in empty file")
+    f1.writeAtNoFill(List(iv(3), iv(4), iv(5)), unit(3))
+    assertEq(f1.content,
+      List(iv(0), iv(1), iv(2), iv(3), iv(4), iv(5)), 
+      "write at the end of a file")
 
-  //   unchecked("// test write_at_no_fill")
-  //   val f1 = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2})
-  //   val f2 = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2})
-  //   val f3 = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2})
+    f2.writeAtNoFill(List(iv(3), iv(4), iv(5)), unit(2))
+    assertEq(f2.content,
+      List(iv(0), iv(1), iv(3), iv(4), iv(5)), 
+      "write at the middle of a file, exceeding the end")
 
-    
-  //   f1.write_at_no_fill(immer::flex_vector<PtrVal>{intV_3, intV_4, intV_5}, 3)
-  //   ASSERT((f1.content ==
-  //         immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2, intV_3, intV_4, intV_5}), 
-  //       "write at the end of a file")
+    f3.writeAtNoFill(List(iv(4)), unit(1))
+    assertEq(f3.content,
+      List(iv(0), iv(4), iv(2)), 
+      "write at the middle of a file, not exceeding the end")
 
-  //   f2.write_at_no_fill(immer::flex_vector<PtrVal>{intV_3, intV_4, intV_5}, 2)
-  //   ASSERT((f2.content ==
-  //         immer::flex_vector<PtrVal>{intV_0, intV_1, intV_3, intV_4, intV_5}), 
-  //       "write at the middle of a file, exceeding the end")
+  }
+  def testWriteAt(): Rep[Unit] = {
+    unchecked("/* test writeAt */")
+    val f1 = File("A", List(iv(0), iv(1), iv(2)))
+    val f2 = File("A", List(iv(0), iv(1), iv(2)))
+    val f3 = File("A", List(iv(0), iv(1), iv(2)))
 
-  //   f3.write_at_no_fill(immer::flex_vector<PtrVal>{intV_4}, 1)
-  //   ASSERT((f3.content ==
-  //         immer::flex_vector<PtrVal>{intV_0, intV_4, intV_2}), 
-  //       "write at the middle of a file, not exceeding the end")
+    f1.writeAt(List(iv(4)), unit(5), iv(0))
+    assertEq(f1.content,
+      List(iv(0), iv(1), iv(2), iv(0), iv(0), iv(4)), 
+      "write after the end of the file, a hole should be created")
 
+    f2.writeAt(List(iv(4)), unit(3), iv(0))
+    f3.writeAtNoFill(List(iv(4)), unit(3))
+    assertEq(f2.content, f3.content,
+      "writeAt and writeAtNoFill should behave the same when not writing after the end")
+  }
 
-  //   unchecked("// test write_at")
-  //   val f1 = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2})
-  //   val f2 = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2})
-  //   val f3 = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2})
+  def testStream() = {
+    val f = File("A", List(iv(0), iv(1), iv(2)))
+    val s = Stream(f)
+    assertEq(s.cursor, 0, "cursor should default to 0")
+  }
 
-  //   f1.write_at(immer::flex_vector<PtrVal>{intV_4}, 5, intV_0)
-  //   ASSERT((f1.content ==
-  //         immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2, intV_0, intV_0, intV_4}), 
-  //       "write after the end of the file, a hole should be created")
-
-  //   f2.write_at(immer::flex_vector<PtrVal>{intV_4}, 3, intV_0)
-  //   f3.write_at_no_fill(immer::flex_vector<PtrVal>{intV_4}, 3)
-  //   ASSERT((f2.content == f3.content),
-  //       "write_at and write_at_no_fill should behave the same when not writing after the end")
-// }
-
-// def test_stream() = {
-
-  // val f = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2})
-  // val s = Stream(f)
-  // off_t pos
-  //   ASSERT((s.cursor == 0), "cursor should default to 0")
-
-  //   unchecked("// test seek")
+  // def testSeek(): Rep[Unit] = {
+  //   off_t pos
+  //   unchecked("/* test seek */")
   //   val s1 = Stream(s) //    Stream s1(s)
   //   pos = s1.seek_start(15)
-  //   ASSERT(pos == 15, "seek start")
+  //   assertEq(pos, 15, "seek start")
 
   //   val s2 = Stream(s) //    Stream s2(s)
   //   pos = s2.seek_end(15)
-  //   ASSERT(pos == 18, "seek end")
+  //   assertEq(pos, 18, "seek end")
 
   //   val s3 = Stream(s) //    Stream s3(s)
   //   pos = s3.seek_cur(7)
   //   pos = s3.seek_cur(8)
-  //   ASSERT(pos == 15, "seek cursor")
+  //   assertEq(pos, 15, "seek cursor")
 
-  //   unchecked("// test seek error")
-    
+  // }
+
+  // def testSeekError(): Rep[Unit] = {
+  //   unchecked("/* test seek error */")
   //   val s1 = Stream(s) //    Stream s1(s)
   //   pos = s1.seek_start(-1)
-  //   ASSERT(pos == -1, "should set error")
+  //   assertEq(pos, -1, "should set error")
 
   //   val s2 = Stream(s) //    Stream s2(s)
   //   pos = s2.seek_cur(1)
   //   pos = s2.seek_cur(-2)
-  //   ASSERT(pos == -1, "should set error")
+  //   assertEq(pos, -1, "should set error")
 
   //   val s3 = Stream(s) //    Stream s3(s)
   //   pos = s3.seek_end(-5)
-  //   ASSERT(pos == -1, "should set error")
+  //   assertEq(pos, -1, "should set error")
 
-  //   unchecked("// test read stream")
-  //   val f = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2, intV_3, intV_4})
+  // }
+  // def testReadStream(): Rep[Unit] = {
+  //   unchecked("/* test read stream */")
+  //   val f = File("A", List(iv(0), iv(1), iv(2), iv(3), iv(4)))
   //   val s1 = Stream(f) //    Stream s1(f)
 
   //   auto content = s1.read(3)
-  //   ASSERT(content == f.readAt(0, 3), "should read the first three bytes")
+  //   assertEq(content, f.readAt(unit(0), unit(3)), "should read the first three bytes")
 
   //   content = s1.read(999)
-  //   ASSERT(content == f.readAt(3, 2), "should return the rest of the file")
+  //   assertEq(content, f.readAt(unit(3), unit(2)), "should return the rest of the file")
 
   //   content = s1.read(999)
-  //   ASSERT(content == immer::flex_vector<PtrVal>{}, "should return nothing")
+  //   assertEq(content, List(), "should return nothing")
 
-  //   unchecked("// test write stream")
-  //   val f = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2, intV_3, intV_4})
+  // }
+
+  // def testWriteStream(): Rep[Unit] = {
+  //   unchecked("/* test write stream */")
+  //   val f = File("A", List(iv(0), iv(1), iv(2), iv(3), iv(4)))
   //   val s1 = Stream(f) //    Stream s1(f)
   //   int nbytes
 
-  //   nbytes = s1.write(immer::flex_vector<PtrVal>{intV_5, intV_6}, 5)
-  //   ASSERT(nbytes == 2, "should write two bytes")
+  //   nbytes = s1.write(List(iv(5), iv(6)), 5)
+  //   assertEq(nbytes, 2, "should write two bytes")
 
   //   val s2 = Stream(f) //    Stream s2(f)
-  //   nbytes = s2.write(immer::flex_vector<PtrVal>{intV_5, intV_6}, 1)
-  //   ASSERT(nbytes == 1, "should write one byte")
-    
+  //   nbytes = s2.write(List(iv(5), iv(6)), 1)
+  //   assertEq(nbytes, 1, "should write one byte")
+
   //   val s3 = Stream(f) //    Stream s3(f)
-  //   s3.write(immer::flex_vector<PtrVal>{intV_5, intV_6}, 2)
-  //   ASSERT((s3.seek_cur(0) == 2), "cursor should have advanced by two")
+  //   s3.write(List(iv(5), iv(6)), 2)
+  //   assertEq(s3.seek_cur(0), 2, "cursor should have advanced by two")
   //   s3.seek_start(0)
-  //   ASSERT((s3.read(5) == 
-  //         immer::flex_vector<PtrVal>{intV_5, intV_6, intV_2, intV_3, intV_4}), 
-  //       "content should be updated")
+  //   assertEq(s3.read(5), 
+  //     List(iv(5), iv(6), iv(2), iv(3), iv(4)), 
+  //     "content should be updated")
 
   //   val s4 = Stream(f) //    Stream s4(f)
   //   s4.seek_end(2)
-  //   nbytes = s4.write(immer::flex_vector<PtrVal>{intV_5, intV_6}, 2)
-  //   ASSERT(nbytes == 2, "should have written two bytes")
-  //   ASSERT((s4.seek_end(0) == 9), "should have 9 bytes in total")
+  //   nbytes = s4.write(List(iv(5), iv(6)), 2)
+  //   assertEq(nbytes, 2, "should have written two bytes")
+  //   assertEq(s4.seek_end(0), 9, "should have 9 bytes in total")
   //   s4.seek_start(0)
-  //   ASSERT((s4.read(999) == 
-  //         immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2, intV_3, intV_4, IntV0, IntV0, intV_5, intV_6}), 
-  //       "content should be updated")
-// }
-
-// def test_stat() = {
-  // Stat st1, st2
-
-
-  // unchecked("// test initialization")
-  // ASSERT((st1.get_struct().size() == Stat::total_size), "stat has correct default size")
-  // ASSERT((st1.get_struct().at(0) != nullptr), "stat should not be initialized to nullptr")
-
-
-  // unchecked("// test read and write field")
-  // auto field_name = Stat::st_rdev
-  // auto field_pos = Stat::field_pos_size.at(field_name).first
-  // auto field_size = Stat::field_pos_size.at(field_name).second
-  // st1.write_field(field_name, immer::flex_vector<PtrVal>(field_size, intV_0)); // write 0s to the field
-
-  // auto field_content = st1.read_field(field_name)
-  // ASSERT((field_content.size() == field_size), "the field being read should have the correct size")
-  // for (int i=0; i<field_size; i++) {
-  //   ASSERT((field_content.at(i) == intV_0), "the field should have correct content")
+  //   assertEq(s4.read(999), 
+  //     List(iv(0), iv(1), iv(2), iv(3), iv(4), IntV0, IntV0, iv(5), iv(6)), 
+  //     "content should be updated")
   // }
 
-  // unchecked("// test copy construction")
-  // st2 = st1
-  // for (int i=0; i<Stat::total_size; i++) {
-  //   ASSERT((st1.get_struct().at(i) == st2.get_struct().at(i)), 
+  // def testStat() = {
+  //   Stat st1, st2
+
+  //   unchecked("/* test initialization */")
+  //   assertEq(st1.get_struct().size, Stat::total_size, "stat has correct default size")
+  //   ASSERT(st1.get_struct().at(0) != nullptr, "stat should not be initialized to nullptr")
+
+  //   unchecked("/* test read and write field */")
+  //   auto field_name = Stat::st_rdev
+  //   auto field_pos = Stat::field_pos_size.at(field_name).first
+  //   auto field_size = Stat::field_pos_size.at(field_name).second
+  //   st1.write_field(field_name, immer::flex_vector<PtrVal>(field_size, iv(0))); // write 0s to the field
+
+  //   auto field_content = st1.read_field(field_name)
+  //   assertEq(field_content.size, field_size, "the field being read should have the correct size")
+  //   for (int i=0; i<field_size; i++) {
+  //     assertEq(field_content.at(i), iv(0), "the field should have correct content")
+  //   }
+
+  //   unchecked("/* test copy construction */")
+  //   st2 = st1
+  //   for (int i=0; i<Stat::total_size; i++) {
+  //     assertEq(st1.get_struct().at(i), st2.get_struct().at(i), 
   //       "the two struct instance should have the same content")
+  //   }
   // }
-// }
 
-// def test_dup_sketch() {
-//   typedef std::shared_ptr<Stream> StreamRef;
-//   immer::map<Fd, StreamRef> opened_files;
-//   File f = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2});
-//   opened_files = opened_files.set(1, std::make_shared<Stream>(f, 0, 0));
-//   StreamRef strm = opened_files.at(1); // reference? copy?
-//   opened_files = opened_files.set(2, strm);
-//   strm->cursor = 2; // should update the reference
-//   std::cout << "opened_files.at(1): " << *opened_files.at(1) << std::endl;
-//   std::cout << "opened_files.at(2): " << *opened_files.at(2) << std::endl;
-// }
+  // def test_dup_sketch() {
+  //   typedef std::shared_ptr<Stream> StreamRef;
+  //   immer::map<Fd, StreamRef> opened_files;
+  //   File f = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2});
+  //   opened_files = opened_files.set(1, std::make_shared<Stream>(f, 0, 0));
+  //   StreamRef strm = opened_files.at(1); // reference? copy?
+  //   opened_files = opened_files.set(2, strm);
+  //   strm->cursor = 2; // should update the reference
+  //   std::cout << "opened_files.at(1): " << *opened_files.at(1) << std::endl;
+  //   std::cout << "opened_files.at(2): " << *opened_files.at(2) << std::endl;
+  // }
 
   def snippet(u: Rep[Int]) = {
     testReadAt()
+    testSize()
+    testClear()
+    testWriteAt()
+    testWriteAtNoFill()
+    testStream()
     ()
   }
 }
 
-object ExternalTestGen {
+object GenerateExternalTest {
   def main(args: Array[String]): Unit = {
     val code = new ExternalTestDriver
     code.genAll
