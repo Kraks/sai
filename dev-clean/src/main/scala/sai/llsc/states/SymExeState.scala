@@ -167,6 +167,10 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
       "st_mtim" -> (88, 16),
       "st_ctim" -> (104, 16),
   )
+  object File {
+    def apply(name: Rep[String]) = "File".reflectWith[File](name)
+    def apply(name: Rep[String], content: Rep[List[Value]]) = "File".reflectWith[File](name, content)
+  }
   
   implicit class FileOps(file: Rep[File]) {
     // fields
@@ -215,6 +219,7 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
     }
   }
 
+  // TODO: Change to pointer type for dup syscall? <2022-05-20, David Deng> //
   object Stream {
     def apply(f: Rep[File]) = "Stream".reflectWith[Stream](f)
   }

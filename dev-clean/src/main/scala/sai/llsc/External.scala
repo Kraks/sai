@@ -143,12 +143,25 @@ trait GenExternal extends SymExeDefs {
     k(ss, IntV(0, 32))
   }
 
+  def read_dev_field(f: Rep[File]): Rep[Value] = f.readStatField("st_dev")
+
+  def set_mode(f: Rep[File], mode: Rep[Value]): Rep[Unit] = f.writeStatField("st_mode", mode)
+
+  def assertEq[T: Manifest](lhs: Rep[T], rhs: Rep[T], msg: String = ""): Rep[Unit] = {
+    unchecked("// assertEq")
+    val e: Rep[Boolean] = lhs == rhs
+    assert(e, msg)
+  }
+  def assert(cond: Rep[Boolean], msg: String = ""): Rep[Unit] = {
+    "ASSERT".reflectCtrlWith[Unit](cond, unit(msg))
+  }
+
   // generate different return style
   def gen_k(gen: (Rep[SS], Rep[List[Value]], (Rep[SS], Rep[Value]) => Rep[Unit]) => Rep[Unit]): ((Rep[SS], Rep[List[Value]], Rep[Cont]) => Rep[Unit]) = { case (ss, l, k) => ( gen(ss, l, { case (s,v) => k(s,v) }))}
   def gen_p(gen: (Rep[SS], Rep[List[Value]], (Rep[SS], Rep[Value]) => Rep[List[(SS, Value)]]) => Rep[List[(SS, Value)]]): ((Rep[SS], Rep[List[Value]]) => Rep[List[(SS, Value)]]) = { case (ss, l) => ( gen(ss, l, { case (s,v) => List[(SS, Value)]((s,v)) }))}
 
   // bridge SS and FS
-  def wrap[T: Manifest](f: (Rep[FS], Rep[List[Value]], ((Rep[FS], Rep[Value]) => Rep[T])) => Rep[T])
+  def brg_fs[T: Manifest](f: (Rep[FS], Rep[List[Value]], ((Rep[FS], Rep[Value]) => Rep[T])) => Rep[T])
   (ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): (Rep[T]) = {
     def kp(fs: Rep[FS], ret: Rep[Value]): Rep[T] = {
         ss.setFs(fs)
@@ -156,7 +169,7 @@ trait GenExternal extends SymExeDefs {
     }
     f(ss.getFs, args, kp)
   }
-  def wrap[T: Manifest](f: (Rep[SS], Rep[FS], Rep[List[Value]], ((Rep[SS], Rep[FS], Rep[Value]) => Rep[T])) => Rep[T])
+  def brg_fs[T: Manifest](f: (Rep[SS], Rep[FS], Rep[List[Value]], ((Rep[SS], Rep[FS], Rep[Value]) => Rep[T])) => Rep[T])
   (ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): (Rep[T]) = {
     def kp(ss: Rep[SS], fs: Rep[FS], ret: Rep[Value]): Rep[T] = {
         ss.setFs(fs)
@@ -166,7 +179,7 @@ trait GenExternal extends SymExeDefs {
   }
 }
 
-class TopFunExperimentDriver(folder: String = "./headers/llsc") extends SAISnippet[Int, Unit] with SAIOps with GenExternal { q =>
+class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[Int, Unit] with SAIOps with GenExternal { q =>
   import java.io.{File, PrintStream}
   import scala.collection.mutable.HashMap
 
@@ -176,33 +189,242 @@ class TopFunExperimentDriver(folder: String = "./headers/llsc") extends SAISnipp
     setFunMap(funNameMap)
     setBlockMap(blockNameMap)
     override def emitAll(g: Graph, name: String)(m1: Manifest[_], m2: Manifest[_]): Unit = {
+      // g.show
       val ng = init(g)
-      run(name, ng)
+      val src = run(name, ng)
+      emitln(s"""
+        |#include <iostream>
+        |#include <assert.h>
+        |#include "../llsc.hpp"
+        |
+        |PtrVal intV_0 = make_IntV(0);
+        |PtrVal intV_1 = make_IntV(1);
+        |PtrVal intV_2 = make_IntV(2);
+        |PtrVal intV_3 = make_IntV(3);
+        |PtrVal intV_4 = make_IntV(4);
+        |PtrVal intV_5 = make_IntV(5);
+        |PtrVal intV_6 = make_IntV(6);
+        |PtrVal intV_7 = make_IntV(7);
+        |PtrVal intV_8 = make_IntV(8);
+        |PtrVal intV_9 = make_IntV(9);
+        """.stripMargin)
       emitFunctionDecls(stream)
       emitFunctions(stream)
+      emit(src)
+      emitln(s"""
+        |int main(int argc, char *argv[]) {
+        |  test(0);
+        |  return 0;
+        |} """.stripMargin)
     }
   }
 
-  def genHeader: Unit = {
-    val mainStream = new PrintStream(s"$folder/topfun.hpp")
-    val statics = Adapter.emitCommon1("header", codegen, mainStream)(manifest[Int], manifest[Unit])(x => Unwrap(wrapper(Wrap[Int](x))))
+  def iv(n: Int): Rep[Value] = literal[Value](s"intV_$n")
+
+  def genAll: Unit = {
+    val mainStream = new PrintStream(s"$folder/external_test.cpp")
+    val statics = Adapter.emitCommon1("test", codegen, mainStream)(manifest[Int], manifest[Unit])(x => Unwrap(wrapper(Wrap[Int](x))))
     mainStream.close
   }
 
-  def read_dev_field(f: Rep[File]): Rep[Value] = f.readStatField("st_dev")
+  def testReadAt(): Rep[Unit] = {
+    unchecked("// test read_at")
+    val l = List(iv(0), iv(1), iv(2))
+    val f = File("A", l)
+    assertEq(f.readAt(unit(0), unit(2)), l.take(2), "read_at")
+  }
+
+  // def testFile(): Rep[Unit] = {
+
+  //   unchecked("// test readAt")
+  //   val f = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2})
+  //   ASSERT((f.readAt(0, 2) == immer::flex_vector<PtrVal>{intV_0, intV_1}), "readAt")
+  //   ASSERT((f.readAt(1, 4) == immer::flex_vector<PtrVal>{intV_1, intV_2}), "readAt with more bytes")
+  //   ASSERT((f.readAt(0, 0) == immer::flex_vector<PtrVal>{}), "readAt with no bytes")
+
+  //   unchecked("// test size")
+  //   val f = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2})
+  //   ASSERT(f.content.size() == 3, "size of non-empty file")
+  //   ASSERT(File("B").content.size() == 0, "size of an empty file")
+
+  //   unchecked("// test make_SymFile")
+  //   val f = make_SymFile("A", 5)
+  //   ASSERT(f.content.size() == 5, "make_SymFile returns file of correct size")
+
+  //   unchecked("// test clear")
+  //   val f = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2})
+  //   f.clear()
+  //   ASSERT((f.content.size() == 0), "clear should result in empty file")
+
+  //   unchecked("// test write_at_no_fill")
+  //   val f1 = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2})
+  //   val f2 = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2})
+  //   val f3 = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2})
+
+    
+  //   f1.write_at_no_fill(immer::flex_vector<PtrVal>{intV_3, intV_4, intV_5}, 3)
+  //   ASSERT((f1.content ==
+  //         immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2, intV_3, intV_4, intV_5}), 
+  //       "write at the end of a file")
+
+  //   f2.write_at_no_fill(immer::flex_vector<PtrVal>{intV_3, intV_4, intV_5}, 2)
+  //   ASSERT((f2.content ==
+  //         immer::flex_vector<PtrVal>{intV_0, intV_1, intV_3, intV_4, intV_5}), 
+  //       "write at the middle of a file, exceeding the end")
+
+  //   f3.write_at_no_fill(immer::flex_vector<PtrVal>{intV_4}, 1)
+  //   ASSERT((f3.content ==
+  //         immer::flex_vector<PtrVal>{intV_0, intV_4, intV_2}), 
+  //       "write at the middle of a file, not exceeding the end")
+
+
+  //   unchecked("// test write_at")
+  //   val f1 = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2})
+  //   val f2 = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2})
+  //   val f3 = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2})
+
+  //   f1.write_at(immer::flex_vector<PtrVal>{intV_4}, 5, intV_0)
+  //   ASSERT((f1.content ==
+  //         immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2, intV_0, intV_0, intV_4}), 
+  //       "write after the end of the file, a hole should be created")
+
+  //   f2.write_at(immer::flex_vector<PtrVal>{intV_4}, 3, intV_0)
+  //   f3.write_at_no_fill(immer::flex_vector<PtrVal>{intV_4}, 3)
+  //   ASSERT((f2.content == f3.content),
+  //       "write_at and write_at_no_fill should behave the same when not writing after the end")
+// }
+
+// def test_stream() = {
+
+  // val f = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2})
+  // val s = Stream(f)
+  // off_t pos
+  //   ASSERT((s.cursor == 0), "cursor should default to 0")
+
+  //   unchecked("// test seek")
+  //   val s1 = Stream(s) //    Stream s1(s)
+  //   pos = s1.seek_start(15)
+  //   ASSERT(pos == 15, "seek start")
+
+  //   val s2 = Stream(s) //    Stream s2(s)
+  //   pos = s2.seek_end(15)
+  //   ASSERT(pos == 18, "seek end")
+
+  //   val s3 = Stream(s) //    Stream s3(s)
+  //   pos = s3.seek_cur(7)
+  //   pos = s3.seek_cur(8)
+  //   ASSERT(pos == 15, "seek cursor")
+
+  //   unchecked("// test seek error")
+    
+  //   val s1 = Stream(s) //    Stream s1(s)
+  //   pos = s1.seek_start(-1)
+  //   ASSERT(pos == -1, "should set error")
+
+  //   val s2 = Stream(s) //    Stream s2(s)
+  //   pos = s2.seek_cur(1)
+  //   pos = s2.seek_cur(-2)
+  //   ASSERT(pos == -1, "should set error")
+
+  //   val s3 = Stream(s) //    Stream s3(s)
+  //   pos = s3.seek_end(-5)
+  //   ASSERT(pos == -1, "should set error")
+
+  //   unchecked("// test read stream")
+  //   val f = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2, intV_3, intV_4})
+  //   val s1 = Stream(f) //    Stream s1(f)
+
+  //   auto content = s1.read(3)
+  //   ASSERT(content == f.readAt(0, 3), "should read the first three bytes")
+
+  //   content = s1.read(999)
+  //   ASSERT(content == f.readAt(3, 2), "should return the rest of the file")
+
+  //   content = s1.read(999)
+  //   ASSERT(content == immer::flex_vector<PtrVal>{}, "should return nothing")
+
+  //   unchecked("// test write stream")
+  //   val f = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2, intV_3, intV_4})
+  //   val s1 = Stream(f) //    Stream s1(f)
+  //   int nbytes
+
+  //   nbytes = s1.write(immer::flex_vector<PtrVal>{intV_5, intV_6}, 5)
+  //   ASSERT(nbytes == 2, "should write two bytes")
+
+  //   val s2 = Stream(f) //    Stream s2(f)
+  //   nbytes = s2.write(immer::flex_vector<PtrVal>{intV_5, intV_6}, 1)
+  //   ASSERT(nbytes == 1, "should write one byte")
+    
+  //   val s3 = Stream(f) //    Stream s3(f)
+  //   s3.write(immer::flex_vector<PtrVal>{intV_5, intV_6}, 2)
+  //   ASSERT((s3.seek_cur(0) == 2), "cursor should have advanced by two")
+  //   s3.seek_start(0)
+  //   ASSERT((s3.read(5) == 
+  //         immer::flex_vector<PtrVal>{intV_5, intV_6, intV_2, intV_3, intV_4}), 
+  //       "content should be updated")
+
+  //   val s4 = Stream(f) //    Stream s4(f)
+  //   s4.seek_end(2)
+  //   nbytes = s4.write(immer::flex_vector<PtrVal>{intV_5, intV_6}, 2)
+  //   ASSERT(nbytes == 2, "should have written two bytes")
+  //   ASSERT((s4.seek_end(0) == 9), "should have 9 bytes in total")
+  //   s4.seek_start(0)
+  //   ASSERT((s4.read(999) == 
+  //         immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2, intV_3, intV_4, IntV0, IntV0, intV_5, intV_6}), 
+  //       "content should be updated")
+// }
+
+// def test_stat() = {
+  // Stat st1, st2
+
+
+  // unchecked("// test initialization")
+  // ASSERT((st1.get_struct().size() == Stat::total_size), "stat has correct default size")
+  // ASSERT((st1.get_struct().at(0) != nullptr), "stat should not be initialized to nullptr")
+
+
+  // unchecked("// test read and write field")
+  // auto field_name = Stat::st_rdev
+  // auto field_pos = Stat::field_pos_size.at(field_name).first
+  // auto field_size = Stat::field_pos_size.at(field_name).second
+  // st1.write_field(field_name, immer::flex_vector<PtrVal>(field_size, intV_0)); // write 0s to the field
+
+  // auto field_content = st1.read_field(field_name)
+  // ASSERT((field_content.size() == field_size), "the field being read should have the correct size")
+  // for (int i=0; i<field_size; i++) {
+  //   ASSERT((field_content.at(i) == intV_0), "the field should have correct content")
+  // }
+
+  // unchecked("// test copy construction")
+  // st2 = st1
+  // for (int i=0; i<Stat::total_size; i++) {
+  //   ASSERT((st1.get_struct().at(i) == st2.get_struct().at(i)), 
+  //       "the two struct instance should have the same content")
+  // }
+// }
+
+// def test_dup_sketch() {
+//   typedef std::shared_ptr<Stream> StreamRef;
+//   immer::map<Fd, StreamRef> opened_files;
+//   File f = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2});
+//   opened_files = opened_files.set(1, std::make_shared<Stream>(f, 0, 0));
+//   StreamRef strm = opened_files.at(1); // reference? copy?
+//   opened_files = opened_files.set(2, strm);
+//   strm->cursor = 2; // should update the reference
+//   std::cout << "opened_files.at(1): " << *opened_files.at(1) << std::endl;
+//   std::cout << "opened_files.at(2): " << *opened_files.at(2) << std::endl;
+// }
 
   def snippet(u: Rep[Int]) = {
-    hardTopFun(gen_p(wrap(open(_,_,_,_))), "open", "inline")
-    hardTopFun(gen_k(wrap(open(_,_,_,_))), "open", "inline")
-    hardTopFun(read_dev_field(_), "read_dev_field", "inline")
+    testReadAt()
     ()
   }
 }
 
-object TopFunExperimentGen {
+object ExternalTestGen {
   def main(args: Array[String]): Unit = {
-    val code = new TopFunExperimentDriver
-    code.genHeader
+    val code = new ExternalTestDriver
+    code.genAll
   }
 }
 
@@ -238,25 +460,28 @@ class ExternalLLSCDriver(folder: String = "./headers/llsc") extends SAISnippet[I
     // TODO: llsc_assert_k depends on sym_exit, which doesn't have a _k version right now <2022-01-23, David Deng> //
     // hardTopFun(gen_p(llsc_assert), "llsc_assert", "inline")
     // hardTopFun(gen_k(llsc_assert), "llsc_assert", "inline")
-    hardTopFun(gen_p(wrap(open(_,_,_,_))), "open", "inline")
-    hardTopFun(gen_k(wrap(open(_,_,_,_))), "open", "inline")
-    hardTopFun(gen_p(wrap(close(_,_,_))), "close", "inline")
-    hardTopFun(gen_k(wrap(close(_,_,_))), "close", "inline")
-    hardTopFun(gen_p(wrap(read(_,_,_,_))), "read", "inline")
-    hardTopFun(gen_k(wrap(read(_,_,_,_))), "read", "inline")
-    hardTopFun(gen_p(wrap(write(_,_,_,_))), "write", "inline")
-    hardTopFun(gen_k(wrap(write(_,_,_,_))), "write", "inline")
-    hardTopFun(gen_p(wrap(lseek(_,_,_))), "lseek", "inline")
-    hardTopFun(gen_k(wrap(lseek(_,_,_))), "lseek", "inline")
-    hardTopFun(gen_p(wrap(stat(_,_,_,_))), "stat", "inline")
-    hardTopFun(gen_k(wrap(stat(_,_,_,_))), "stat", "inline")
+    hardTopFun(gen_p(brg_fs(open(_,_,_,_))), "open", "inline")
+    hardTopFun(gen_k(brg_fs(open(_,_,_,_))), "open", "inline")
+    hardTopFun(gen_p(brg_fs(close(_,_,_))), "close", "inline")
+    hardTopFun(gen_k(brg_fs(close(_,_,_))), "close", "inline")
+    hardTopFun(gen_p(brg_fs(read(_,_,_,_))), "read", "inline")
+    hardTopFun(gen_k(brg_fs(read(_,_,_,_))), "read", "inline")
+    hardTopFun(gen_p(brg_fs(write(_,_,_,_))), "write", "inline")
+    hardTopFun(gen_k(brg_fs(write(_,_,_,_))), "write", "inline")
+    hardTopFun(gen_p(brg_fs(lseek(_,_,_))), "lseek", "inline")
+    hardTopFun(gen_k(brg_fs(lseek(_,_,_))), "lseek", "inline")
+    hardTopFun(gen_p(brg_fs(stat(_,_,_,_))), "stat", "inline")
+    hardTopFun(gen_k(brg_fs(stat(_,_,_,_))), "stat", "inline")
+    hardTopFun(read_dev_field(_), "read_dev_field", "inline")
+    // FIXME: doesn't work, should return value or pass by pointer <2022-05-21, David Deng> //
+    hardTopFun(set_mode(_, _), "set_mode", "inline")
     // hardTopFun(gen_p(openat), "openat", "inline")
     // hardTopFun(gen_k(openat), "openat", "inline")
     ()
   }
 }
 
-object TestGenerateExternal {
+object GenerateExternal {
   def main(args: Array[String]): Unit = {
     val code = new ExternalLLSCDriver
     code.genHeader

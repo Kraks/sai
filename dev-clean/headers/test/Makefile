@@ -15,6 +15,9 @@ sym_test: sym_test.cpp ../sai.hpp ../sai_imp_sym.hpp
 fs_test: fs_test.cpp ../llsc.hpp
 	g++ -std=c++17 fs_test.cpp -o fs_test $(FLAGS)
 
+external_test: external_test.cpp ../llsc.hpp
+	g++ -std=c++17 external_test.cpp -o external_test $(FLAGS)
+
 args_test: args_test.cpp ../llsc.hpp
 	g++ -std=c++17 args_test.cpp -o args_test $(FLAGS)
 

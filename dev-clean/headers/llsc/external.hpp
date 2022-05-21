@@ -16,8 +16,26 @@ immer::flex_vector<std::pair<SS, PtrVal>> lseek(SS, immer::flex_vector<PtrVal>);
 std::monostate lseek(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
 immer::flex_vector<std::pair<SS, PtrVal>> stat(SS, immer::flex_vector<PtrVal>);
 std::monostate stat(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
+PtrVal read_dev_field(File);
+std::monostate set_mode(File, PtrVal);
 
 /************* Functions **************/
+inline std::monostate set_mode(File x188, PtrVal x189) {
+immer::flex_vector<PtrVal> x190 = x189->to_bytes();
+immer::flex_vector<PtrVal> x191 = x188.stat;
+immer::flex_vector<PtrVal> x192 = x191.take(24);
+immer::flex_vector<PtrVal> x193 = x192 + x190;
+int x194 = x190.size();
+immer::flex_vector<PtrVal> x195 = x191.drop(24 + x194);
+immer::flex_vector<PtrVal> x196 = x193 + x195;
+x188.stat = x196;
+return std::monostate{};
+}
+inline PtrVal read_dev_field(File x185) {
+immer::flex_vector<PtrVal> x186 = x185.stat.drop(0);
+immer::flex_vector<PtrVal> x187 = x186.take(8);
+return Value::from_bytes(x187);
+}
 inline immer::flex_vector<std::pair<SS, PtrVal>> stat(SS x162, immer::flex_vector<PtrVal> x163) {
 FS x164 = x162.get_fs();
 PtrVal x165 = x163.at(0);
