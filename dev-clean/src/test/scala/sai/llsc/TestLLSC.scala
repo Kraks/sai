@@ -125,9 +125,12 @@ class TestImpCPSLLSC extends TestLLSC {
   //testLLSC(new ImpCPSLLSC, TestPrg(mergesort, "mergeSortTest", "@main", noArg, 720))
 }
 
+class TestUnit extends TestLLSC {
+  testUnit("./headers/test", "external_test")
+}
+
 class Playground extends TestLLSC {
   //testLLSC(new PureCPSLLSC, TestPrg(mp1048576, "mp1mTest_CPS", "@f", symArg(20), "--disable-solver", nPath(1048576)))
-  testUnit("./headers/test", "external_test")
   val llsc = new PureCPSLLSC_Z3
 
   // testLLSC(llsc, List(
