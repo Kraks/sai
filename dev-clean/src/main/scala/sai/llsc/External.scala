@@ -147,9 +147,12 @@ trait GenExternal extends SymExeDefs {
 
   def set_mode(f: Rep[File], mode: Rep[Value]): Rep[Unit] = f.writeStatField("st_mode", mode)
 
-  def assertEq[T: Manifest](lhs: Rep[T], rhs: Rep[T], msg: String = ""): Rep[Unit] = {
-    unchecked("// assertEq")
-    val e: Rep[Boolean] = lhs == rhs
+  def assertEq[T: Manifest](lhs: Rep[T], rhs: Rep[T], msg: String = "")(implicit m: Manifest[T]): Rep[Unit] = {
+    unchecked[Unit]("/* assertEq */")
+    val e: Rep[Boolean] = m match {
+      case m if m == manifest[Value] => lhs.asRepOf[Value].deref == rhs.asRepOf[Value].deref 
+      case m => lhs == rhs
+    }
     assert(e, msg)
   }
   def assert(cond: Rep[Boolean], msg: String = ""): Rep[Unit] = {
@@ -300,6 +303,18 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
     assertEq(s.cursor, 0, "cursor should default to 0")
   }
 
+  def testReadStatField() = {
+    unchecked("/* testReadStatField */")
+    val f = File("A")
+    val st = Range(0, 120).toList
+    f.stat = List(st.map(IntV(_, 8)): _*)
+    val mode = f.readStatField("st_mode")
+
+    val (pos, len) = statFieldMap("st_mode")
+    val modeAssert = "from-bytes".reflectWith[Value](List(st.drop(pos).take(len).map(IntV(_, 8)): _*))
+    assertEq(mode, modeAssert, "testReadStatField")
+  }
+
   // def testSeek(): Rep[Unit] = {
   //   off_t pos
   //   unchecked("/* test seek */")
@@ -428,6 +443,7 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
     testWriteAt()
     testWriteAtNoFill()
     testStream()
+    testReadStatField()
     ()
   }
 }
