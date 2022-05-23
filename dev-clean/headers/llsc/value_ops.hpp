@@ -17,6 +17,7 @@ struct Value : public std::enable_shared_from_this<Value>, public Printable {
   size_t get_byte_size() const { return (get_bw() + 7) / 8; }
   virtual bool compare(const Value *v) const = 0;
   virtual std::shared_ptr<IntV> to_IntV() = 0;
+  inline bool operator==(const Value& rhs){ return compare(&rhs); }
 
   /* `to_bytes` produces the memory representation of this value
    * following 64-bit little-endian data layout.
