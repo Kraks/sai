@@ -315,6 +315,17 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
     assertEq(mode, modeAssert, "testReadStatField")
   }
 
+  def testWriteStatField() = {
+    unchecked("/* testWriteStatField */")
+    val f = File("A")
+    val st: List[Int] = StaticList.fill(120)(-1)
+    f.stat = List(st.map(IntV(_, 8)): _*)
+    val mode = IntV(0xdeadbeef, 32)
+    f.writeStatField("st_mode", mode)
+    assertEq(f.readStatField("st_mode"), mode, "testWriteStatField")
+  }
+
+
   // def testSeek(): Rep[Unit] = {
   //   off_t pos
   //   unchecked("/* test seek */")
@@ -444,6 +455,7 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
     testWriteAtNoFill()
     testStream()
     testReadStatField()
+    testWriteStatField()
     ()
   }
 }

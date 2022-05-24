@@ -177,7 +177,7 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
     def name: Rep[String]         = "field-@".reflectWith[String](file, "name")
     def content: Rep[List[Value]] = "field-@".reflectMutableWith[List[Value]](file, "content")
     def size: Rep[Int]            = content.size
-    def stat: Rep[List[Value]]    = "field-@".reflectWith[List[Value]](file, "stat")
+    def stat: Rep[List[Value]]    = "field-@".reflectMutableWith[List[Value]](file, "stat")
 
     // assign field
     // TODO: Is this valid? <2022-05-12, David Deng> //
@@ -191,7 +191,7 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
 
     def readStatField(f: String): Rep[Value] = {
       val (pos, size) = statFieldMap(f)
-      "from-bytes".reflectWith[Value](file.stat.drop(pos).take(size))
+      "from-bytes".reflectMutableWith[Value](file.stat.drop(pos).take(size))
     }
 
     def writeStatField(f: String, v: Rep[Value]): Rep[Unit] = {
