@@ -61,7 +61,7 @@ trait GenExternal extends SymExeDefs {
     if (!fs.hasFile(name)) k(ss, fs, IntV(-1, 32))
     else {
       val fd: Rep[Fd] = fs.getFreshFd()
-      val file = fs.files(name)
+      val file = fs.getFile(name)
       fs.setStream(fd, Stream(file))
       k(ss, fs, IntV(fd, 32))
     }
@@ -130,7 +130,7 @@ trait GenExternal extends SymExeDefs {
     if (!fs.hasFile(name)) {
       k(ss, fs, IntV(-1, 32))
     } else {
-      val stat = fs.files(name).stat
+      val stat = fs.getFile(name).stat
       val ss1 = ss.updateSeq(buf, stat)
       k(ss1, fs, IntV(0, 32))
     }
@@ -230,7 +230,7 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
     mainStream.close
   }
 
-  def testReadAt(): Rep[Unit] = {
+  def testReadAt: Rep[Unit] = {
     unchecked("/* test readAt */")
     val f = File("A", List(iv(0), iv(1), iv(2)))
     assertEq(f.readAt(unit(0), unit(2)), List(iv(0), iv(1)), "readAt")
@@ -238,27 +238,27 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
     assertEq(f.readAt(unit(0), unit(0)), List[Value](), "readAt with no bytes")
   }
 
-  def testSize(): Rep[Unit] = {
+  def testSize: Rep[Unit] = {
     unchecked("/* test size */")
     val f = File("A", List(iv(0), iv(1), iv(2)))
     assertEq(f.content.size, 3, "size of non-empty file")
     assertEq(File("B").content.size, 0, "size of an empty file")
   }
 
-  def testMake_SymFile(): Rep[Unit] = {
+  def testMake_SymFile: Rep[Unit] = {
     unchecked("/* test make_SymFile */")
     // val f = makeSymFile("A", 5)
     // assertEq(f.content.size, 5, "make_SymFile returns file of correct size")
   }
 
-  def testClear(): Rep[Unit] = {
+  def testClear: Rep[Unit] = {
     unchecked("/* test clear */")
     val f = File("A", List(iv(0), iv(1), iv(2)))
     f.clear()
     assertEq(f.content.size, 0, "clear should result in empty file")
   }
 
-  def testWriteAtNoFill(): Rep[Unit] = {
+  def testWriteAtNoFill: Rep[Unit] = {
     unchecked("/* test writeAtNoFill */")
     val f1 = File("A", List(iv(0), iv(1), iv(2)))
     val f2 = File("A", List(iv(0), iv(1), iv(2)))
@@ -280,7 +280,7 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
       "write at the middle of a file, not exceeding the end")
 
   }
-  def testWriteAt(): Rep[Unit] = {
+  def testWriteAt: Rep[Unit] = {
     unchecked("/* test writeAt */")
     val f1 = File("A", List(iv(0), iv(1), iv(2)))
     val f2 = File("A", List(iv(0), iv(1), iv(2)))
@@ -297,13 +297,13 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
       "writeAt and writeAtNoFill should behave the same when not writing after the end")
   }
 
-  def testStream() = {
+  def testStream = {
     val f = File("A", List(iv(0), iv(1), iv(2)))
     val s = Stream(f)
     assertEq(s.cursor, 0, "cursor should default to 0")
   }
 
-  def testReadStatField() = {
+  def testReadStatField = {
     unchecked("/* testReadStatField */")
     val f = File("A")
     val st = Range(0, 120).toList
@@ -315,7 +315,7 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
     assertEq(mode, modeAssert, "testReadStatField")
   }
 
-  def testWriteStatField() = {
+  def testWriteStatField = {
     unchecked("/* testWriteStatField */")
     val f = File("A")
     val st: List[Int] = StaticList.fill(120)(-1)
@@ -325,8 +325,15 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
     assertEq(f.readStatField("st_mode"), mode, "testWriteStatField")
   }
 
+  def testPtrDeref = {
+    unchecked("/* testing ptrderef. deref shouldn't generate explicit 'any' typed variable */")
+    val pv: Rep[Value] = IntV(3)
+    val v = pv.deref
+    unchecked(v)
+    unchecked(v)
+  }
 
-  // def testSeek(): Rep[Unit] = {
+  // def testSeek: Rep[Unit] = {
   //   off_t pos
   //   unchecked("/* test seek */")
   //   val s1 = Stream(s) //    Stream s1(s)
@@ -344,7 +351,7 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
 
   // }
 
-  // def testSeekError(): Rep[Unit] = {
+  // def testSeekError: Rep[Unit] = {
   //   unchecked("/* test seek error */")
   //   val s1 = Stream(s) //    Stream s1(s)
   //   pos = s1.seek_start(-1)
@@ -360,7 +367,7 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
   //   assertEq(pos, -1, "should set error")
 
   // }
-  // def testReadStream(): Rep[Unit] = {
+  // def testReadStream: Rep[Unit] = {
   //   unchecked("/* test read stream */")
   //   val f = File("A", List(iv(0), iv(1), iv(2), iv(3), iv(4)))
   //   val s1 = Stream(f) //    Stream s1(f)
@@ -376,7 +383,7 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
 
   // }
 
-  // def testWriteStream(): Rep[Unit] = {
+  // def testWriteStream: Rep[Unit] = {
   //   unchecked("/* test write stream */")
   //   val f = File("A", List(iv(0), iv(1), iv(2), iv(3), iv(4)))
   //   val s1 = Stream(f) //    Stream s1(f)
@@ -408,7 +415,7 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
   //     "content should be updated")
   // }
 
-  // def testStat() = {
+  // def testStat = {
   //   Stat st1, st2
 
   //   unchecked("/* test initialization */")
@@ -435,7 +442,7 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
   //   }
   // }
 
-  // def test_dup_sketch() {
+  // def test_dup_sketch {
   //   typedef std::shared_ptr<Stream> StreamRef;
   //   immer::map<Fd, StreamRef> opened_files;
   //   File f = File("A", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2});
@@ -448,14 +455,15 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
   // }
 
   def snippet(u: Rep[Int]) = {
-    testReadAt()
-    testSize()
-    testClear()
-    testWriteAt()
-    testWriteAtNoFill()
-    testStream()
-    testReadStatField()
-    testWriteStatField()
+    testReadAt
+    testSize
+    testClear
+    testWriteAt
+    testWriteAtNoFill
+    testStream
+    testReadStatField
+    testWriteStatField
+    // testPtrDeref
     ()
   }
 }
@@ -499,18 +507,18 @@ class ExternalLLSCDriver(folder: String = "./headers/llsc") extends SAISnippet[I
     // TODO: llsc_assert_k depends on sym_exit, which doesn't have a _k version right now <2022-01-23, David Deng> //
     // hardTopFun(gen_p(llsc_assert), "llsc_assert", "inline")
     // hardTopFun(gen_k(llsc_assert), "llsc_assert", "inline")
-    hardTopFun(gen_p(brg_fs(open(_,_,_,_))), "open", "inline")
-    hardTopFun(gen_k(brg_fs(open(_,_,_,_))), "open", "inline")
-    hardTopFun(gen_p(brg_fs(close(_,_,_))), "close", "inline")
-    hardTopFun(gen_k(brg_fs(close(_,_,_))), "close", "inline")
-    hardTopFun(gen_p(brg_fs(read(_,_,_,_))), "read", "inline")
-    hardTopFun(gen_k(brg_fs(read(_,_,_,_))), "read", "inline")
-    hardTopFun(gen_p(brg_fs(write(_,_,_,_))), "write", "inline")
-    hardTopFun(gen_k(brg_fs(write(_,_,_,_))), "write", "inline")
-    hardTopFun(gen_p(brg_fs(lseek(_,_,_))), "lseek", "inline")
-    hardTopFun(gen_k(brg_fs(lseek(_,_,_))), "lseek", "inline")
-    hardTopFun(gen_p(brg_fs(stat(_,_,_,_))), "stat", "inline")
-    hardTopFun(gen_k(brg_fs(stat(_,_,_,_))), "stat", "inline")
+    hardTopFun(gen_p(brg_fs(open(_,_,_,_))), "syscall_open", "inline")
+    hardTopFun(gen_k(brg_fs(open(_,_,_,_))), "syscall_open", "inline")
+    hardTopFun(gen_p(brg_fs(close(_,_,_))), "syscall_close", "inline")
+    hardTopFun(gen_k(brg_fs(close(_,_,_))), "syscall_close", "inline")
+    hardTopFun(gen_p(brg_fs(read(_,_,_,_))), "syscall_read", "inline")
+    hardTopFun(gen_k(brg_fs(read(_,_,_,_))), "syscall_read", "inline")
+    hardTopFun(gen_p(brg_fs(write(_,_,_,_))), "syscall_write", "inline")
+    hardTopFun(gen_k(brg_fs(write(_,_,_,_))), "syscall_write", "inline")
+    hardTopFun(gen_p(brg_fs(lseek(_,_,_))), "syscall_lseek", "inline")
+    hardTopFun(gen_k(brg_fs(lseek(_,_,_))), "syscall_lseek", "inline")
+    hardTopFun(gen_p(brg_fs(stat(_,_,_,_))), "syscall_stat", "inline")
+    hardTopFun(gen_k(brg_fs(stat(_,_,_,_))), "syscall_stat", "inline")
     hardTopFun(read_dev_field(_), "read_dev_field", "inline")
     // FIXME: doesn't work, should return value or pass by pointer <2022-05-21, David Deng> //
     hardTopFun(set_mode(_, _), "set_mode", "inline")

@@ -87,9 +87,12 @@ trait Opaques { self: SAIOps with BasicDefs =>
       "sym_print", "print_string", "malloc", "realloc",
       "llsc_assert", "llsc_assert_eager", "__assert_fail", "sym_exit",
       "make_symbolic", "make_symbolic_whole",
-      "open", "close", "read", "write", "lseek", "stat", "stop", "syscall", "llsc_assume",
+      "stop", "syscall", "llsc_assume",
       "__errno_location", "_exit", "abort", "calloc"
     )
+    private val syscalls = MutableSet[String](
+      "open", "close", "read", "write", "lseek", "stat"
+    ) 
     val rederict = scala.collection.immutable.Set[String]("@memcpy", "@memset", "@memmove")
     def apply(f: String, ret: Option[LLVMType] = None): Rep[Value] = {
       if (!used.contains(f)) {
@@ -104,6 +107,7 @@ trait Opaques { self: SAIOps with BasicDefs =>
     }
     def get(id: String, ret: Option[LLVMType] = None): Rep[Value] =
       if (modeled.contains(id.tail)) ExternalFun(id.tail)
+      else if (syscalls.contains(id.tail)) ExternalFun(s"syscall_${id.tail}")
       else if (id.startsWith("@llvm.va_start")) ExternalFun("llvm_va_start")
       else if (id.startsWith("@llvm.va_end")) ExternalFun("llvm_va_end")
       else if (id.startsWith("@llvm.va_copy")) ExternalFun("llvm_va_copy")

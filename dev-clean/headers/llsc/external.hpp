@@ -4,31 +4,30 @@
 #define LLSC_EXTERNAL_HEADERS_GEN
 
 /************* Function Declarations **************/
-immer::flex_vector<std::pair<SS, PtrVal>> open(SS, immer::flex_vector<PtrVal>);
-std::monostate open(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
-immer::flex_vector<std::pair<SS, PtrVal>> close(SS, immer::flex_vector<PtrVal>);
-std::monostate close(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
-immer::flex_vector<std::pair<SS, PtrVal>> read(SS, immer::flex_vector<PtrVal>);
-std::monostate read(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
-immer::flex_vector<std::pair<SS, PtrVal>> write(SS, immer::flex_vector<PtrVal>);
-std::monostate write(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
-immer::flex_vector<std::pair<SS, PtrVal>> lseek(SS, immer::flex_vector<PtrVal>);
-std::monostate lseek(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
-immer::flex_vector<std::pair<SS, PtrVal>> stat(SS, immer::flex_vector<PtrVal>);
-std::monostate stat(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
+immer::flex_vector<std::pair<SS, PtrVal>> syscall_open(SS, immer::flex_vector<PtrVal>);
+std::monostate syscall_open(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
+immer::flex_vector<std::pair<SS, PtrVal>> syscall_close(SS, immer::flex_vector<PtrVal>);
+std::monostate syscall_close(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
+immer::flex_vector<std::pair<SS, PtrVal>> syscall_read(SS, immer::flex_vector<PtrVal>);
+std::monostate syscall_read(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
+immer::flex_vector<std::pair<SS, PtrVal>> syscall_write(SS, immer::flex_vector<PtrVal>);
+std::monostate syscall_write(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
+immer::flex_vector<std::pair<SS, PtrVal>> syscall_lseek(SS, immer::flex_vector<PtrVal>);
+std::monostate syscall_lseek(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
+immer::flex_vector<std::pair<SS, PtrVal>> syscall_stat(SS, immer::flex_vector<PtrVal>);
+std::monostate syscall_stat(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
 PtrVal read_dev_field(File);
 std::monostate set_mode(File, PtrVal);
 
 /************* Functions **************/
 inline std::monostate set_mode(File x188, PtrVal x189) {
 immer::flex_vector<PtrVal> x190 = x189->to_bytes();
-immer::flex_vector<PtrVal> x191 = x188.stat;
-immer::flex_vector<PtrVal> x192 = x191.take(24);
-immer::flex_vector<PtrVal> x193 = x192 + x190;
-int x194 = x190.size();
-immer::flex_vector<PtrVal> x195 = x191.drop(24 + x194);
-immer::flex_vector<PtrVal> x196 = x193 + x195;
-x188.stat = x196;
+immer::flex_vector<PtrVal> x191 = x188.stat.take(24);
+immer::flex_vector<PtrVal> x192 = x191 + x190;
+int x193 = x190.size();
+immer::flex_vector<PtrVal> x194 = x188.stat.drop(24 + x193);
+immer::flex_vector<PtrVal> x195 = x192 + x194;
+x188.stat = x195;
 return std::monostate{};
 }
 inline PtrVal read_dev_field(File x185) {
@@ -36,7 +35,7 @@ immer::flex_vector<PtrVal> x186 = x185.stat.drop(0);
 immer::flex_vector<PtrVal> x187 = x186.take(8);
 return Value::from_bytes(x187);
 }
-inline immer::flex_vector<std::pair<SS, PtrVal>> stat(SS x162, immer::flex_vector<PtrVal> x163) {
+inline immer::flex_vector<std::pair<SS, PtrVal>> syscall_stat(SS x162, immer::flex_vector<PtrVal> x163) {
 FS x164 = x162.get_fs();
 PtrVal x165 = x163.at(0);
 String x166 = get_string(x165, x162);
@@ -54,7 +53,7 @@ immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x172, make_IntV(0L, 32)
 });
 return x169;
 }
-inline std::monostate stat(SS x173, immer::flex_vector<PtrVal> x174, std::function<std::monostate(SS, PtrVal)> x175) {
+inline std::monostate syscall_stat(SS x173, immer::flex_vector<PtrVal> x174, std::function<std::monostate(SS, PtrVal)> x175) {
 FS x176 = x173.get_fs();
 PtrVal x177 = x174.at(0);
 String x178 = get_string(x177, x173);
@@ -72,7 +71,7 @@ x175(x184, make_IntV(0L, 32));
 });
 return x181;
 }
-inline immer::flex_vector<std::pair<SS, PtrVal>> lseek(SS x147, immer::flex_vector<PtrVal> x148) {
+inline immer::flex_vector<std::pair<SS, PtrVal>> syscall_lseek(SS x147, immer::flex_vector<PtrVal> x148) {
 FS x149 = x147.get_fs();
 PtrVal x150 = x148.at(0);
 PtrVal x151 = x148.at(1);
@@ -81,7 +80,7 @@ int64_t x153 = x149.seek_file(proj_IntV(x150), proj_IntV(x151), (int)proj_IntV(x
 x147.set_fs(x149);
 return immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x147, make_IntV(x153, 64))};
 }
-inline std::monostate lseek(SS x154, immer::flex_vector<PtrVal> x155, std::function<std::monostate(SS, PtrVal)> x156) {
+inline std::monostate syscall_lseek(SS x154, immer::flex_vector<PtrVal> x155, std::function<std::monostate(SS, PtrVal)> x156) {
 FS x157 = x154.get_fs();
 PtrVal x158 = x155.at(0);
 PtrVal x159 = x155.at(1);
@@ -90,7 +89,7 @@ int64_t x161 = x157.seek_file(proj_IntV(x158), proj_IntV(x159), (int)proj_IntV(x
 x154.set_fs(x157);
 return x156(x154, make_IntV(x161, 64));
 }
-inline immer::flex_vector<std::pair<SS, PtrVal>> write(SS x92, immer::flex_vector<PtrVal> x93) {
+inline immer::flex_vector<std::pair<SS, PtrVal>> syscall_write(SS x92, immer::flex_vector<PtrVal> x93) {
 FS x94 = x92.get_fs();
 PtrVal x95 = x93.at(0);
 int x96 = (int)proj_IntV(x95);
@@ -133,7 +132,7 @@ immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x92, make_IntV(x117, 64
 });
 return x99;
 }
-inline std::monostate write(SS x119, immer::flex_vector<PtrVal> x120, std::function<std::monostate(SS, PtrVal)> x121) {
+inline std::monostate syscall_write(SS x119, immer::flex_vector<PtrVal> x120, std::function<std::monostate(SS, PtrVal)> x121) {
 FS x122 = x119.get_fs();
 PtrVal x123 = x120.at(0);
 int x124 = (int)proj_IntV(x123);
@@ -176,7 +175,7 @@ x121(x119, make_IntV(x145, 64));
 });
 return x127;
 }
-inline immer::flex_vector<std::pair<SS, PtrVal>> read(SS x55, immer::flex_vector<PtrVal> x56) {
+inline immer::flex_vector<std::pair<SS, PtrVal>> syscall_read(SS x55, immer::flex_vector<PtrVal> x56) {
 FS x57 = x55.get_fs();
 PtrVal x58 = x56.at(0);
 int x59 = (int)proj_IntV(x58);
@@ -203,7 +202,7 @@ immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x72, make_IntV(x70, 64)
 });
 return x62;
 }
-inline std::monostate read(SS x73, immer::flex_vector<PtrVal> x74, std::function<std::monostate(SS, PtrVal)> x75) {
+inline std::monostate syscall_read(SS x73, immer::flex_vector<PtrVal> x74, std::function<std::monostate(SS, PtrVal)> x75) {
 FS x76 = x73.get_fs();
 PtrVal x77 = x74.at(0);
 int x78 = (int)proj_IntV(x77);
@@ -230,7 +229,7 @@ x75(x91, make_IntV(x89, 64));
 });
 return x81;
 }
-inline immer::flex_vector<std::pair<SS, PtrVal>> close(SS x24, immer::flex_vector<PtrVal> x25) {
+inline immer::flex_vector<std::pair<SS, PtrVal>> syscall_close(SS x24, immer::flex_vector<PtrVal> x25) {
 FS x26 = x24.get_fs();
 PtrVal x27 = x25.at(0);
 int x28 = (int)proj_IntV(x27);
@@ -256,7 +255,7 @@ immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x24, make_IntV(0L, 32))
 });
 return x31;
 }
-inline std::monostate close(SS x39, immer::flex_vector<PtrVal> x40, std::function<std::monostate(SS, PtrVal)> x41) {
+inline std::monostate syscall_close(SS x39, immer::flex_vector<PtrVal> x40, std::function<std::monostate(SS, PtrVal)> x41) {
 FS x42 = x39.get_fs();
 PtrVal x43 = x40.at(0);
 int x44 = (int)proj_IntV(x43);
@@ -282,7 +281,7 @@ x41(x39, make_IntV(0L, 32));
 });
 return x47;
 }
-inline immer::flex_vector<std::pair<SS, PtrVal>> open(SS x1, immer::flex_vector<PtrVal> x2) {
+inline immer::flex_vector<std::pair<SS, PtrVal>> syscall_open(SS x1, immer::flex_vector<PtrVal> x2) {
 FS x3 = x1.get_fs();
 PtrVal x4 = x2.at(0);
 String x5 = get_string(x4, x1);
@@ -301,7 +300,7 @@ immer::flex_vector<std::pair<SS, PtrVal>>{std::make_pair(x1, make_IntV((int64_t)
 });
 return x8;
 }
-inline std::monostate open(SS x12, immer::flex_vector<PtrVal> x13, std::function<std::monostate(SS, PtrVal)> x14) {
+inline std::monostate syscall_open(SS x12, immer::flex_vector<PtrVal> x13, std::function<std::monostate(SS, PtrVal)> x14) {
 FS x15 = x12.get_fs();
 PtrVal x16 = x13.at(0);
 String x17 = get_string(x16, x12);
