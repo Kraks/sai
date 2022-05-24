@@ -17,80 +17,6 @@ inline List<PtrVal> get_sym_stat() {
   return stat.persistent();
 }
 
-struct Stat: Printable {
-    immer::flex_vector<PtrVal> content;
-    /***************
-    *  constants  *
-    ***************/
-    static const unsigned total_size = 144;
-    enum st_field_t {
-      st_dev,    // 8 bytes
-      st_ino,    // 8 bytes
-      st_nlink,  // 8 bytes
-      st_mode,   // 4 bytes
-      st_uid,    // 4 bytes
-      st_gid,    // 4 bytes
-      // pad     // 4 bytes
-      st_rdev,   // 8 bytes
-      st_size,   // 8 bytes
-      st_blksi,  // 8 bytes
-      st_block,  // 8 bytes
-      st_atim,   // 16 bytes
-      st_mtim,   // 16 bytes
-      st_ctim,   // 16 bytes
-      // NOTE: last 24 bytes reserved but not used.
-    };
-    inline static const std::map<st_field_t, std::pair<unsigned, unsigned>> field_pos_size = {
-      {Stat::st_dev,   {0,   8  }},
-      {Stat::st_ino,   {8,   8  }},
-      {Stat::st_nlink, {16,  8  }},
-      {Stat::st_mode,  {24,  4  }},
-      {Stat::st_uid,   {28,  4  }},
-      {Stat::st_gid,   {32,  4  }},
-      // padding,      {36,  4  }},
-      {Stat::st_rdev,  {40,  8  }},
-      {Stat::st_size,  {48,  8  }},
-      {Stat::st_blksi, {56,  8  }},
-      {Stat::st_block, {64,  8  }},
-      {Stat::st_atim,  {72,  16 }},
-      {Stat::st_mtim,  {88,  16 }},
-      {Stat::st_ctim,  {104, 16 }}
-    };
-
-    /*************
-    *  methods  *
-    *************/
-    std::string toString() const override {
-      return std::string("Stat()");
-    }
-    Stat(): content(total_size, nullptr) {
-      // default initialize to 44 SymV values
-      for (int i=0; i<total_size; i++) {
-        content = content.set(i, make_SymV_fs());
-      }
-    }
-    Stat(immer::flex_vector<PtrVal> c) {
-      ASSERT(c.size() == total_size, "Stat initialized with wrong sized vector.");
-      content = c;
-    }
-    Stat(const Stat& st): content(st.content) {}
-    immer::flex_vector<PtrVal> get_struct() const {
-      return content;
-    }
-    immer::flex_vector<PtrVal> read_field(st_field_t field) const {
-      unsigned pos, size;
-      std::tie(pos, size) = field_pos_size.at(field);
-      return content.drop(pos).take(size);
-    }
-    void write_field(st_field_t field, immer::flex_vector<PtrVal> c) {
-      unsigned pos, size;
-      std::tie(pos, size) = field_pos_size.at(field);
-      for (int i=0; i<size; i++) {
-        content = content.set(pos+i, c.at(i));
-      }
-    }
-};
-
 struct File: public Printable {
     std::string name;
     immer::flex_vector<PtrVal> content;
@@ -117,27 +43,6 @@ struct File: public Printable {
       name(name), content(content), stat(stat) {}
     File(const File& f): name(f.name), content(f.content), stat(f.stat) {}
 
-    // if writing beyond the last byte, will simply append to the end without filling
-    void write_at_no_fill(immer::flex_vector<PtrVal> new_content, size_t pos) {
-      content = content.take(pos) + new_content + content.drop(pos + new_content.size());
-    }
-    void write_at(immer::flex_vector<PtrVal> new_content, size_t pos, PtrVal fill_val) {
-      int fill_size = pos - content.size();
-      if (fill_size > 0) {
-        // fill the new values to reflect the actual pos
-        content = content + immer::flex_vector(fill_size, fill_val);
-      }
-      write_at_no_fill(new_content, pos);
-    }
-    void append(immer::flex_vector<PtrVal> new_content) {
-      write_at_no_fill(new_content, content.size());
-    }
-    void clear() {
-      content = immer::flex_vector<PtrVal>();
-    }
-    immer::flex_vector<PtrVal> read_at(size_t pos, size_t length) const {
-      return content.drop(pos).take(length);
-    }
 };
 
 // return a symbolic file with size bytes
@@ -191,23 +96,6 @@ struct Stream: public Printable {
       cursor = new_cursor;
       return cursor;
     }
-
-    immer::flex_vector<PtrVal> read(size_t nbytes) {
-      // read from current position, up to nbytes
-      auto content = file.read_at(cursor, nbytes);
-      cursor += content.size();
-      return content;
-    }
-
-    ssize_t write(immer::flex_vector<PtrVal> content, size_t nbytes) {
-      // write nbytes of buf into the stream, return the num of bytes written.
-      // if cursor is beyond the end of file, IntV0 is filled for the hole.
-      /* TODO: when file is opened with O_APPEND flag, write to the end <2022-01-25, David Deng> */
-      auto new_content = content.take(nbytes);
-      file.write_at(new_content, cursor, IntV0);
-      cursor += new_content.size();
-      return new_content.size();
-    }
 };
 
 struct FS: public Printable {
@@ -246,31 +134,15 @@ struct FS: public Printable {
     FS(immer::map<Fd, Stream> opened_files, immer::map<std::string, File> files, status_t status, Fd next_fd, Fd last_opened_fd) :
       opened_files(opened_files), files(files), next_fd(next_fd) {}
 
-    inline File get_file(std::string name) {
-      return files.at(name);
-    }
     inline Stream get_stream(Fd fd) {
       return opened_files.at(fd);
     }
-    inline void set_stream(Fd fd, Stream s) {
-      opened_files = opened_files.set(fd, s);
-    }
-
-    void set_file(std::string name, File file) {
-      files = files.set(name, file);
-    }
-
-    void remove_stream(Fd fd) {
-      ASSERT(has_stream(fd), "FS::remove_stream: stream does not exist");
-      // NOTE: should behave correctly if the file is open,
-      // because the file in opened_files is not removed until it is close_file is called.
-      opened_files = opened_files.erase(fd);
-    };
 
     inline bool has_stream(Fd fd) const {
       return opened_files.find(fd) != nullptr;
     }
 
+    /* TODO: refactor this method to frontend and remove the previous two functions <2022-05-24, David Deng> */
     off_t seek_file(Fd fd, off_t offset, int whence) {
       if (!has_stream(fd)) return -1;
       auto strm = get_stream(fd);
