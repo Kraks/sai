@@ -16,24 +16,13 @@ immer::flex_vector<std::pair<SS, PtrVal>> syscall_lseek(SS, immer::flex_vector<P
 std::monostate syscall_lseek(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
 immer::flex_vector<std::pair<SS, PtrVal>> syscall_stat(SS, immer::flex_vector<PtrVal>);
 std::monostate syscall_stat(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
-PtrVal read_dev_field(File);
-std::monostate set_mode(File, PtrVal);
+FS set_file(FS, String, File);
 
 /************* Functions **************/
-inline std::monostate set_mode(File x188, PtrVal x189) {
-immer::flex_vector<PtrVal> x190 = x189->to_bytes();
-immer::flex_vector<PtrVal> x191 = x188.stat.take(24);
-immer::flex_vector<PtrVal> x192 = x191 + x190;
-int x193 = x190.size();
-immer::flex_vector<PtrVal> x194 = x188.stat.drop(24 + x193);
-immer::flex_vector<PtrVal> x195 = x192 + x194;
-x188.stat = x195;
-return std::monostate{};
-}
-inline PtrVal read_dev_field(File x185) {
-immer::flex_vector<PtrVal> x186 = x185.stat.drop(0);
-immer::flex_vector<PtrVal> x187 = x186.take(8);
-return Value::from_bytes(x187);
+inline FS set_file(FS x185, String x186, File x187) {
+immer::map<String, File> x188 = x185.files.insert(std::make_pair(x186, x187));
+x185.files = x188;
+return x185;
 }
 inline immer::flex_vector<std::pair<SS, PtrVal>> syscall_stat(SS x162, immer::flex_vector<PtrVal> x163) {
 FS x164 = x162.get_fs();

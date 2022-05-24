@@ -143,20 +143,17 @@ trait GenExternal extends SymExeDefs {
     k(ss, IntV(0, 32))
   }
 
+  ////////////////////////
+  //  helper functions  //
+  ////////////////////////
+
   def read_dev_field(f: Rep[File]): Rep[Value] = f.readStatField("st_dev")
 
   def set_mode(f: Rep[File], mode: Rep[Value]): Rep[Unit] = f.writeStatField("st_mode", mode)
 
-  def assertEq[T: Manifest](lhs: Rep[T], rhs: Rep[T], msg: String = "")(implicit m: Manifest[T]): Rep[Unit] = {
-    unchecked[Unit]("/* assertEq */")
-    val e: Rep[Boolean] = m match {
-      case m if m == manifest[Value] => lhs.asRepOf[Value].deref == rhs.asRepOf[Value].deref 
-      case m => lhs == rhs
-    }
-    assert(e, msg)
-  }
-  def assert(cond: Rep[Boolean], msg: String = ""): Rep[Unit] = {
-    "assert".reflectCtrlWith[Unit](cond, unit(msg))
+  def _set_file(fs: Rep[FS], p: Rep[String], f: Rep[File]): Rep[FS] = {
+    fs.setFile(p, f)
+    fs
   }
 
   // generate different return style
@@ -185,6 +182,18 @@ trait GenExternal extends SymExeDefs {
 class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[Int, Unit] with SAIOps with GenExternal { q =>
   import java.io.{File, PrintStream}
   import scala.collection.mutable.HashMap
+
+  def assertEq[T: Manifest](lhs: Rep[T], rhs: Rep[T], msg: String = "")(implicit m: Manifest[T]): Rep[Unit] = {
+    unchecked[Unit]("/* assertEq */")
+    val e: Rep[Boolean] = m match {
+      case m if m == manifest[Value] => lhs.asRepOf[Value].deref == rhs.asRepOf[Value].deref 
+      case m => lhs == rhs
+    }
+    assert(e, msg)
+  }
+  def assert(cond: Rep[Boolean], msg: String = ""): Rep[Unit] = {
+    "assert".reflectCtrlWith[Unit](cond, unit(msg))
+  }
 
   val codegen: GenericLLSCCodeGen = new GenericLLSCCodeGen {
     val codegenFolder: String = folder
@@ -519,9 +528,7 @@ class ExternalLLSCDriver(folder: String = "./headers/llsc") extends SAISnippet[I
     hardTopFun(gen_k(brg_fs(lseek(_,_,_))), "syscall_lseek", "inline")
     hardTopFun(gen_p(brg_fs(stat(_,_,_,_))), "syscall_stat", "inline")
     hardTopFun(gen_k(brg_fs(stat(_,_,_,_))), "syscall_stat", "inline")
-    hardTopFun(read_dev_field(_), "read_dev_field", "inline")
-    // FIXME: doesn't work, should return value or pass by pointer <2022-05-21, David Deng> //
-    hardTopFun(set_mode(_, _), "set_mode", "inline")
+    hardTopFun(_set_file(_,_,_), "set_file", "inline")
     // hardTopFun(gen_p(openat), "openat", "inline")
     // hardTopFun(gen_k(openat), "openat", "inline")
     ()
