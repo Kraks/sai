@@ -9,7 +9,7 @@ inline bool use_cons_indep = false;
 inline bool exlib_failure_branch = false;
 
 /* TODO: generate a file containing generated function declarations <2022-05-24, David Deng> */
-FS set_file(FS, String, File);
+FS set_file(FS, String, Ptr<File>);
 
 // TODO: "--stack-size" to set stack size using `inc_stack`.
 

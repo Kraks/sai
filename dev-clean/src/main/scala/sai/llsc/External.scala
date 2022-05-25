@@ -183,6 +183,7 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
   import java.io.{File, PrintStream}
   import scala.collection.mutable.HashMap
 
+  @virtualize
   def assertEq[T: Manifest](lhs: Rep[T], rhs: Rep[T], msg: String = "")(implicit m: Manifest[T]): Rep[Unit] = {
     unchecked[Unit]("/* assertEq */")
     val e: Rep[Boolean] = m match {

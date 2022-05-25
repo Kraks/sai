@@ -168,23 +168,23 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
       "st_ctim" -> (104, 16),
   )
   object File {
-    def apply(name: Rep[String]) = "File".reflectWith[File](name)
-    def apply(name: Rep[String], content: Rep[List[Value]]) = "File".reflectWith[File](name, content)
+    def apply(name: Rep[String]) = "File::create".reflectWith[File](name)
+    def apply(name: Rep[String], content: Rep[List[Value]]) = "File::create".reflectWith[File](name, content)
   }
   
   implicit class FileOps(file: Rep[File]) {
     // fields
-    def name: Rep[String]         = "field-@".reflectWith[String](file, "name")
-    def content: Rep[List[Value]] = "field-@".reflectMutableWith[List[Value]](file, "content")
+    def name: Rep[String]         = "ptr-field-@".reflectWith[String](file, "name")
+    def content: Rep[List[Value]] = "ptr-field-@".reflectMutableWith[List[Value]](file, "content")
     def size: Rep[Int]            = content.size
-    def stat: Rep[List[Value]]    = "field-@".reflectMutableWith[List[Value]](file, "stat")
+    def stat: Rep[List[Value]]    = "ptr-field-@".reflectMutableWith[List[Value]](file, "stat")
 
-    // assign field
+    // assign ptr-field
     // TODO: Is this valid? <2022-05-12, David Deng> //
-    // def size_=(rhs: Rep[Int]): Rep[Int] = "field-assign".reflectCtrlWith(file, "size", rhs)
-    def name_=(rhs: Rep[String]): Rep[String] = "field-assign".reflectCtrlWith(file, "name", rhs)
-    def content_=(rhs: Rep[List[Value]]): Rep[List[Value]] = "field-assign".reflectCtrlWith(file, "content", rhs)
-    def stat_=(rhs: Rep[List[Value]]): Rep[List[Value]] = "field-assign".reflectCtrlWith(file, "stat", rhs)
+    // def size_=(rhs: Rep[Int]): Rep[Int] = "ptr-field-assign".reflectCtrlWith(file, "size", rhs)
+    def name_=(rhs: Rep[String]): Rep[String] = "ptr-field-assign".reflectCtrlWith(file, "name", rhs)
+    def content_=(rhs: Rep[List[Value]]): Rep[List[Value]] = "ptr-field-assign".reflectCtrlWith(file, "content", rhs)
+    def stat_=(rhs: Rep[List[Value]]): Rep[List[Value]] = "ptr-field-assign".reflectCtrlWith(file, "stat", rhs)
 
     // methods
     def readAt(pos: Rep[Long], len: Rep[Long]): Rep[List[Value]] = content.drop(pos.toInt).take(len.toInt)

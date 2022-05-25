@@ -19,8 +19,8 @@ inline List<PtrVal> get_sym_stat() {
 
 struct File: public Printable {
     std::string name;
-    immer::flex_vector<PtrVal> content;
-    immer::flex_vector<PtrVal> stat;
+    List<PtrVal> content;
+    List<PtrVal> stat;
 
     std::string toString() const override {
       std::ostringstream ss;
@@ -35,14 +35,30 @@ struct File: public Printable {
       ss << "])";
       return ss.str();
     }
+    [[nodiscard]] inline static Ptr<File> create(std::string name) 
+    { 
+      return Ptr<File>(new File(name));
+    }
+    [[nodiscard]] inline static Ptr<File> create(std::string name, List<PtrVal> content)
+    {
+      return Ptr<File>(new File(name, content)); 
+    }
+    [[nodiscard]] inline static Ptr<File> create(std::string name, List<PtrVal> content, List<PtrVal> stat)
+    { 
+      return Ptr<File>(new File(name, content, stat)); 
+    }
+    [[nodiscard]] inline static Ptr<File> create(const File& f)
+    { 
+      return Ptr<File>(new File(f)); 
+    }
+  private:
     File(std::string name): 
       name(name), content(), stat(stat_size) {}
-    File(std::string name, immer::flex_vector<PtrVal> content): 
+    File(std::string name, List<PtrVal> content): 
       name(name), content(content), stat(stat_size) {}
-    File(std::string name, immer::flex_vector<PtrVal> content, immer::flex_vector<PtrVal> stat): 
+    File(std::string name, List<PtrVal> content, List<PtrVal> stat): 
       name(name), content(content), stat(stat) {}
     File(const File& f): name(f.name), content(f.content), stat(f.stat) {}
-
 };
 
 // return a symbolic file with size bytes
@@ -50,13 +66,13 @@ struct File: public Printable {
  * Purpose 1: For supporting directory structure
  * Purpose 2: To avoid potentially conflicting var names in sym values
  * <2022-02-07, David Deng> */
-inline File make_SymFile(std::string name, size_t size) {
-  immer::flex_vector<PtrVal> content;
+inline Ptr<File> make_SymFile(std::string name, size_t size) {
+  List<PtrVal> content;
   for (int i = 0; i < size; i++) {
     content = content.push_back(make_SymV_fs());
   }
   auto stat = get_sym_stat();
-  return File(name, content, stat);
+  return File::create(name, content, stat);
 };
 
 /* TODO: what is the rule about the lowest file descriptor guarantee?
@@ -65,19 +81,19 @@ inline File make_SymFile(std::string name, size_t size) {
 
 // An opened file
 struct Stream: public Printable {
-    File file;
+    Ptr<File> file;
     int mode; // a combination of O_RDONLY, O_WRONLY, O_RDWR, etc.
     off_t cursor;
 
     std::string toString() const override {
       std::ostringstream ss;
-      ss << "Stream(name=" << file.name << ", mode=" << mode << ", cursor=" << cursor << ")";
+      ss << "Stream(file=" << *file << ", mode=" << mode << ", cursor=" << cursor << ")";
       return ss.str();
     }
     Stream(const Stream &s): file(s.file), mode(s.mode), cursor(s.cursor) {}
-    Stream(File file): file(file), mode(O_RDONLY), cursor(0) {}
-    Stream(File file, int mode): file(file), mode(mode), cursor(0) {}
-    Stream(File file, int mode, size_t cursor): file(file), mode(mode), cursor(cursor) {}
+    Stream(Ptr<File> file): file(file), mode(O_RDONLY), cursor(0) {}
+    Stream(Ptr<File> file, int mode): file(file), mode(mode), cursor(0) {}
+    Stream(Ptr<File> file, int mode, size_t cursor): file(file), mode(mode), cursor(cursor) {}
 
     off_t seek_start(off_t offset) {
       if (offset < 0) return -1;
@@ -85,7 +101,7 @@ struct Stream: public Printable {
       return cursor;
     }
     off_t seek_end(off_t offset) {
-      off_t new_cursor = file.content.size() + offset;
+      off_t new_cursor = file->content.size() + offset;
       if (new_cursor < 0) return -1;
       cursor = new_cursor;
       return cursor;
@@ -104,7 +120,7 @@ struct FS: public Printable {
      * 1. change the string key to a fileId, similar to inode number
      * 2. add a root directory file, with fileId=0
      * <2022-02-08, David Deng> */
-    immer::map<std::string, File> files;
+    immer::map<std::string, Ptr<File>> files;
     Fd next_fd;
 
     Fd get_fresh_fd() {
@@ -131,7 +147,7 @@ struct FS: public Printable {
 
     FS(const FS &fs) : files(fs.files), opened_files(fs.opened_files), next_fd(3) {}
 
-    FS(immer::map<Fd, Stream> opened_files, immer::map<std::string, File> files, status_t status, Fd next_fd, Fd last_opened_fd) :
+    FS(immer::map<Fd, Stream> opened_files, immer::map<std::string, Ptr<File>> files, status_t status, Fd next_fd, Fd last_opened_fd) :
       opened_files(opened_files), files(files), next_fd(next_fd) {}
 
     inline Stream get_stream(Fd fd) {
