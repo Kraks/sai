@@ -21,6 +21,9 @@ struct File: public Printable {
     std::string name;
     List<PtrVal> content;
     List<PtrVal> stat;
+    // use transient? Need mutable map support in front end.
+    immer::map<std::string, Ptr<File>> children;
+    Ptr<File> parent;
 
     std::string toString() const override {
       std::ostringstream ss;
@@ -120,7 +123,8 @@ struct FS: public Printable {
      * 1. change the string key to a fileId, similar to inode number
      * 2. add a root directory file, with fileId=0
      * <2022-02-08, David Deng> */
-    immer::map<std::string, Ptr<File>> files;
+    Ptr<File> root_file;
+    /* immer::map<std::string, Ptr<File>> files; */
     Fd next_fd;
 
     Fd get_fresh_fd() {
@@ -129,26 +133,26 @@ struct FS: public Printable {
     }
     std::string toString() const override {
       std::ostringstream ss;
-      ss << "FS(nfiles=" << files.size() << ", nstreams=" << opened_files.size() << ", files=[";
-      for (auto pf: files) {
-        ss << pf.second << ", ";
-      }
-      ss << "], opened_files=[";
+      ss 
+        << "FS("
+        << "nstreams=" << opened_files.size();
+      ss << ", root_file=" << *root_file;
+      ss << ", opened_files=[";
       for (auto pf: opened_files) {
         ss << pf.second << ", ";
       }
       ss << "])";
       return ss.str();
     }
-    FS() : next_fd(3) {
+    FS() : next_fd(3), root_file(File::create("/")) {
       // default initialize opened_files and files
       /* TODO: set up stdin and stdout using fd 1 and 2 <2021-11-03, David Deng> */
     }
 
-    FS(const FS &fs) : files(fs.files), opened_files(fs.opened_files), next_fd(3) {}
+    FS(const FS &fs) : root_file(fs.root_file), opened_files(fs.opened_files), next_fd(3) {}
 
-    FS(immer::map<Fd, Stream> opened_files, immer::map<std::string, Ptr<File>> files, status_t status, Fd next_fd, Fd last_opened_fd) :
-      opened_files(opened_files), files(files), next_fd(next_fd) {}
+    FS(immer::map<Fd, Stream> opened_files, Ptr<File> root_file, status_t status, Fd next_fd, Fd last_opened_fd) :
+      opened_files(opened_files), root_file(root_file), next_fd(next_fd) {}
 
     inline Stream get_stream(Fd fd) {
       return opened_files.at(fd);

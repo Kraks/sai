@@ -174,19 +174,31 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
   
   implicit class FileOps(file: Rep[File]) {
     // fields
-    def name: Rep[String]         = "ptr-field-@".reflectWith[String](file, "name")
-    def content: Rep[List[Value]] = "ptr-field-@".reflectMutableWith[List[Value]](file, "content")
-    def size: Rep[Int]            = content.size
-    def stat: Rep[List[Value]]    = "ptr-field-@".reflectMutableWith[List[Value]](file, "stat")
+    def name: Rep[String]                = "ptr-field-@".reflectWith[String](file, "name")
+    def content: Rep[List[Value]]        = "ptr-field-@".reflectMutableWith[List[Value]](file, "content")
+    def size: Rep[Int]                   = content.size
+    def stat: Rep[List[Value]]           = "ptr-field-@".reflectMutableWith[List[Value]](file, "stat")
+    def children: Rep[Map[String, File]] = "ptr-field-@".reflectMutableWith[Map[String, File]](file, "children")
+    def parent: Rep[File]                = "ptr-field-@".reflectMutableWith[File](file, "parent")
 
     // assign ptr-field
     // TODO: Is this valid? <2022-05-12, David Deng> //
     // def size_=(rhs: Rep[Int]): Rep[Int] = "ptr-field-assign".reflectCtrlWith(file, "size", rhs)
-    def name_=(rhs: Rep[String]): Rep[String] = "ptr-field-assign".reflectCtrlWith(file, "name", rhs)
-    def content_=(rhs: Rep[List[Value]]): Rep[List[Value]] = "ptr-field-assign".reflectCtrlWith(file, "content", rhs)
-    def stat_=(rhs: Rep[List[Value]]): Rep[List[Value]] = "ptr-field-assign".reflectCtrlWith(file, "stat", rhs)
+    def name_=(rhs: Rep[String]): Rep[String]                           = "ptr-field-assign".reflectCtrlWith(file, "name", rhs)
+    def content_=(rhs: Rep[List[Value]]): Rep[List[Value]]              = "ptr-field-assign".reflectCtrlWith(file, "content", rhs)
+    def stat_=(rhs: Rep[List[Value]]): Rep[List[Value]]                 = "ptr-field-assign".reflectCtrlWith(file, "stat", rhs)
+    def children_=(rhs: Rep[Map[String, File]]): Rep[Map[String, File]] = "ptr-field-assign".reflectMutableWith[Map[String, File]](file, "children")
+    def parent_=(rhs: Rep[File]): Rep[File]                             = "ptr-field-assign".reflectMutableWith[File](file, "parent")
 
-    // methods
+    // directory-related methods
+
+    def hasChild(name: Rep[String]): Rep[Boolean]            = file.children.contains(name)
+    def getChild(name: Rep[String]): Rep[File]               = file.children(name)
+    def setChild(name: Rep[String], f: Rep[File]): Rep[Unit] = file.children = file.children + (name, f)
+    def removeChild(name: Rep[String]): Rep[Unit]            = file.children = file.children - name
+
+    // content-related methods
+
     def readAt(pos: Rep[Long], len: Rep[Long]): Rep[List[Value]] = content.drop(pos.toInt).take(len.toInt)
 
     def readStatField(f: String): Rep[Value] = {
@@ -256,9 +268,9 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
 
   implicit class FSOps(fs: Rep[FS]) {
     def openedFiles: Rep[Map[Fd, Stream]] = "field-@".reflectCtrlWith[Map[Fd, Stream]](fs, "opened_files")
-    def files: Rep[Map[String, File]]     = "field-@".reflectCtrlWith[Map[String, File]](fs, "files")
+    def rootFile: Rep[File]               = "field-@".reflectCtrlWith[File](fs, "root_file")
 
-    def files_= (rhs: Rep[Map[String, File]]): Rep[Map[String, File]] = "field-assign".reflectCtrlWith(fs, "files", rhs)
+    def rootFile_= (rhs: Rep[File]): Rep[File] = "field-assign".reflectCtrlWith(fs, "root_file", rhs)
     def openedFiles_= (rhs: Rep[Map[Fd, Stream]]): Rep[Map[Fd, Stream]] = "field-assign".reflectCtrlWith(fs, "opened_files", rhs)
 
     // Thought: we should eliminate all method-@ at the end, right? What is the rule about what to keep at the backend? 
@@ -269,11 +281,11 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
 
     def getFreshFd(): Rep[Fd] = "method-@".reflectCtrlWith[Fd](fs, "get_fresh_fd")
 
-    // TODO: extend those methods when support for directory structure is added <2022-05-07, David Deng> //
-    def hasFile(name: Rep[String]): Rep[Boolean]            = fs.files.contains(name)
-    def getFile(name: Rep[String]): Rep[File]               = fs.files(name)
-    def setFile(name: Rep[String], f: Rep[File]): Rep[Unit] = fs.files = fs.files + (name, f)
-    def removeFile(name: Rep[String]): Rep[Unit]            = fs.files = fs.files - name
+    // TODO: recursively search <2022-05-25, David Deng> //
+    def hasFile(name: Rep[String]): Rep[Boolean]            = fs.rootFile.hasChild(name)
+    def getFile(name: Rep[String]): Rep[File]               = fs.rootFile.getChild(name)
+    def setFile(name: Rep[String], f: Rep[File]): Rep[Unit] = fs.rootFile.setChild(name, f)
+    def removeFile(name: Rep[String]): Rep[Unit]            = fs.rootFile.removeChild(name)
 
     def hasStream(fd: Rep[Fd]): Rep[Boolean]              = fs.openedFiles.contains(fd)
     def getStream(fd: Rep[Fd]): Rep[Stream]               = fs.openedFiles(fd)

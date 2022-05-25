@@ -147,10 +147,6 @@ trait GenExternal extends SymExeDefs {
   //  helper functions  //
   ////////////////////////
 
-  def read_dev_field(f: Rep[File]): Rep[Value] = f.readStatField("st_dev")
-
-  def set_mode(f: Rep[File], mode: Rep[Value]): Rep[Unit] = f.writeStatField("st_mode", mode)
-
   def _set_file(fs: Rep[FS], p: Rep[String], f: Rep[File]): Rep[FS] = {
     fs.setFile(p, f)
     fs
