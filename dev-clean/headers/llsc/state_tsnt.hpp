@@ -11,7 +11,7 @@ class PreMem {
     TrList<V> mem;
   public:
     PreMem(TrList<V> mem) : mem(std::move(mem)) {}
-  //PreMem(const PreMem& m) : mem(((PreMem&)m).mem.persistent().transient()) {}
+    //PreMem(const PreMem& m) : mem(((PreMem&)m).mem.persistent().transient()) {}
     size_t size() { return mem.size(); }
     V at(size_t idx) { return mem.at(idx); }
     M&& update(size_t idx, V val) {
@@ -102,7 +102,7 @@ class Mem: public PreMem<PtrVal, Mem> {
     mem.set(seg.begin, v);
     if (!seg.val)
       for (size_t i = seg.begin + 1; i < seg.end; i++)
-	mem.set(i, make_ShadowV());
+    mem.set(i, make_ShadowV());
   }
 
   static void possible_partial_undef(PtrVal &v) {
@@ -229,7 +229,7 @@ class Stack {
           if (mem.size() == msize) mem.alloc(8);
           vals = vals.take(id_size - 1).push_back(make_LocV(msize, LocV::kStack, mem.size() - msize));
         }
-	env.update(env.size()-1, [&](auto f) { return f.assign_seq(ids, vals); });
+        env.update(env.size()-1, [&](auto f) { return f.assign_seq(ids, vals); });
       }
       return std::move(*this);
     }
