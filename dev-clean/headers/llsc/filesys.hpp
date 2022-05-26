@@ -33,7 +33,12 @@ struct File: public Printable {
       }
       ss << "], stat=[";
       for (auto ptrval: stat) {
-        ss << ptrval_to_string(ptrval) << ", ";
+        /* ss << ptrval_to_string(ptrval) << ", "; */
+      }
+      ss << "], nchildren=" << children.size();
+      ss << ", children=[";
+      for (auto &p: children) {
+        ss << p.first << ", ";
       }
       ss << "])";
       return ss.str();
