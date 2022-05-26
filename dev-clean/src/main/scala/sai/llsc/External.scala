@@ -179,15 +179,27 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
   import java.io.{File, PrintStream}
   import scala.collection.mutable.HashMap
 
-  @virtualize
-  def assertEq[T: Manifest](lhs: Rep[T], rhs: Rep[T], msg: String = "")(implicit m: Manifest[T]): Rep[Unit] = {
-    unchecked[Unit]("/* assertEq */")
-    val e: Rep[Boolean] = m match {
-      case m if m == manifest[Value] => lhs.asRepOf[Value].deref == rhs.asRepOf[Value].deref 
-      case m => lhs == rhs
+  def equalExplicit[T: Manifest](lhs: Rep[T], rhs: Rep[T])(implicit m: Manifest[T]): Rep[Boolean] = {
+      m match {
+      case m if m == manifest[Value] => equalExplicit(lhs.asRepOf[Value].deref, rhs.asRepOf[Value].deref)
+      case m => "==".reflectCtrlWith[Boolean](lhs, rhs)
     }
+  }
+
+  @virtualize
+  def assertEq[T: Manifest](lhs: Rep[T], rhs: Rep[T], msg: String = ""): Rep[Unit] = {
+    unchecked[Unit]("/* assertEq */")
+    val e: Rep[Boolean] = equalExplicit(lhs, rhs)
     assert(e, msg)
   }
+
+  @virtualize
+  def assertNeq[T: Manifest](lhs: Rep[T], rhs: Rep[T], msg: String = ""): Rep[Unit] = {
+    unchecked[Unit]("/* assertNeq */")
+    val e: Rep[Boolean] = equalExplicit(lhs, rhs)
+    assert(!e, msg)
+  }
+
   def assert(cond: Rep[Boolean], msg: String = ""): Rep[Unit] = {
     "assert".reflectCtrlWith[Unit](cond, unit(msg))
   }
