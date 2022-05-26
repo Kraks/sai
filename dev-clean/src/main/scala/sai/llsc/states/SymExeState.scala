@@ -187,8 +187,8 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
     def name_=(rhs: Rep[String]): Rep[String]                           = "ptr-field-assign".reflectCtrlWith(file, "name", rhs)
     def content_=(rhs: Rep[List[Value]]): Rep[List[Value]]              = "ptr-field-assign".reflectCtrlWith(file, "content", rhs)
     def stat_=(rhs: Rep[List[Value]]): Rep[List[Value]]                 = "ptr-field-assign".reflectCtrlWith(file, "stat", rhs)
-    def children_=(rhs: Rep[Map[String, File]]): Rep[Map[String, File]] = "ptr-field-assign".reflectMutableWith[Map[String, File]](file, "children")
-    def parent_=(rhs: Rep[File]): Rep[File]                             = "ptr-field-assign".reflectMutableWith[File](file, "parent")
+    def children_=(rhs: Rep[Map[String, File]]): Rep[Map[String, File]] = "ptr-field-assign".reflectCtrlWith[Map[String, File]](file, "children", rhs)
+    def parent_=(rhs: Rep[File]): Rep[File]                             = "ptr-field-assign".reflectCtrlWith[File](file, "parent", rhs)
 
     // directory-related methods
 
@@ -270,8 +270,8 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
     def openedFiles: Rep[Map[Fd, Stream]] = "field-@".reflectCtrlWith[Map[Fd, Stream]](fs, "opened_files")
     def rootFile: Rep[File]               = "field-@".reflectCtrlWith[File](fs, "root_file")
 
-    def rootFile_= (rhs: Rep[File]): Rep[File] = "field-assign".reflectCtrlWith(fs, "root_file", rhs)
     def openedFiles_= (rhs: Rep[Map[Fd, Stream]]): Rep[Map[Fd, Stream]] = "field-assign".reflectCtrlWith(fs, "opened_files", rhs)
+    def rootFile_= (rhs: Rep[File]): Rep[File] = "field-assign".reflectCtrlWith(fs, "root_file", rhs)
 
     // Thought: we should eliminate all method-@ at the end, right? What is the rule about what to keep at the backend? 
     // Maybe complicated algorithm (like branching) can be kept at the backend? <2022-05-12, David Deng> //
