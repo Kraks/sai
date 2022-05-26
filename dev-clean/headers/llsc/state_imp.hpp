@@ -12,7 +12,7 @@ class PreMem {
   public:
     PreMem(std::vector<V> mem) : mem(std::move(mem)) {}
     size_t size() { return mem.size(); }
-    V at(size_t idx) { return mem.at(idx); }
+    V at(size_t idx) { return mem[idx]; }
     M&& update(size_t idx, V val) {
       mem.at(idx) = val;
       return move_this();
@@ -75,13 +75,13 @@ class Mem: public PreMem<PtrVal, Mem> {
   };
 
   Segment lookup(size_t idx, size_t size) const {
-    auto cur = mem.at(idx);
+    auto cur = mem[idx];
     if (!cur) {
       size_t sz = 1;
-      while (sz < size && !mem.at(idx + sz)) sz++;
+      while (sz < size && !mem[idx + sz]) sz++;
       return { cur, idx, sz };
     }
-    while (std::dynamic_pointer_cast<ShadowV>(cur)) cur = mem.at(--idx);
+    while (std::dynamic_pointer_cast<ShadowV>(cur)) cur = mem[--idx];
     return { cur, idx, size_t(cur->get_bw() + 7) / 8 };
   }
 
@@ -96,10 +96,10 @@ class Mem: public PreMem<PtrVal, Mem> {
   }
 
   void write_back(const Segment &seg, PtrVal v) {
-    mem.at(seg.begin) = v;
+    mem[seg.begin] = v;
     if (!seg.val)
       for (size_t i = seg.begin + 1; i < seg.end; i++)
-        mem.at(i) = make_ShadowV();
+        mem[i] = make_ShadowV();
   }
 
   static void possible_partial_undef(PtrVal &v) {
@@ -169,7 +169,7 @@ class Frame {
     }
     Frame&& assign_seq(const std::vector<Id>& ids, const std::vector<PtrVal>& vals) {
       for (size_t i = 0; i < ids.size(); i++) {
-        env.insert_or_assign(ids.at(i), vals.at(i));
+        env.insert_or_assign(ids[i], vals[i]);
       }
       return std::move(*this);
     }
@@ -184,7 +184,7 @@ class Stack {
     Stack(Mem mem, std::vector<Frame> env, PtrVal errno_location) : mem(std::move(mem)), env(std::move(env)), errno_location(std::move(errno_location)) {}
     size_t mem_size() { return mem.size(); }
     size_t frame_depth() { return env.size(); }
-    PtrVal vararg_loc() { return env.at(env.size()-2).lookup_id(0); }
+    PtrVal vararg_loc() { return env[env.size()-2].lookup_id(0); }
     Stack&& init_error_loc() {
       auto error_addr = mem.size();
       mem.alloc(8);
@@ -218,7 +218,7 @@ class Stack {
           auto msize = mem.size();
           for (size_t i = id_size - 1; i < vals.size(); i++) {
             // FIXME: magic value 8, as vararg is retrived from +8 address
-            mem.append(vals.at(i), 7);
+            mem.append(vals[i], 7);
           }
           if (mem.size() == msize) mem.alloc(8);
           vals.resize(id_size - 1);

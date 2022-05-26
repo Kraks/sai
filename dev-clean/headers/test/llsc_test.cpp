@@ -7,6 +7,7 @@ int main() {
   auto ys = xs;
   // auto& ys = xs;
   ys.push_back(4);
-  printf("xs %ld ys %ld\n", xs.size(), ys.size());
+  auto zs = std::move(xs);
+  printf("xs %ld ys %ld zs %ld\n", xs.size(), ys.size(), zs.size());
   printf("hello LLSC\n");
 }

@@ -19,7 +19,7 @@ inline T __llsc_assert(SS& state, List<PtrVal>& args, __Cont<T> k, __Halt<T> h) 
   }
   // otherwise add a symbolic condition that constraints it to be true
   // undefined/error if v is a value of other types
-  auto cond = to_SMTNeg(v);
+  auto cond = SymV::neg(v);
   auto new_s = state.add_PC(cond);
   if (check_pc(new_s.get_PC())) {
     std::cout << "Warning: assert violates; abort and generate test.\n";

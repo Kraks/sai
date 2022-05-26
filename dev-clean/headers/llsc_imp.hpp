@@ -46,7 +46,8 @@ using namespace std::chrono;
 #include <llsc/state_imp.hpp>
 
 #include <llsc/smt_checker.hpp>
-#include <llsc/smt_stp.hpp>
+//#include <llsc/smt_stp.hpp>
+#include <llsc/smt_z3.hpp>
 
 #include <llsc/branch.hpp>
 #include <llsc/misc.hpp>

@@ -22,12 +22,14 @@ import sys.process._
 import org.scalatest.FunSuite
 
 import Config._
+import TestPrg._
+import TestCases._
 
 class Optimization extends TestLLSC {
   import scala.collection.mutable.ListBuffer
   import java.io.{File, FileWriter}
   val writer = new FileWriter(new File("opt_exp.csv"), true)
-  val N = 10
+  val N = 0
 
   def testLLSC(N: Int, llsc: LLSC, tst: TestPrg): Unit = {
     val TestPrg(m, name, f, config, cliArg, exp) = tst
@@ -53,51 +55,75 @@ class Optimization extends TestLLSC {
   }
 }
 
+class TestImpCPSOpt extends Optimization {
+  val llsc = new ImpCPSLLSC_Z3
+  Config.enableOpt
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/mergesort.ll"), "mergeSort_Opt", "@main", noArg, noOpt, nPath(5040)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/bubblesort.ll"), "bubbleSort_Opt", "@main", noArg, noOpt, nPath(720)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/knapsack.ll"), "knapsack_Opt", "@main", noArg, noOpt, nPath(1666)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/kmpmatcher.ll"), "kmp_Opt", "@main", noArg, noOpt, nPath(4181)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/nqueen.ll"), "nqueen_Opt", "@main", noArg, noOpt, nPath(1363)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/quicksort.ll"), "quicksort_Opt", "@main", noArg, noOpt, nPath(5040)))
+}
+
+class TestPureCPSOpt extends Optimization {
+  val llsc = new PureCPSLLSC_Z3
+  Config.enableOpt
+
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/mergesort.ll"), "mergeSort_Opt", "@main", noArg, noOpt, nPath(5040)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/bubblesort.ll"), "bubbleSort_Opt", "@main", noArg, noOpt, nPath(720)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/knapsack.ll"), "knapsack_Opt", "@main", noArg, noOpt, nPath(1666)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/kmpmatcher.ll"), "kmp_Opt", "@main", noArg, noOpt, nPath(4181)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/nqueen.ll"), "nqueen_Opt", "@main", noArg, noOpt, nPath(1363)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/quicksort.ll"), "quicksort_Opt", "@main", noArg, noOpt, nPath(5040)))
+}
+
+
 /*
 class TestPureCPSNoOpt extends Optimization {
   val llsc = new PureCPSLLSC
   Config.disableOpt
 
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/mergesort.ll"), "mergeSort_NoOpt", "@main", noArg, None, nPath(5040)))
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/bubblesort.ll"), "bubbleSort_NoOpt", "@main", noArg, None, nPath(720)))
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/knapsack.ll"), "knapsack_NoOpt", "@main", noArg, None, nPath(1666)))
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/kmpmatcher.ll"), "kmp_NoOpt", "@main", noArg, None, nPath(4181)))
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/nqueen.ll"), "nqueen_NoOpt", "@main", noArg, None, nPath(1363)))
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/quicksort.ll"), "quicksort_NoOpt", "@main", noArg, None, nPath(5040)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/mergesort.ll"), "mergeSort_NoOpt", "@main", noArg, noOpt, nPath(5040)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/bubblesort.ll"), "bubbleSort_NoOpt", "@main", noArg, noOpt, nPath(720)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/knapsack.ll"), "knapsack_NoOpt", "@main", noArg, noOpt, nPath(1666)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/kmpmatcher.ll"), "kmp_NoOpt", "@main", noArg, noOpt, nPath(4181)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/nqueen.ll"), "nqueen_NoOpt", "@main", noArg, noOpt, nPath(1363)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/quicksort.ll"), "quicksort_NoOpt", "@main", noArg, noOpt, nPath(5040)))
 }
 
 class TestPureCPSOpt extends Optimization {
   val llsc = new PureCPSLLSC
   Config.enableOpt
 
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/mergesort.ll"), "mergeSort_Opt", "@main", noArg, None, nPath(5040)))
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/bubblesort.ll"), "bubbleSort_Opt", "@main", noArg, None, nPath(720)))
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/knapsack.ll"), "knapsack_Opt", "@main", noArg, None, nPath(1666)))
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/kmpmatcher.ll"), "kmp_Opt", "@main", noArg, None, nPath(4181)))
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/nqueen.ll"), "nqueen_Opt", "@main", noArg, None, nPath(1363)))
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/quicksort.ll"), "quicksort_Opt", "@main", noArg, None, nPath(5040)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/mergesort.ll"), "mergeSort_Opt", "@main", noArg, noOpt, nPath(5040)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/bubblesort.ll"), "bubbleSort_Opt", "@main", noArg, noOpt, nPath(720)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/knapsack.ll"), "knapsack_Opt", "@main", noArg, noOpt, nPath(1666)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/kmpmatcher.ll"), "kmp_Opt", "@main", noArg, noOpt, nPath(4181)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/nqueen.ll"), "nqueen_Opt", "@main", noArg, noOpt, nPath(1363)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/quicksort.ll"), "quicksort_Opt", "@main", noArg, noOpt, nPath(5040)))
 }
 
 
 class TestImpCPSOpt extends Optimization {
   val llsc = new ImpCPSLLSC
   Config.enableOpt
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/mergesort.ll"), "mergeSort_Opt", "@main", noArg, None, nPath(5040)))
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/bubblesort.ll"), "bubbleSort_Opt", "@main", noArg, None, nPath(720)))
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/knapsack.ll"), "knapsack_Opt", "@main", noArg, None, nPath(1666)))
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/kmpmatcher.ll"), "kmp_Opt", "@main", noArg, None, nPath(4181)))
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/nqueen.ll"), "nqueen_Opt", "@main", noArg, None, nPath(1363)))
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/quicksort.ll"), "quicksort_Opt", "@main", noArg, None, nPath(5040)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/mergesort.ll"), "mergeSort_Opt", "@main", noArg, noOpt, nPath(5040)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/bubblesort.ll"), "bubbleSort_Opt", "@main", noArg, noOpt, nPath(720)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/knapsack.ll"), "knapsack_Opt", "@main", noArg, noOpt, nPath(1666)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/kmpmatcher.ll"), "kmp_Opt", "@main", noArg, noOpt, nPath(4181)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/nqueen.ll"), "nqueen_Opt", "@main", noArg, noOpt, nPath(1363)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/quicksort.ll"), "quicksort_Opt", "@main", noArg, noOpt, nPath(5040)))
 }
 
 class TestImpCPSNoOpt extends Optimization {
   val llsc = new ImpCPSLLSC
   Config.disableOpt
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/mergesort.ll"), "mergeSort_NoOpt", "@main", noArg, None, nPath(5040)))
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/bubblesort.ll"), "bubbleSort_NoOpt", "@main", noArg, None, nPath(720)))
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/knapsack.ll"), "knapsack_NoOpt", "@main", noArg, None, nPath(1666)))
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/kmpmatcher.ll"), "kmp_NoOpt", "@main", noArg, None, nPath(4181)))
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/nqueen.ll"), "nqueen_NoOpt", "@main", noArg, None, nPath(1363)))
-  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/quicksort.ll"), "quicksort_NoOpt", "@main", noArg, None, nPath(5040)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/mergesort.ll"), "mergeSort_NoOpt", "@main", noArg, noOpt, nPath(5040)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/bubblesort.ll"), "bubbleSort_NoOpt", "@main", noArg, noOpt, nPath(720)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/knapsack.ll"), "knapsack_NoOpt", "@main", noArg, noOpt, nPath(1666)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/kmpmatcher.ll"), "kmp_NoOpt", "@main", noArg, noOpt, nPath(4181)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/nqueen.ll"), "nqueen_NoOpt", "@main", noArg, noOpt, nPath(1363)))
+  testLLSC(N, llsc, TestPrg(parseFile("benchmarks/opt_experiments/quicksort.ll"), "quicksort_NoOpt", "@main", noArg, noOpt, nPath(5040)))
 }
 */

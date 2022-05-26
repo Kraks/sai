@@ -128,14 +128,16 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     val libraries = codegen.libraryFlags.mkString(" ")
     val includes = codegen.includePaths.map(s"-I $curDir/" + _).mkString(" ")
     val libraryPaths = codegen.libraryPaths.map(p => s"-L $curDir/$p -Wl,-rpath $curDir/$p").mkString(" ")
-    val main_file_opt = if (config.test_coreutil) "-O0" else "-O3"
+    val mainFileOpt = if (config.test_coreutil) "NOOPT" else "OPT"
 
     out.println(s"""|BUILD_DIR = build
     |TARGET = $appName
     |SRC_DIR = .
     |SOURCES = $$(shell find $$(SRC_DIR)/ -name "*.cpp" ! -name "$${TARGET}.cpp")
     |OBJECTS = $$(SOURCES:$$(SRC_DIR)/%.cpp=$$(BUILD_DIR)/%.o)
-    |CC = g++ -std=c++17 -O3
+    |OPT = -O3
+    |NOOPT = -O0
+    |CC = g++ -std=c++17
     |PERFFLAGS = -fno-omit-frame-pointer #-g
     |CXXFLAGS = $includes $extraFlags $$(PERFFLAGS)
     |LDFLAGS = $libraryPaths
@@ -147,14 +149,14 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     |
     |$$(OBJECTS): $$$$(patsubst $$(BUILD_DIR)/%.o,$$(SRC_DIR)/%.cpp,$$$$@)
     |\tmkdir -p $$(@D)
-    |\t$$(CC) -c -o $$@ $$< $$(CXXFLAGS)
+    |\t$$(CC) $$(OPT) -c -o $$@ $$< $$(CXXFLAGS)
     |
     |$$(BUILD_DIR)/$${TARGET}.o : $${TARGET}.cpp
     |\tmkdir -p $$(@D)
-    |\tg++ -std=c++17 $main_file_opt -c -o $$@ $$< $$(CXXFLAGS)
+    |\t$$(CC) $$($mainFileOpt) -c -o $$@ $$< $$(CXXFLAGS)
     |
     |$$(TARGET): $$(OBJECTS) $$(BUILD_DIR)/$${TARGET}.o
-    |\t$$(CC) -o $$@ $$^ $$(LDFLAGS) $$(LDLIBS)
+    |\t$$(CC) $$(OPT) -o $$@ $$^ $$(LDFLAGS) $$(LDLIBS)
     |
     |clean:
     |\t@rm $${TARGET} 2>/dev/null || true
@@ -392,6 +394,17 @@ class ImpCPSLLSC extends LLSC {
         exec(fname, config.args, fun { case sv => checkPCToFile(sv._1) })
       }
     }
+}
+
+class ImpCPSLLSC_Z3 extends ImpCPSLLSC {
+  override val insName = "ImpCPSLLSC_Z3"
+  override def newInstance(m: Module, name: String, fname: String, config: Config) = {
+    val llsc = super.newInstance(m, name, fname, config)
+    llsc.codegen.libraryFlags.clear()
+    llsc.codegen.registerLibrary("-lz3")
+    llsc.extraFlags = "-D USE_TP -D Z3" // -D USE_LKFREE_Q"
+    llsc
+  }
 }
 
 object RunLLSC {
