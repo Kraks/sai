@@ -184,12 +184,11 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
 
     // assign ptr-field
     // TODO: Is this valid? <2022-05-12, David Deng> //
-    // def size_=(rhs: Rep[Int]): Rep[Int] = "ptr-field-assign".reflectCtrlWith(file, "size", rhs)
-    def name_=(rhs: Rep[String]): Rep[String]                           = "ptr-field-assign".reflectCtrlWith(file, unit("name"), rhs)
-    def content_=(rhs: Rep[List[Value]]): Rep[List[Value]]              = "ptr-field-assign".reflectCtrlWith(file, unit("content"), rhs)
-    def stat_=(rhs: Rep[List[Value]]): Rep[List[Value]]                 = "ptr-field-assign".reflectCtrlWith(file, unit("stat"), rhs)
-    def children_=(rhs: Rep[Map[String, File]]): Rep[Map[String, File]] = "ptr-field-assign".reflectCtrlWith[Map[String, File]](file, unit("children"), rhs)
-    def parent_=(rhs: Rep[File]): Rep[File]                             = "ptr-field-assign".reflectCtrlWith[File](file, unit("parent"), rhs)
+    def name_=(rhs: Rep[String]): Unit                = "ptr-field-assign".reflectCtrlWith(file, unit("name"), rhs)
+    def content_=(rhs: Rep[List[Value]]): Unit        = "ptr-field-assign".reflectCtrlWith(file, unit("content"), rhs)
+    def stat_=(rhs: Rep[List[Value]]): Unit           = "ptr-field-assign".reflectCtrlWith(file, unit("stat"), rhs)
+    def children_=(rhs: Rep[Map[String, File]]): Unit = "ptr-field-assign".reflectCtrlWith[Map[String, File]](file, unit("children"), rhs)
+    def parent_=(rhs: Rep[File]): Unit                = "ptr-field-assign".reflectCtrlWith[File](file, unit("parent"), rhs)
 
     // directory-related methods
 
@@ -241,14 +240,14 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
 
     // fields
     def name: Rep[String] = strm.file.name
-    def file: Rep[File]   = "field-@".reflectWith[File](strm, unit("file"))
-    def cursor: Rep[Long] = "field-@".reflectWith[Long](strm, unit("cursor"))
-    def mode: Rep[Int]    = "field-@".reflectWith[Int](strm, unit("mode"))
+    def file: Rep[File]   = "field-@".reflectCtrlWith[File](strm, unit("file"))
+    def cursor: Rep[Long] = "field-@".reflectCtrlWith[Long](strm, unit("cursor"))
+    def mode: Rep[Int]    = "field-@".reflectCtrlWith[Int](strm, unit("mode"))
 
     // assign field
-    def file_= (rhs: Rep[File]): Rep[File] = "field-assign".reflectCtrlWith(strm, unit("file"), rhs)
-    def cursor_= (rhs: Rep[Long]): Rep[Long] = "field-assign".reflectCtrlWith(strm, unit("cursor"), rhs)
-    def mode_= (rhs: Rep[Int]): Rep[Int] = "field-assign".reflectCtrlWith(strm, unit("mode"), rhs)
+    def file_= (rhs: Rep[File]): Unit   = "field-assign".reflectCtrlWith[File](strm, unit("file"), rhs)
+    def cursor_= (rhs: Rep[Long]): Unit = "field-assign".reflectCtrlWith[Long](strm, unit("cursor"), rhs)
+    def mode_= (rhs: Rep[Int]): Unit    = "field-assign".reflectCtrlWith[Int](strm, unit("mode"), rhs)
 
     def read(n: Rep[Long]): Rep[List[Value]] = {
       val content = file.readAt(strm.cursor, n)
@@ -258,12 +257,33 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
 
     def write(c: Rep[List[Value]], n: Rep[Long]): Rep[Long] = {
       val content = c.take(n.toInt)
-      val f = strm.file
-      f.writeAt(content, strm.cursor, literal("IntV0"))
-      strm.file = f
-      // strm.file = strm.file.writeAt(content, strm.cursor, literal("IntV0"))
+      strm.file.writeAt(content, strm.cursor, literal("IntV0"))
       strm.cursor = strm.cursor + content.size;
       return content.size
+    }
+
+    def seekStart(o: Rep[Long]): Rep[Long] = {
+      if (o < 0L) -1L
+      else { 
+        strm.cursor = o
+        o
+      }
+    }
+    def seekEnd(o: Rep[Long]): Rep[Long] = {
+      val newCursor = strm.file.content.size + o
+      if (newCursor < 0L) -1L
+      else { 
+        strm.cursor = newCursor
+        newCursor
+      }
+    }
+    def seekCur(o: Rep[Long]): Rep[Long] = {
+      val newCursor = strm.cursor + o
+      if (newCursor < 0L) -1L
+      else {
+        strm.cursor = newCursor
+        newCursor
+      }
     }
   }
 
@@ -271,14 +291,27 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
     def openedFiles: Rep[Map[Fd, Stream]] = "field-@".reflectCtrlWith[Map[Fd, Stream]](fs, unit("opened_files"))
     def rootFile: Rep[File]               = "field-@".reflectCtrlWith[File](fs, unit("root_file"))
 
-    def openedFiles_= (rhs: Rep[Map[Fd, Stream]]): Rep[Map[Fd, Stream]] = "field-assign".reflectCtrlWith(fs, unit("opened_files"), rhs)
-    def rootFile_= (rhs: Rep[File]): Rep[File] = "field-assign".reflectCtrlWith(fs, unit("root_file"), rhs)
+    def openedFiles_= (rhs: Rep[Map[Fd, Stream]]): Unit = "field-assign".reflectCtrlWith(fs, unit("opened_files"), rhs)
+    def rootFile_= (rhs: Rep[File]): Unit = "field-assign".reflectCtrlWith(fs, unit("root_file"), rhs)
 
     // Thought: we should eliminate all method-@ at the end, right? What is the rule about what to keep at the backend? 
     // Maybe complicated algorithm (like branching) can be kept at the backend? <2022-05-12, David Deng> //
 
-    // TODO: eliminate seek_file backend function <2022-05-18, David Deng> //
-    def seekFile(fd: Rep[Fd], o: Rep[Long], w: Rep[Int]): Rep[Long] = "method-@".reflectCtrlWith[Long](fs, unit("seek_file"), fd, o, w)
+    def seekFile(fd: Rep[Fd], o: Rep[Long], w: Rep[Int]): Rep[Long] = {
+      if (!fs.hasStream(fd)) -1L
+      else {
+        val strm = fs.getStream(fd)
+        val ret = {
+          if (w == literal("SEEK_SET")) strm.seekStart(o)
+          else if (w == literal("SEEK_CUR")) strm.seekCur(o)
+          else if (w == literal("SEEK_END")) strm.seekEnd(o)
+          else -1L
+        }
+        // TODO: can eliminate the setStream after using pointer to model stream <2022-05-26, David Deng> //
+        fs.setStream(fd, strm)
+        ret
+      }
+    }
 
     def getFreshFd(): Rep[Fd] = "method-@".reflectCtrlWith[Fd](fs, unit("get_fresh_fd"))
 

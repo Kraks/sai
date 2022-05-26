@@ -116,8 +116,8 @@ trait GenExternal extends SymExeDefs {
   }
 
   def lseek[T: Manifest](fs: Rep[FS], args: Rep[List[Value]], k: (Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
-    val fd: Rep[Fd] = args(0).int.asRepOf[Fd]
-    val o: Rep[Long] = args(1).int.asRepOf[Long]
+    val fd: Rep[Fd] = args(0).int.toInt
+    val o: Rep[Long] = args(1).int
     val w: Rep[Int] = args(2).int.toInt
     val pos: Rep[Long] = fs.seekFile(fd, o, w)
     k(fs, IntV(pos, 64))

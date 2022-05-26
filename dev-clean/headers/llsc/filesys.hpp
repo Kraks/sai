@@ -98,23 +98,6 @@ struct Stream: public Printable {
     Stream(Ptr<File> file, int mode): file(file), mode(mode), cursor(0) {}
     Stream(Ptr<File> file, int mode, size_t cursor): file(file), mode(mode), cursor(cursor) {}
 
-    off_t seek_start(off_t offset) {
-      if (offset < 0) return -1;
-      cursor = offset;
-      return cursor;
-    }
-    off_t seek_end(off_t offset) {
-      off_t new_cursor = file->content.size() + offset;
-      if (new_cursor < 0) return -1;
-      cursor = new_cursor;
-      return cursor;
-    }
-    off_t seek_cur(off_t offset) {
-      off_t new_cursor = cursor + offset;
-      if (new_cursor < 0) return -1;
-      cursor = new_cursor;
-      return cursor;
-    }
 };
 
 struct FS: public Printable {
@@ -153,38 +136,6 @@ struct FS: public Printable {
 
     FS(immer::map<Fd, Stream> opened_files, Ptr<File> root_file, status_t status, Fd next_fd, Fd last_opened_fd) :
       opened_files(opened_files), root_file(root_file), next_fd(next_fd) {}
-
-    inline Stream get_stream(Fd fd) {
-      return opened_files.at(fd);
-    }
-
-    inline bool has_stream(Fd fd) const {
-      return opened_files.find(fd) != nullptr;
-    }
-
-    /* TODO: refactor this method to frontend and remove the previous two functions <2022-05-24, David Deng> */
-    off_t seek_file(Fd fd, off_t offset, int whence) {
-      if (!has_stream(fd)) return -1;
-      auto strm = get_stream(fd);
-      off_t ret;
-      switch (whence) {
-        case SEEK_SET:
-          ret = strm.seek_start(offset);
-          break;
-        case SEEK_CUR:
-          ret = strm.seek_cur(offset);
-          break;
-        case SEEK_END:
-          ret = strm.seek_end(offset);
-          break;
-        default:
-          std::cout << "invalid whence flag: " << whence << std::endl;
-          return -1;
-      }
-      /* TODO: use reference to get stream instead <2022-03-15, David Deng> */
-      if (ret != -1) opened_files = opened_files.set(fd, strm);
-      return ret;
-    }
 };
 
 inline FS initial_fs;
