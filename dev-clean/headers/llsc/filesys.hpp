@@ -18,14 +18,14 @@ inline List<PtrVal> get_sym_stat() {
 }
 
 struct File: public Printable {
-    std::string name;
+    String name;
     List<PtrVal> content;
     List<PtrVal> stat;
     // use transient? Need mutable map support in front end.
-    immer::map<std::string, Ptr<File>> children;
+    immer::map<String, Ptr<File>> children;
     Ptr<File> parent;
 
-    std::string toString() const override {
+    String toString() const override {
       std::ostringstream ss;
       ss << "File(name=" << name << ", content=[";
       for (auto ptrval: content) {
@@ -38,28 +38,28 @@ struct File: public Printable {
       ss << "])";
       return ss.str();
     }
-    [[nodiscard]] inline static Ptr<File> create(std::string name) 
+    [[nodiscard]] inline static Ptr<File> create(String name) 
     { 
       return Ptr<File>(new File(name));
     }
-    [[nodiscard]] inline static Ptr<File> create(std::string name, List<PtrVal> content)
+    [[nodiscard]] inline static Ptr<File> create(String name, List<PtrVal> content)
     {
       return Ptr<File>(new File(name, content)); 
     }
-    [[nodiscard]] inline static Ptr<File> create(std::string name, List<PtrVal> content, List<PtrVal> stat)
+    [[nodiscard]] inline static Ptr<File> create(String name, List<PtrVal> content, List<PtrVal> stat)
     { 
       return Ptr<File>(new File(name, content, stat)); 
     }
-    [[nodiscard]] inline static Ptr<File> create(const File& f)
+    [[nodiscard]] inline static Ptr<File> create(Ptr<File> f)
     { 
-      return Ptr<File>(new File(f)); 
+      return Ptr<File>(new File(*f)); 
     }
   private:
-    File(std::string name): 
+    File(String name): 
       name(name), content(), stat(stat_size) {}
-    File(std::string name, List<PtrVal> content): 
+    File(String name, List<PtrVal> content): 
       name(name), content(content), stat(stat_size) {}
-    File(std::string name, List<PtrVal> content, List<PtrVal> stat): 
+    File(String name, List<PtrVal> content, List<PtrVal> stat): 
       name(name), content(content), stat(stat) {}
     File(const File& f): name(f.name), content(f.content), stat(f.stat) {}
 };
@@ -69,7 +69,7 @@ struct File: public Printable {
  * Purpose 1: For supporting directory structure
  * Purpose 2: To avoid potentially conflicting var names in sym values
  * <2022-02-07, David Deng> */
-inline Ptr<File> make_SymFile(std::string name, size_t size) {
+inline Ptr<File> make_SymFile(String name, size_t size) {
   List<PtrVal> content;
   for (int i = 0; i < size; i++) {
     content = content.push_back(make_SymV_fs());
@@ -88,33 +88,46 @@ struct Stream: public Printable {
     int mode; // a combination of O_RDONLY, O_WRONLY, O_RDWR, etc.
     off_t cursor;
 
-    std::string toString() const override {
+    String toString() const override {
       std::ostringstream ss;
       ss << "Stream(file=" << *file << ", mode=" << mode << ", cursor=" << cursor << ")";
       return ss.str();
     }
-    Stream(const Stream &s): file(s.file), mode(s.mode), cursor(s.cursor) {}
+
+    [[nodiscard]] inline static Ptr<Stream> create(Ptr<File> file) {
+      return Ptr<Stream>(new Stream(file));
+    }
+    [[nodiscard]] inline static Ptr<Stream> create(Ptr<File> file, int mode) {
+      return Ptr<Stream>(new Stream(file, mode));
+    }
+    [[nodiscard]] inline static Ptr<Stream> create(Ptr<File> file, int mode, size_t cursor) {
+      return Ptr<Stream>(new Stream(file, mode, cursor));
+    }
+    [[nodiscard]] inline static Ptr<Stream> create(Ptr<Stream> s) {
+      return Ptr<Stream>(new Stream(*s));
+    }
+  private:
     Stream(Ptr<File> file): file(file), mode(O_RDONLY), cursor(0) {}
     Stream(Ptr<File> file, int mode): file(file), mode(mode), cursor(0) {}
     Stream(Ptr<File> file, int mode, size_t cursor): file(file), mode(mode), cursor(cursor) {}
-
+    Stream(const Stream &s): file(s.file), mode(s.mode), cursor(s.cursor) {}
 };
 
 struct FS: public Printable {
-    immer::map<Fd, Stream> opened_files;
+    immer::map<Fd, Ptr<Stream>> opened_files;
     /* TODO: implement directory structure
      * 1. change the string key to a fileId, similar to inode number
      * 2. add a root directory file, with fileId=0
      * <2022-02-08, David Deng> */
     Ptr<File> root_file;
-    /* immer::map<std::string, Ptr<File>> files; */
+    /* immer::map<String, Ptr<File>> files; */
     Fd next_fd;
 
     Fd get_fresh_fd() {
       /* TODO: traverse through opened files to find the lowest available fd <2022-01-25, David Deng> */
       return next_fd++;
     }
-    std::string toString() const override {
+    String toString() const override {
       std::ostringstream ss;
       ss 
         << "FS("
@@ -134,7 +147,7 @@ struct FS: public Printable {
 
     FS(const FS &fs) : root_file(fs.root_file), opened_files(fs.opened_files), next_fd(3) {}
 
-    FS(immer::map<Fd, Stream> opened_files, Ptr<File> root_file, status_t status, Fd next_fd, Fd last_opened_fd) :
+    FS(immer::map<Fd, Ptr<Stream>> opened_files, Ptr<File> root_file, status_t status, Fd next_fd, Fd last_opened_fd) :
       opened_files(opened_files), root_file(root_file), next_fd(next_fd) {}
 };
 

@@ -152,7 +152,7 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
 
   def literal[T: Manifest](s: String): Rep[T] = "literal".reflectUnsafeWith[T](unit(s))
 
-  val statFieldMap: Map[String, (Int, Int)] = StaticMap(
+  val statFieldMap: Map[String, (Int, Int)]                 = StaticMap(
       "st_dev" -> (0, 8),
       "st_ino" -> (8, 8),
       "st_nlink" -> (16, 8),
@@ -168,9 +168,12 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
       "st_mtim" -> (88, 16),
       "st_ctim" -> (104, 16),
   )
+
   object File {
-    def apply(name: Rep[String]) = "File::create".reflectWith[File](name)
+    def apply(name: Rep[String])                            = "File::create".reflectWith[File](name)
     def apply(name: Rep[String], content: Rep[List[Value]]) = "File::create".reflectWith[File](name, content)
+    def apply(name: Rep[String], content: Rep[List[Value]], stat: Rep[List[Value]]) = "File::create".reflectWith[File](name, content, stat)
+    def copy(f: Rep[File])                            = "File::create".reflectCtrlWith[File](f)
   }
   
   implicit class FileOps(file: Rep[File]) {
@@ -233,21 +236,24 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
 
   // TODO: Change to pointer type for dup syscall? <2022-05-20, David Deng> //
   object Stream {
-    def apply(f: Rep[File]) = "Stream".reflectWith[Stream](f)
+    def apply(f: Rep[File]) = "Stream::create".reflectCtrlWith[Stream](f)
+    def apply(f: Rep[File], m: Rep[Int]) = "Stream::create".reflectCtrlWith[Stream](f, m)
+    def apply(f: Rep[File], m: Rep[Int], c: Rep[Long]) = "Stream::create".reflectCtrlWith[Stream](f, m, c)
+    def copy(strm: Rep[Stream]) = "Stream::create".reflectCtrlWith[Stream](strm)
   }
 
   implicit class StreamOps(strm: Rep[Stream]) {
 
     // fields
     def name: Rep[String] = strm.file.name
-    def file: Rep[File]   = "field-@".reflectCtrlWith[File](strm, unit("file"))
-    def cursor: Rep[Long] = "field-@".reflectCtrlWith[Long](strm, unit("cursor"))
-    def mode: Rep[Int]    = "field-@".reflectCtrlWith[Int](strm, unit("mode"))
+    def file: Rep[File]   = "ptr-field-@".reflectCtrlWith[File](strm, unit("file"))
+    def cursor: Rep[Long] = "ptr-field-@".reflectCtrlWith[Long](strm, unit("cursor"))
+    def mode: Rep[Int]    = "ptr-field-@".reflectCtrlWith[Int](strm, unit("mode"))
 
     // assign field
-    def file_= (rhs: Rep[File]): Unit   = "field-assign".reflectCtrlWith[File](strm, unit("file"), rhs)
-    def cursor_= (rhs: Rep[Long]): Unit = "field-assign".reflectCtrlWith[Long](strm, unit("cursor"), rhs)
-    def mode_= (rhs: Rep[Int]): Unit    = "field-assign".reflectCtrlWith[Int](strm, unit("mode"), rhs)
+    def file_= (rhs: Rep[File]): Unit   = "ptr-field-assign".reflectCtrlWith[File](strm, unit("file"), rhs)
+    def cursor_= (rhs: Rep[Long]): Unit = "ptr-field-assign".reflectCtrlWith[Long](strm, unit("cursor"), rhs)
+    def mode_= (rhs: Rep[Int]): Unit    = "ptr-field-assign".reflectCtrlWith[Int](strm, unit("mode"), rhs)
 
     def read(n: Rep[Long]): Rep[List[Value]] = {
       val content = file.readAt(strm.cursor, n)

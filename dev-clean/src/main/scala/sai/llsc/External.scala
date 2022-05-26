@@ -345,6 +345,18 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
     assertEq(seg.size, 2, "segment should have two elements")
   }
 
+  def testStreamCopy = {
+    unchecked("/* test stream copy constructor */")
+    val strm1 = Stream(File("A"), literal[Int]("O_RDONLY"), 1L) // offset 1
+    val strm1ref = strm1
+    val strm2 = Stream.copy(strm1)
+    unchecked(strm1ref)
+    strm1ref.cursor = 5L
+    unchecked(strm1)
+    assertEq(strm1.cursor, 5L, "strm1 should be updated")
+    assertEq(strm2.cursor, 1L, "strm2 should not be updated")
+  }
+
   // def testSeek: Rep[Unit] = {
   //   off_t pos
   //   unchecked("/* test seek */")
@@ -477,6 +489,7 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
     testWriteStatField
     testPtrDeref
     testStringOps
+    testStreamCopy
     ()
   }
 }
