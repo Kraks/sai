@@ -150,7 +150,8 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
 
   }
 
-  def literal[T: Manifest](s: String): Rep[T] = "literal".reflectUnsafeWith[T](s)
+  def literal[T: Manifest](s: String): Rep[T] = "literal".reflectUnsafeWith[T](unit(s))
+
   val statFieldMap: Map[String, (Int, Int)] = StaticMap(
       "st_dev" -> (0, 8),
       "st_ino" -> (8, 8),
