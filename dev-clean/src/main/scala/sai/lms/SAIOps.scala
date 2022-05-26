@@ -37,7 +37,7 @@ abstract class SAISnippet[A: Manifest, B: Manifest] extends SAIOps {
 
 trait SAIOps extends Base
     with PrimitiveOpsOpt with LiftPrimitives with Equal with RangeOps
-    with OrderingOps  with LiftVariables  with TupleOpsOpt
+    with OrderingOps  with LiftVariables  with TupleOpsOpt with StringOps
     with ListOpsOpt   with MapOpsOpt      with SetOpsOpt
     with EitherOps    with RepLattices    with RepMonads
     with SMTBaseOps   with SMTBitVecOps   with SMTArrayOps {

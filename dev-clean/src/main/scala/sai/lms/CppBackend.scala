@@ -13,8 +13,8 @@ import sai.lmsx.smt._
 
 trait CppSAICodeGenBase extends ExtendedCPPCodeGen
     with CppCodeGen_List with CppCodeGen_Tuple   with CppCodeGen_Map
-    with CppCodeGen_Set  with STPCodeGen_SMTBase with STPCodeGen_SMTBV
-    with STPCodeGen_SMTArray {
+    with CppCodeGen_Set  with CppCodeGen_String
+    with STPCodeGen_SMTBase with STPCodeGen_SMTBV with STPCodeGen_SMTArray {
 
   override def remap(m: Manifest[_]): String = {
     val name = m.runtimeClass.getName
