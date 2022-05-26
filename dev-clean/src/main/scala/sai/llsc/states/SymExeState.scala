@@ -152,6 +152,7 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
 
   def literal[T: Manifest](s: String): Rep[T] = "literal".reflectUnsafeWith[T](unit(s))
 
+  // TODO: refactor using getTySize and calculateOffsetStatic <2022-05-26, David Deng> //
   val statFieldMap: Map[String, (Int, Int)]                 = StaticMap(
       "st_dev" -> (0, 8),
       "st_ino" -> (8, 8),
@@ -168,6 +169,9 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
       "st_mtim" -> (88, 16),
       "st_ctim" -> (104, 16),
   )
+  // val statType: StructType = Struct(
+  //   IntType(8)
+  // )
 
   object File {
     def apply(name: Rep[String])                            = "File::create".reflectWith[File](name)
@@ -293,6 +297,24 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
     }
   }
 
+  // path helpers
+  def getPathSegments(path: Rep[String]): Rep[List[String]] = {
+    path.split(String("/")).filter(_.length > 0)
+  }
+
+  // TODO: use option type? <2022-05-26, David Deng> //
+  def getFileFromPathSegments(file: Rep[File], segs: Rep[List[String]]): Rep[File] = {
+    segs.foldLeft(file: Rep[File])((f: Rep[File], seg: Rep[String]) => {
+      if (f == NullPtr() || !f.hasChild(seg)) NullPtr()
+      else f.getChild(seg)
+      // TODO: check that file is a directory <2022-05-26, David Deng> //
+    })
+  }
+
+  object FS {
+    def apply() = "FS".reflectCtrlWith[FS]()
+  }
+
   implicit class FSOps(fs: Rep[FS]) {
     def openedFiles: Rep[Map[Fd, Stream]] = "field-@".reflectCtrlWith[Map[Fd, Stream]](fs, unit("opened_files"))
     def rootFile: Rep[File]               = "field-@".reflectCtrlWith[File](fs, unit("root_file"))
@@ -300,31 +322,31 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
     def openedFiles_= (rhs: Rep[Map[Fd, Stream]]): Unit = "field-assign".reflectCtrlWith(fs, unit("opened_files"), rhs)
     def rootFile_= (rhs: Rep[File]): Unit = "field-assign".reflectCtrlWith(fs, unit("root_file"), rhs)
 
-    // Thought: we should eliminate all method-@ at the end, right? What is the rule about what to keep at the backend? 
-    // Maybe complicated algorithm (like branching) can be kept at the backend? <2022-05-12, David Deng> //
-
     def seekFile(fd: Rep[Fd], o: Rep[Long], w: Rep[Int]): Rep[Long] = {
       if (!fs.hasStream(fd)) -1L
       else {
         val strm = fs.getStream(fd)
-        val ret = {
-          if (w == literal("SEEK_SET")) strm.seekStart(o)
-          else if (w == literal("SEEK_CUR")) strm.seekCur(o)
-          else if (w == literal("SEEK_END")) strm.seekEnd(o)
-          else -1L
-        }
-        // TODO: can eliminate the setStream after using pointer to model stream <2022-05-26, David Deng> //
-        fs.setStream(fd, strm)
-        ret
+        if (w == literal("SEEK_SET")) strm.seekStart(o)
+        else if (w == literal("SEEK_CUR")) strm.seekCur(o)
+        else if (w == literal("SEEK_END")) strm.seekEnd(o)
+        else -1L
       }
     }
+
 
     def getFreshFd(): Rep[Fd] = "method-@".reflectCtrlWith[Fd](fs, unit("get_fresh_fd"))
 
     // TODO: recursively search <2022-05-25, David Deng> //
-    def hasFile(name: Rep[String]): Rep[Boolean]            = fs.rootFile.hasChild(name)
-    def getFile(name: Rep[String]): Rep[File]               = fs.rootFile.getChild(name)
-    def setFile(name: Rep[String], f: Rep[File]): Rep[Unit] = fs.rootFile.setChild(name, f)
+    def hasFile(name: Rep[String]): Rep[Boolean]            = fs.getFile(name) != NullPtr()
+    def getFile(name: Rep[String]): Rep[File]               = {
+      unchecked("/* getFile */")
+      getFileFromPathSegments(fs.rootFile, getPathSegments(name))
+    }
+    def setFile(name: Rep[String], f: Rep[File]): Rep[Unit] = {
+      unchecked("/* setFile */")
+      val parent = getFileFromPathSegments(fs.rootFile, getPathSegments(name))
+      if (parent != NullPtr()) parent.setChild(f.name, f)
+    }
     def removeFile(name: Rep[String]): Rep[Unit]            = fs.rootFile.removeChild(name)
 
     def hasStream(fd: Rep[Fd]): Rep[Boolean]              = fs.openedFiles.contains(fd)

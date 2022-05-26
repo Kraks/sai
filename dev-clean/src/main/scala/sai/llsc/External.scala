@@ -353,8 +353,11 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
   def testStringOps = {
     unchecked("/* test stringops */")
     val str: Rep[String] = String("hello world")
+    val str2: Rep[String] = String("another phrase that is longer")
     val seg = str.split(String(" "))
+    val seg2 = str2.split(String(" "))
     assertEq(seg.size, 2, "segment should have two elements")
+    assertEq(seg2.size, 5, "segment should have five elements")
   }
 
   def testStreamCopy = {
@@ -369,22 +372,46 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
     assertEq(strm2.cursor, 1L, "strm2 should not be updated")
   }
 
+  def testDirStructure = {
+    unchecked("/* test get_file */")
+    val fs = FS()
+    fs.setFile("/", File("a"))
+    fs.setFile("/a", File("b"))
+    fs.setFile("/a/b", File("c"))
+    val f = fs.getFile("/a/b/c")
+    assertNeq(f, NullPtr(), "file should exist")
+  }
+
+  def testEither = {
+    // NOTE: becuase of optimization, currently they all generate assert(true) <2022-05-26, David Deng> //
+    val v: Rep[Either[Int, String]] = Either.right[Int, String](String("abcdef"))
+    unchecked("/* test isLeft */")
+    unchecked(v.isLeft)
+    assert(!v.isLeft, "Left value should not be set")
+    unchecked("/* test isRight */")
+    unchecked(v.isRight)
+    assert(v.isRight, "Right value should not be set")
+    unchecked("/* test get value */")
+    assertEq(v.right.value, String("abcdef"), "Right value should be set")
+    val s: Rep[String] = v.right.value
+    assertEq(s, String("abcdef"), "assigning to a string should work")
+  }
+
   // def testSeek: Rep[Unit] = {
   //   off_t pos
   //   unchecked("/* test seek */")
-  //   val s1 = Stream(s) //    Stream s1(s)
-  //   pos = s1.seek_start(15)
-  //   assertEq(pos, 15, "seek start")
+  //   val s1 = Stream(File("A"))
+  //   val pos1 = s1.seek_start(15)
+  //   assertEq(pos1, 15, "seek start")
 
-  //   val s2 = Stream(s) //    Stream s2(s)
-  //   pos = s2.seek_end(15)
-  //   assertEq(pos, 18, "seek end")
+  //   val s2 = Stream(File("A"))
+  //   val pos2 = s2.seek_end(15)
+  //   assertEq(pos2, 18, "seek end")
 
-  //   val s3 = Stream(s) //    Stream s3(s)
-  //   pos = s3.seek_cur(7)
-  //   pos = s3.seek_cur(8)
-  //   assertEq(pos, 15, "seek cursor")
-
+  //   val s3 = Stream(File("A"))
+  //   s3.seek_cur(7)
+  //   val pos3 = s3.seek_cur(8)
+  //   assertEq(pos3, 15, "seek cursor")
   // }
 
   // def testSeekError: Rep[Unit] = {
@@ -502,6 +529,8 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
     testPtrDeref
     testStringOps
     testStreamCopy
+    testDirStructure
+    testEither
     ()
   }
 }

@@ -156,18 +156,115 @@ PtrVal x75 = make_IntV(3L, 32);
 int x76 = Str::split(String("hello world"), String(" ")).size();
 /* assertEq */;
 ASSERT((x76 == 2), "segment should have two elements");
-/* test stream copy constructor */;
-Ptr<Stream> x77 = Stream::create(x63, O_RDONLY, 1L);
-Ptr<Stream> x78 = Stream::create(x77);
-x77;
-x77->cursor = 5L;
-x77;
-int64_t x79 = x77->cursor;
+int x77 = Str::split(String("another phrase that is longer"), String(" ")).size();
 /* assertEq */;
-ASSERT((x79 == 5L), "strm1 should be updated");
+ASSERT((x77 == 5), "segment should have five elements");
+/* test stream copy constructor */;
+Ptr<Stream> x78 = Stream::create(x63, O_RDONLY, 1L);
+Ptr<Stream> x79 = Stream::create(x78);
+x78;
+x78->cursor = 5L;
+x78;
 int64_t x80 = x78->cursor;
 /* assertEq */;
-ASSERT((x80 == 1L), "strm2 should not be updated");
+ASSERT((x80 == 5L), "strm1 should be updated");
+int64_t x81 = x79->cursor;
+/* assertEq */;
+ASSERT((x81 == 1L), "strm2 should not be updated");
+/* test get_file */;
+FS x82 = FS();
+/* setFile */;
+Ptr<File> x83 = x82.root_file;
+immer::flex_vector<String> x84 = Vec::filter(Str::split("/", String("/")), [&](auto x85) {
+return x85.length() > 0;
+});
+Ptr<File> x86 = Vec::foldLeft(x84, x83, [&](auto x87, auto x88) {
+bool x89 = x87 == nullptr || ({
+bool x90 = Map::contains(x87->children, x88);
+!x90;
+});
+Ptr<File> x91 = x89 ? nullptr : ({
+Ptr<File> x92 = x87->children.at(x88);
+x92;
+});
+return x91;
+});
+if (x86 != nullptr) {
+Ptr<File> x93 = File::create("a");
+immer::map<String, Ptr<File>> x94 = x86->children.insert(std::make_pair(x93->name, x93));
+x86->children = x94;
+}
+/* setFile */;
+Ptr<File> x95 = x82.root_file;
+immer::flex_vector<String> x96 = Vec::filter(Str::split("/a", String("/")), [&](auto x97) {
+return x97.length() > 0;
+});
+Ptr<File> x98 = Vec::foldLeft(x96, x95, [&](auto x99, auto x100) {
+bool x101 = x99 == nullptr || ({
+bool x102 = Map::contains(x99->children, x100);
+!x102;
+});
+Ptr<File> x103 = x101 ? nullptr : ({
+Ptr<File> x104 = x99->children.at(x100);
+x104;
+});
+return x103;
+});
+if (x98 != nullptr) {
+Ptr<File> x105 = File::create("b");
+immer::map<String, Ptr<File>> x106 = x98->children.insert(std::make_pair(x105->name, x105));
+x98->children = x106;
+}
+/* setFile */;
+Ptr<File> x107 = x82.root_file;
+immer::flex_vector<String> x108 = Vec::filter(Str::split("/a/b", String("/")), [&](auto x109) {
+return x109.length() > 0;
+});
+Ptr<File> x110 = Vec::foldLeft(x108, x107, [&](auto x111, auto x112) {
+bool x113 = x111 == nullptr || ({
+bool x114 = Map::contains(x111->children, x112);
+!x114;
+});
+Ptr<File> x115 = x113 ? nullptr : ({
+Ptr<File> x116 = x111->children.at(x112);
+x116;
+});
+return x115;
+});
+if (x110 != nullptr) {
+Ptr<File> x117 = File::create("c");
+immer::map<String, Ptr<File>> x118 = x110->children.insert(std::make_pair(x117->name, x117));
+x110->children = x118;
+}
+/* getFile */;
+immer::flex_vector<String> x119 = Vec::filter(Str::split("/a/b/c", String("/")), [&](auto x120) {
+return x120.length() > 0;
+});
+Ptr<File> x121 = Vec::foldLeft(x119, x82.root_file, [&](auto x122, auto x123) {
+bool x124 = x122 == nullptr || ({
+bool x125 = Map::contains(x122->children, x123);
+!x125;
+});
+Ptr<File> x126 = x124 ? nullptr : ({
+Ptr<File> x127 = x122->children.at(x123);
+x127;
+});
+return x126;
+});
+/* assertNeq */;
+ASSERT((!(x121 == nullptr)), "file should exist");
+String x128 = String("abcdef");
+/* test isLeft */;
+false;
+ASSERT((true), "Left value should not be set");
+/* test isRight */;
+true;
+ASSERT((true), "Right value should not be set");
+/* test get value */;
+/* assertEq */;
+ASSERT((x128 == String("abcdef")), "Right value should be set");
+/* assertEq */;
+ASSERT((x128 == String("abcdef")), "assigning to a string should work");
 return std::monostate{};
 }
 
