@@ -352,10 +352,10 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
 
   def testStringOps = {
     unchecked("/* test stringops */")
-    val str: Rep[String] = String("hello world")
-    val str2: Rep[String] = String("another phrase that is longer")
-    val seg = str.split(String(" "))
-    val seg2 = str2.split(String(" "))
+    val str: Rep[String] = "hello world"
+    val str2: Rep[String] = "another phrase that is longer"
+    val seg = str.split(" ")
+    val seg2 = str2.split(" ")
     assertEq(seg.size, 2, "segment should have two elements")
     assertEq(seg2.size, 5, "segment should have five elements")
   }
@@ -384,7 +384,7 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
 
   def testEither = {
     // NOTE: becuase of optimization, currently they all generate assert(true) <2022-05-26, David Deng> //
-    val v: Rep[Either[Int, String]] = Either.right[Int, String](String("abcdef"))
+    val v: Rep[Either[Int, String]] = Either.right[Int, String]("abcdef")
     unchecked("/* test isLeft */")
     unchecked(v.isLeft)
     assert(!v.isLeft, "Left value should not be set")
@@ -392,41 +392,40 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
     unchecked(v.isRight)
     assert(v.isRight, "Right value should not be set")
     unchecked("/* test get value */")
-    assertEq(v.right.value, String("abcdef"), "Right value should be set")
+    assertEq(v.right.value, "abcdef", "Right value should be set")
     val s: Rep[String] = v.right.value
-    assertEq(s, String("abcdef"), "assigning to a string should work")
+    assertEq(s, "abcdef", "assigning to a string should work")
   }
 
   // def testSeek: Rep[Unit] = {
-  //   off_t pos
   //   unchecked("/* test seek */")
-  //   val s1 = Stream(File("A"))
-  //   val pos1 = s1.seek_start(15)
+  //   val s1 = Stream(File("A"), ListOps.fill(20)(iv(0)))
+  //   val pos1 = s1.seekStart(15)
   //   assertEq(pos1, 15, "seek start")
 
-  //   val s2 = Stream(File("A"))
-  //   val pos2 = s2.seek_end(15)
+  //   val s2 = Stream(File("A"), ListOps.fill(20)(iv(0)))
+  //   val pos2 = s2.seekEnd(15)
   //   assertEq(pos2, 18, "seek end")
 
-  //   val s3 = Stream(File("A"))
-  //   s3.seek_cur(7)
-  //   val pos3 = s3.seek_cur(8)
+  //   val s3 = Stream(File("A"), ListOps.fill(20)(iv(0)))
+  //   s3.seekCur(7)
+  //   val pos3 = s3.seekCur(8)
   //   assertEq(pos3, 15, "seek cursor")
   // }
 
   // def testSeekError: Rep[Unit] = {
   //   unchecked("/* test seek error */")
   //   val s1 = Stream(s) //    Stream s1(s)
-  //   pos = s1.seek_start(-1)
+  //   pos = s1.seekStart(-1)
   //   assertEq(pos, -1, "should set error")
 
   //   val s2 = Stream(s) //    Stream s2(s)
-  //   pos = s2.seek_cur(1)
-  //   pos = s2.seek_cur(-2)
+  //   pos = s2.seekCur(1)
+  //   pos = s2.seekCur(-2)
   //   assertEq(pos, -1, "should set error")
 
   //   val s3 = Stream(s) //    Stream s3(s)
-  //   pos = s3.seek_end(-5)
+  //   pos = s3.seekEnd(-5)
   //   assertEq(pos, -1, "should set error")
 
   // }
@@ -461,18 +460,18 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
 
   //   val s3 = Stream(f) //    Stream s3(f)
   //   s3.write(List(iv(5), iv(6)), 2)
-  //   assertEq(s3.seek_cur(0), 2, "cursor should have advanced by two")
-  //   s3.seek_start(0)
+  //   assertEq(s3.seekCur(0), 2, "cursor should have advanced by two")
+  //   s3.seekStart(0)
   //   assertEq(s3.read(5), 
   //     List(iv(5), iv(6), iv(2), iv(3), iv(4)), 
   //     "content should be updated")
 
   //   val s4 = Stream(f) //    Stream s4(f)
-  //   s4.seek_end(2)
+  //   s4.seekEnd(2)
   //   nbytes = s4.write(List(iv(5), iv(6)), 2)
   //   assertEq(nbytes, 2, "should have written two bytes")
-  //   assertEq(s4.seek_end(0), 9, "should have 9 bytes in total")
-  //   s4.seek_start(0)
+  //   assertEq(s4.seekEnd(0), 9, "should have 9 bytes in total")
+  //   s4.seekStart(0)
   //   assertEq(s4.read(999), 
   //     List(iv(0), iv(1), iv(2), iv(3), iv(4), IntV0, IntV0, iv(5), iv(6)), 
   //     "content should be updated")
@@ -531,6 +530,7 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
     testStreamCopy
     testDirStructure
     testEither
+    // testSeek
     ()
   }
 }

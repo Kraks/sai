@@ -10,10 +10,10 @@ import lms.core.utils.time
 import lms.macros.SourceContext
 
 trait StringOps { b: Base =>
-  object String {
-    // TODO: use reflect instead of reflectUnsafe when hardtopfun has support for variable dependencies <2022-05-26, David Deng> //
-    def apply(str: String): Rep[String] = Wrap[String](Adapter.g.reflectUnsafe("string-new", Unwrap(unit[String](str))))
-  }
+  // object String {
+  //   // TODO: use reflect instead of reflectUnsafe when hardtopfun has support for variable dependencies <2022-05-26, David Deng> //
+  //   def apply(str: String): Rep[String] = Wrap[String](Adapter.g.reflect("string-new", Unwrap(unit[String](str))))
+  // }
 
   // implicit def __liftConstString(str: String): Rep[String] = String(str)
   implicit class StringOpsExt(str: Rep[String]) /* extends StringOps(str) */ {
@@ -43,7 +43,7 @@ trait CppCodeGen_String extends ExtendedCPPCodeGen {
   }
 
   override def shallow(n: Node): Unit = n match {
-    case Node(s, "string-new", str::Nil, _) => emit("String("); shallow(str); emit(")")
+    // case Node(s, "string-new", str::Nil, _) => emit("String("); shallow(str); emit(")")
     case Node(s, "String.slice", str::st::e::Nil, _) => es"${str}.substr(${st}, ${e})" // semantics in C++?
     case Node(s, "String.length", List(str), _) => es"${str}.length()"
     case Node(s, "string-split", str::delim::Nil, _) => es"Str::split(${str}, ${delim})"

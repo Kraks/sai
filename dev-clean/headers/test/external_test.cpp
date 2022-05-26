@@ -153,10 +153,10 @@ PtrVal x75 = make_IntV(3L, 32);
 *x75;
 *x75;
 /* test stringops */;
-int x76 = Str::split(String("hello world"), String(" ")).size();
+int x76 = Str::split("hello world", " ").size();
 /* assertEq */;
 ASSERT((x76 == 2), "segment should have two elements");
-int x77 = Str::split(String("another phrase that is longer"), String(" ")).size();
+int x77 = Str::split("another phrase that is longer", " ").size();
 /* assertEq */;
 ASSERT((x77 == 5), "segment should have five elements");
 /* test stream copy constructor */;
@@ -175,7 +175,7 @@ ASSERT((x81 == 1L), "strm2 should not be updated");
 FS x82 = FS();
 /* setFile */;
 Ptr<File> x83 = x82.root_file;
-immer::flex_vector<String> x84 = Vec::filter(Str::split("/", String("/")), [&](auto x85) {
+immer::flex_vector<String> x84 = Vec::filter(Str::split("/", "/"), [&](auto x85) {
 return x85.length() > 0;
 });
 Ptr<File> x86 = Vec::foldLeft(x84, x83, [&](auto x87, auto x88) {
@@ -196,7 +196,7 @@ x86->children = x94;
 }
 /* setFile */;
 Ptr<File> x95 = x82.root_file;
-immer::flex_vector<String> x96 = Vec::filter(Str::split("/a", String("/")), [&](auto x97) {
+immer::flex_vector<String> x96 = Vec::filter(Str::split("/a", "/"), [&](auto x97) {
 return x97.length() > 0;
 });
 Ptr<File> x98 = Vec::foldLeft(x96, x95, [&](auto x99, auto x100) {
@@ -217,7 +217,7 @@ x98->children = x106;
 }
 /* setFile */;
 Ptr<File> x107 = x82.root_file;
-immer::flex_vector<String> x108 = Vec::filter(Str::split("/a/b", String("/")), [&](auto x109) {
+immer::flex_vector<String> x108 = Vec::filter(Str::split("/a/b", "/"), [&](auto x109) {
 return x109.length() > 0;
 });
 Ptr<File> x110 = Vec::foldLeft(x108, x107, [&](auto x111, auto x112) {
@@ -237,7 +237,7 @@ immer::map<String, Ptr<File>> x118 = x110->children.insert(std::make_pair(x117->
 x110->children = x118;
 }
 /* getFile */;
-immer::flex_vector<String> x119 = Vec::filter(Str::split("/a/b/c", String("/")), [&](auto x120) {
+immer::flex_vector<String> x119 = Vec::filter(Str::split("/a/b/c", "/"), [&](auto x120) {
 return x120.length() > 0;
 });
 Ptr<File> x121 = Vec::foldLeft(x119, x82.root_file, [&](auto x122, auto x123) {
@@ -253,7 +253,6 @@ return x126;
 });
 /* assertNeq */;
 ASSERT((!(x121 == nullptr)), "file should exist");
-String x128 = String("abcdef");
 /* test isLeft */;
 false;
 ASSERT((true), "Left value should not be set");
@@ -262,9 +261,9 @@ true;
 ASSERT((true), "Right value should not be set");
 /* test get value */;
 /* assertEq */;
-ASSERT((x128 == String("abcdef")), "Right value should be set");
+ASSERT((true), "Right value should be set");
 /* assertEq */;
-ASSERT((x128 == String("abcdef")), "assigning to a string should work");
+ASSERT((true), "assigning to a string should work");
 return std::monostate{};
 }
 
