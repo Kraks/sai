@@ -170,7 +170,7 @@ class Frame {
       env.insert_or_assign(id, v);
       return std::move(*this);
     }
-    Frame&& assign_seq(const std::vector<Id>& ids, const std::vector<PtrVal>& vals) {
+    Frame&& assign_seq(const List<Id>& ids, const List<PtrVal>& vals) {
       for (size_t i = 0; i < ids.size(); i++) {
         env.insert_or_assign(ids.at(i), vals.at(i));
       }
@@ -211,13 +211,10 @@ class Stack {
     }
 
     Stack&& assign(Id id, PtrVal val) {
-      // XXX: _[_] yields a const ref
-      auto f = env[env.size()-1];
-      f.assign(id, val);
-      env.set(env.size()-1, f);
+      env.update(env.size()-1, [&](auto f) { return f.assign(id, val); });
       return std::move(*this);
     }
-    Stack&& assign_seq(const std::vector<Id>& ids, std::vector<PtrVal> vals) {
+    Stack&& assign_seq(const List<Id>& ids, List<PtrVal> vals) {
       // varargs
       size_t id_size = ids.size();
       if (id_size > 0) {
@@ -228,12 +225,9 @@ class Stack {
             mem.append(vals.at(i), 7);
           }
           if (mem.size() == msize) mem.alloc(8);
-          vals.resize(id_size - 1);
-          vals.push_back(make_LocV(msize, LocV::kStack, mem.size() - msize));
+          vals = vals.take(id_size - 1).push_back(make_LocV(msize, LocV::kStack, mem.size() - msize));
         }
-	auto f = env[env.size()-1];
-	f.assign_seq(ids, vals);
-	env.set(env.size()-1, f);
+	env.update(env.size()-1, [&](auto f) { return f.assign_seq(ids, vals); });
       }
       return std::move(*this);
     }
@@ -265,12 +259,6 @@ class PC {
     PC(TrList<PtrVal> pc) : pc(std::move(pc)) {}
     PC&& add(PtrVal e) {
       pc.push_back(e);
-      return std::move(*this);
-    }
-    PC&& add_set(const std::set<PtrVal>& new_pc) {
-      for (auto& it : new_pc) {
-	pc.push_back(it);
-      }
       return std::move(*this);
     }
     PC&& add_set(const List<PtrVal>& new_pc) {
@@ -409,14 +397,9 @@ class SS {
       stack.assign(id, val);
       return std::move(*this);
     }
-    SS&& assign_seq(const std::vector<Id>& ids, std::vector<PtrVal> vals) {
-      stack.assign_seq(ids, std::move(vals));
-      return std::move(*this);
-    }
     SS&& assign_seq(List<Id> ids, List<PtrVal> vals) {
-      return assign_seq(
-        std::vector<Id>(ids.begin(), ids.end()),
-        std::vector<PtrVal>(vals.begin(), vals.end()));
+      stack.assign_seq(std::move(ids), std::move(vals));
+      return std::move(*this);
     }
     SS&& heap_append(TrList<PtrVal> vals) {
       heap.append(vals);
@@ -429,13 +412,8 @@ class SS {
       pc.add(e);
       return std::move(*this);
     }
-    SS&& add_PC_cet(const std::set<PtrVal>& s) {
-      pc.add_set(s);
-      return std::move(*this);
-    }
     SS&& add_PC_set(const List<PtrVal>& s) {
-      std::set cs(s.begin(), s.end());
-      pc.add_set(cs);
+      pc.add_set(s);
       return std::move(*this);
     }
     SS&& add_incoming_block(BlockLabel blabel) {
