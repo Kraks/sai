@@ -236,12 +236,12 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
 
   // This refers to the nullptr in C++
   object NullPtr {
-    def apply(): Rep[Value] = "nullptr".reflectMutableWith[Value]()
-    def unapply(v: Rep[Value]): Boolean = Unwrap(v) match {
+    def apply(): Rep[Nothing] = "nullptr".reflectUnsafeWith[Nothing]()
+    def unapply(v: Rep[Nothing]): Boolean = Unwrap(v) match {
       case gNode("nullptr", _) => true
       case _ => false
     }
-    def seq(size: Int): StaticList[Rep[Value]] = {
+    def seq(size: Int): StaticList[Rep[Nothing]] = {
       val s = NullPtr()
       StaticList.fill(size)(s)
     }
