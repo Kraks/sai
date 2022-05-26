@@ -334,9 +334,15 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
   def testPtrDeref = {
     unchecked("/* testing ptrderef. deref shouldn't generate explicit 'any' typed variable */")
     val pv: Rep[Value] = IntV(3)
-    val v = pv.deref
-    unchecked(v)
-    unchecked(v)
+    unchecked(pv.deref)
+    unchecked(pv.deref)
+  }
+
+  def testStringOps = {
+    unchecked("/* test stringops */")
+    val str: Rep[String] = String("hello world")
+    val seg = str.split(String(" "))
+    assertEq(seg.size, 2, "segment should have two elements")
   }
 
   // def testSeek: Rep[Unit] = {
@@ -469,7 +475,8 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
     testStream
     testReadStatField
     testWriteStatField
-    // testPtrDeref
+    testPtrDeref
+    testStringOps
     ()
   }
 }

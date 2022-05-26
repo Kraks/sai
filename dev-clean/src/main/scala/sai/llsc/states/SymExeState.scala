@@ -175,21 +175,21 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
   
   implicit class FileOps(file: Rep[File]) {
     // fields
-    def name: Rep[String]                = "ptr-field-@".reflectWith[String](file, "name")
-    def content: Rep[List[Value]]        = "ptr-field-@".reflectMutableWith[List[Value]](file, "content")
+    def name: Rep[String]                = "ptr-field-@".reflectWith[String](file, unit("name"))
+    def content: Rep[List[Value]]        = "ptr-field-@".reflectMutableWith[List[Value]](file, unit("content"))
     def size: Rep[Int]                   = content.size
-    def stat: Rep[List[Value]]           = "ptr-field-@".reflectMutableWith[List[Value]](file, "stat")
-    def children: Rep[Map[String, File]] = "ptr-field-@".reflectMutableWith[Map[String, File]](file, "children")
-    def parent: Rep[File]                = "ptr-field-@".reflectMutableWith[File](file, "parent")
+    def stat: Rep[List[Value]]           = "ptr-field-@".reflectMutableWith[List[Value]](file, unit("stat"))
+    def children: Rep[Map[String, File]] = "ptr-field-@".reflectMutableWith[Map[String, File]](file, unit("children"))
+    def parent: Rep[File]                = "ptr-field-@".reflectMutableWith[File](file, unit("parent"))
 
     // assign ptr-field
     // TODO: Is this valid? <2022-05-12, David Deng> //
     // def size_=(rhs: Rep[Int]): Rep[Int] = "ptr-field-assign".reflectCtrlWith(file, "size", rhs)
-    def name_=(rhs: Rep[String]): Rep[String]                           = "ptr-field-assign".reflectCtrlWith(file, "name", rhs)
-    def content_=(rhs: Rep[List[Value]]): Rep[List[Value]]              = "ptr-field-assign".reflectCtrlWith(file, "content", rhs)
-    def stat_=(rhs: Rep[List[Value]]): Rep[List[Value]]                 = "ptr-field-assign".reflectCtrlWith(file, "stat", rhs)
-    def children_=(rhs: Rep[Map[String, File]]): Rep[Map[String, File]] = "ptr-field-assign".reflectCtrlWith[Map[String, File]](file, "children", rhs)
-    def parent_=(rhs: Rep[File]): Rep[File]                             = "ptr-field-assign".reflectCtrlWith[File](file, "parent", rhs)
+    def name_=(rhs: Rep[String]): Rep[String]                           = "ptr-field-assign".reflectCtrlWith(file, unit("name"), rhs)
+    def content_=(rhs: Rep[List[Value]]): Rep[List[Value]]              = "ptr-field-assign".reflectCtrlWith(file, unit("content"), rhs)
+    def stat_=(rhs: Rep[List[Value]]): Rep[List[Value]]                 = "ptr-field-assign".reflectCtrlWith(file, unit("stat"), rhs)
+    def children_=(rhs: Rep[Map[String, File]]): Rep[Map[String, File]] = "ptr-field-assign".reflectCtrlWith[Map[String, File]](file, unit("children"), rhs)
+    def parent_=(rhs: Rep[File]): Rep[File]                             = "ptr-field-assign".reflectCtrlWith[File](file, unit("parent"), rhs)
 
     // directory-related methods
 
@@ -241,14 +241,14 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
 
     // fields
     def name: Rep[String] = strm.file.name
-    def file: Rep[File]   = "field-@".reflectWith[File](strm, "file")
-    def cursor: Rep[Long] = "field-@".reflectWith[Long](strm, "cursor")
-    def mode: Rep[Int]    = "field-@".reflectWith[Int](strm, "mode")
+    def file: Rep[File]   = "field-@".reflectWith[File](strm, unit("file"))
+    def cursor: Rep[Long] = "field-@".reflectWith[Long](strm, unit("cursor"))
+    def mode: Rep[Int]    = "field-@".reflectWith[Int](strm, unit("mode"))
 
     // assign field
-    def file_= (rhs: Rep[File]): Rep[File] = "field-assign".reflectCtrlWith(strm, "file", rhs)
-    def cursor_= (rhs: Rep[Long]): Rep[Long] = "field-assign".reflectCtrlWith(strm, "cursor", rhs)
-    def mode_= (rhs: Rep[Int]): Rep[Int] = "field-assign".reflectCtrlWith(strm, "mode", rhs)
+    def file_= (rhs: Rep[File]): Rep[File] = "field-assign".reflectCtrlWith(strm, unit("file"), rhs)
+    def cursor_= (rhs: Rep[Long]): Rep[Long] = "field-assign".reflectCtrlWith(strm, unit("cursor"), rhs)
+    def mode_= (rhs: Rep[Int]): Rep[Int] = "field-assign".reflectCtrlWith(strm, unit("mode"), rhs)
 
     def read(n: Rep[Long]): Rep[List[Value]] = {
       val content = file.readAt(strm.cursor, n)
@@ -268,19 +268,19 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
   }
 
   implicit class FSOps(fs: Rep[FS]) {
-    def openedFiles: Rep[Map[Fd, Stream]] = "field-@".reflectCtrlWith[Map[Fd, Stream]](fs, "opened_files")
-    def rootFile: Rep[File]               = "field-@".reflectCtrlWith[File](fs, "root_file")
+    def openedFiles: Rep[Map[Fd, Stream]] = "field-@".reflectCtrlWith[Map[Fd, Stream]](fs, unit("opened_files"))
+    def rootFile: Rep[File]               = "field-@".reflectCtrlWith[File](fs, unit("root_file"))
 
-    def openedFiles_= (rhs: Rep[Map[Fd, Stream]]): Rep[Map[Fd, Stream]] = "field-assign".reflectCtrlWith(fs, "opened_files", rhs)
-    def rootFile_= (rhs: Rep[File]): Rep[File] = "field-assign".reflectCtrlWith(fs, "root_file", rhs)
+    def openedFiles_= (rhs: Rep[Map[Fd, Stream]]): Rep[Map[Fd, Stream]] = "field-assign".reflectCtrlWith(fs, unit("opened_files"), rhs)
+    def rootFile_= (rhs: Rep[File]): Rep[File] = "field-assign".reflectCtrlWith(fs, unit("root_file"), rhs)
 
     // Thought: we should eliminate all method-@ at the end, right? What is the rule about what to keep at the backend? 
     // Maybe complicated algorithm (like branching) can be kept at the backend? <2022-05-12, David Deng> //
 
     // TODO: eliminate seek_file backend function <2022-05-18, David Deng> //
-    def seekFile(fd: Rep[Fd], o: Rep[Long], w: Rep[Int]): Rep[Long] = "method-@".reflectCtrlWith[Long](fs, "seek_file", fd, o, w)
+    def seekFile(fd: Rep[Fd], o: Rep[Long], w: Rep[Int]): Rep[Long] = "method-@".reflectCtrlWith[Long](fs, unit("seek_file"), fd, o, w)
 
-    def getFreshFd(): Rep[Fd] = "method-@".reflectCtrlWith[Fd](fs, "get_fresh_fd")
+    def getFreshFd(): Rep[Fd] = "method-@".reflectCtrlWith[Fd](fs, unit("get_fresh_fd"))
 
     // TODO: recursively search <2022-05-25, David Deng> //
     def hasFile(name: Rep[String]): Rep[Boolean]            = fs.rootFile.hasChild(name)

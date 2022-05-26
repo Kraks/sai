@@ -336,7 +336,7 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
         case _ => "cps_apply".reflectWith[Unit](v, s, args, k) // indirect call
       }
 
-    def deref: Rep[Any] = "ValPtr-deref".reflectMutableWith[Any](v)
+    def deref: Rep[Any] = "ValPtr-deref".reflectUnsafeWith[Any](v)
 
     def sExt(bw: Int): Rep[Value] = "bv_sext".reflectWith[Value](v, bw)
     def zExt(bw: Int): Rep[Value] = "bv_zext".reflectWith[Value](v, bw)
