@@ -1,5 +1,5 @@
-#ifndef LLSC_STATE_IMP_HEADERS
-#define LLSC_STATE_IMP_HEADERS
+#ifndef LLSC_STATE_TRANSIENT_HEADERS
+#define LLSC_STATE_TRANSIENT_HEADERS
 
 /* Memory, stack, and symbolic state representation */
 
@@ -8,13 +8,13 @@ template <class V, class M>
 class PreMem {
   protected:
     M&& move_this() { return std::move(*((M*)this)); }
-    std::vector<V> mem;
+    TrList<V> mem;
   public:
-    PreMem(std::vector<V> mem) : mem(std::move(mem)) {}
+    PreMem(TrList<V> mem) : mem(std::move(mem)) {}
     size_t size() { return mem.size(); }
     V at(size_t idx) { return mem.at(idx); }
     M&& update(size_t idx, V val) {
-      mem.at(idx) = val;
+      mem.set(idx, val);
       return move_this();
     }
     M&& append(V val) {
@@ -25,24 +25,26 @@ class PreMem {
       size_t idx = mem.size();
       return alloc(padding + 1).update(idx, val);
     }
-    M&& append(const std::vector<V>& vs) {
-      mem.insert(mem.end(), vs.begin(), vs.end());
+    M&& append(TrList<V>& vs) {
+      mem.append(vs);
       return move_this();
     }
     M&& alloc(size_t size) {
-      mem.resize(mem.size() + size, nullptr);
+      mem.append(List<V>(size, nullptr).transient());
       return move_this();
     }
     M&& take(size_t keep) {
-      mem.resize(keep);
+      mem.take(keep);
       return move_this();
     }
     M slice(size_t idx, size_t len) {
-      auto off = mem.begin() + idx;
-      return M(std::vector(off, off + len));
+      // XXX: why not returning M&&?
+      auto m = mem.persistent().take(idx + len).drop(idx);
+      return M(m.transient());
     }
     // PreMem<V> drop(size_t d) { return PreMem<V>(mem.drop(d)); }
-    const std::vector<V>& get_mem() { return mem; }
+    TrList<V> get_mem() { return mem; }
+    List<V> get_pmem() { return mem.persistent(); }
 };
 
 class Mem: public PreMem<PtrVal, Mem> {
@@ -96,10 +98,10 @@ class Mem: public PreMem<PtrVal, Mem> {
   }
 
   void write_back(const Segment &seg, PtrVal v) {
-    mem.at(seg.begin) = v;
+    mem.set(seg.begin, v);
     if (!seg.val)
       for (size_t i = seg.begin + 1; i < seg.end; i++)
-        mem.at(i) = make_ShadowV();
+	mem.set(i, make_ShadowV());
   }
 
   static void possible_partial_undef(PtrVal &v) {
@@ -107,7 +109,8 @@ class Mem: public PreMem<PtrVal, Mem> {
   }
 
 public:
-  Mem(std::vector<PtrVal> mem) : PreMem(std::move(mem)) {}
+  Mem(TrList<PtrVal> mem) : PreMem(std::move(mem)) {}
+  Mem(List<PtrVal> mem) : PreMem(std::move(mem.transient())) {}
   using PreMem::at;
   using PreMem::update;
 
@@ -178,10 +181,11 @@ class Frame {
 class Stack {
   private:
     Mem mem;
-    std::vector<Frame> env;
+    TrList<Frame> env;
     PtrVal errno_location;
   public:
-    Stack(Mem mem, std::vector<Frame> env, PtrVal errno_location) : mem(std::move(mem)), env(std::move(env)), errno_location(std::move(errno_location)) {}
+    Stack(Mem mem, TrList<Frame> env, PtrVal errno_location) :
+      mem(std::move(mem)), env(std::move(env)), errno_location(std::move(errno_location)) {}
     size_t mem_size() { return mem.size(); }
     size_t frame_depth() { return env.size(); }
     PtrVal getVarargLoc() { return env.at(env.size()-2).lookup_id(0); }
@@ -195,7 +199,7 @@ class Stack {
     PtrVal getErrorLoc() { return errno_location; }
     Stack&& pop(size_t keep) {
       mem.take(keep);
-      env.pop_back();
+      env.take(env.size() - 1);
       return std::move(*this);
     }
     Stack&& push() {
@@ -207,7 +211,10 @@ class Stack {
     }
 
     Stack&& assign(Id id, PtrVal val) {
-      env.back().assign(id, val);
+      // XXX: _[_] yields a const ref
+      auto f = env[env.size()-1];
+      f.assign(id, val);
+      env.set(env.size()-1, f);
       return std::move(*this);
     }
     Stack&& assign_seq(const std::vector<Id>& ids, std::vector<PtrVal> vals) {
@@ -224,16 +231,18 @@ class Stack {
           vals.resize(id_size - 1);
           vals.push_back(make_LocV(msize, LocV::kStack, mem.size() - msize));
         }
-        env.back().assign_seq(ids, vals);
+	auto f = env[env.size()-1];
+	f.assign_seq(ids, vals);
+	env.set(env.size()-1, f);
       }
       return std::move(*this);
     }
-    PtrVal lookup_id(Id id) { return env.back().lookup_id(id); }
+    PtrVal lookup_id(Id id) { return env[env.size()-1].lookup_id(id); }
 
     PtrVal at(size_t idx) { return mem.at(idx); }
     PtrVal at(size_t idx, int size) { return mem.at(idx, size); }
     PtrVal at_struct(size_t idx, int size) {
-      return std::make_shared<StructV>(mem.slice(idx, size).get_mem());
+      return std::make_shared<StructV>(mem.slice(idx, size).get_pmem());
     }
     Stack&& update(size_t idx, PtrVal val) {
       mem.update(idx, val);
@@ -251,33 +260,37 @@ class Stack {
 
 class PC {
   private:
-    std::vector<PtrVal> pc;
+    TrList<PtrVal> pc;
   public:
-    PC(std::vector<PtrVal> pc) : pc(std::move(pc)) {}
+    PC(TrList<PtrVal> pc) : pc(std::move(pc)) {}
     PC&& add(PtrVal e) {
       pc.push_back(e);
       return std::move(*this);
     }
     PC&& add_set(const std::set<PtrVal>& new_pc) {
-      pc.insert(pc.end(), new_pc.begin(), new_pc.end());
+      for (auto& it : new_pc) {
+	pc.push_back(it);
+      }
       return std::move(*this);
     }
     PC&& add_set(const List<PtrVal>& new_pc) {
-      pc.insert(pc.end(), new_pc.begin(), new_pc.end());
+      for (auto& it : new_pc) {
+	pc.push_back(it);
+      }
       return std::move(*this);
     }
     PC&& pop_back() {
-      pc.pop_back();
+      pc.take(pc.size()-1);
       return std::move(*this);
     }
-    const std::vector<PtrVal>& get_path_conds() { return pc; }
+    const TrList<PtrVal>& get_path_conds() { return pc; }
     PtrVal get_last_cond() {
-      if (pc.size() > 0) return pc.back();
+      if (pc.size() > 0) return pc[pc.size()-1];
       return nullptr;
     }
     PC&& replace_last_cond(PtrVal e) {
       if (pc.size() == 0) return std::move(*this);
-      pc[pc.size()-1] = e;
+      pc.set(pc.size()-1, e);
       return std::move(*this);
     }
     void print() { print_set(pc); }
@@ -308,7 +321,8 @@ class SS {
     SS(Mem heap, Stack stack, PC pc, BlockLabel bb) :
       heap(std::move(heap)), stack(std::move(stack)), pc(std::move(pc)), bb(bb), fs(initial_fs) {}
     SS(List<PtrVal> heap, Stack stack, PC pc, BlockLabel bb) :
-      heap(std::move(std::vector(heap.begin(), heap.end()))), stack(std::move(stack)), pc(std::move(pc)), bb(bb), fs(initial_fs)  {}
+      heap(std::move(heap.transient())),
+      stack(std::move(stack)), pc(std::move(pc)), bb(bb), fs(initial_fs)  {}
     SS copy() { return *this; }
     PtrVal env_lookup(Id id) { return stack.lookup_id(id); }
     size_t heap_size() { return heap.size(); }
@@ -331,7 +345,7 @@ class SS {
       auto loc = std::dynamic_pointer_cast<LocV>(addr);
       ASSERT(loc != nullptr, "Lookup an non-address value");
       if (loc->k == LocV::kStack) return stack.at_struct(loc->l, size);
-      return std::make_shared<StructV>(heap.slice(loc->l, size).get_mem());
+      return std::make_shared<StructV>(heap.slice(loc->l, size).get_pmem());
     }
     List<PtrVal> at_seq(PtrVal addr, int count) {
       auto s = std::dynamic_pointer_cast<StructV>(at_struct(addr, count));
@@ -404,12 +418,12 @@ class SS {
         std::vector<Id>(ids.begin(), ids.end()),
         std::vector<PtrVal>(vals.begin(), vals.end()));
     }
-    SS&& heap_append(const std::vector<PtrVal>& vals) {
+    SS&& heap_append(TrList<PtrVal> vals) {
       heap.append(vals);
       return std::move(*this);
     }
     SS&& heap_append(List<PtrVal> vals) {
-      return heap_append(std::vector<PtrVal>(vals.begin(), vals.end()));
+      return heap_append(vals.transient());
     }
     SS&& add_PC(PtrVal e) {
       pc.add(e);
@@ -448,25 +462,29 @@ class SS {
       update(stack_ptr + (8 * num_args), make_LocV_null()); // terminate the array of pointers
       return std::move(*this);
     }
+
     PC& get_PC() { return pc; }
     void set_PC(PC _pc) { pc = _pc; }
-    const std::vector<PtrVal>& get_path_conds() { return pc.get_path_conds(); }
+    const TrList<PtrVal>& get_path_conds() { return pc.get_path_conds(); }
+
     // TODO temp solution
     PtrVal getVarargLoc() { return stack.getVarargLoc(); }
+
     SS&& init_error_loc() {
       stack.init_error_loc();
       return std::move(*this);
     }
     PtrVal getErrorLoc() { return stack.getErrorLoc(); }
+
     void set_fs(FS new_fs) { fs = new_fs; }
     FS get_fs() { return fs; }
 };
 
 using SSVal = std::pair<SS, PtrVal>;
 
-inline const Mem mt_mem = Mem(std::vector<PtrVal>{});
-inline const Stack mt_stack = Stack(mt_mem, std::vector<Frame>{}, nullptr);
-inline const PC mt_pc = PC(std::vector<PtrVal>{});
+inline const Mem mt_mem = Mem(TrList<PtrVal>{});
+inline const Stack mt_stack = Stack(mt_mem, TrList<Frame>{}, nullptr);
+inline const PC mt_pc = PC(TrList<PtrVal>{});
 inline const BlockLabel mt_bb = 0;
 inline const SS mt_ss = SS(mt_mem, mt_stack, mt_pc, mt_bb);
 

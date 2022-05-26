@@ -40,7 +40,7 @@ class PreMem: public Printable {
     }
     M take(size_t keep) { return M(mem.take(keep)); }
     M drop(size_t d) { return M(mem.drop(d)); }
-    List<V> getMem() { return mem; }
+    List<V> get_mem() { return mem; }
 };
 
 /* Mem0 is the base memory model that assumes integer/symbolic values are
@@ -362,7 +362,7 @@ class Stack: public Printable {
     PtrVal at(size_t idx) { return mem.at(idx); }
     PtrVal at(size_t idx, int size) { return mem.at(idx, size); }
     PtrVal at_struct(size_t idx, int size) {
-      return std::make_shared<StructV>(mem.take(idx + size).drop(idx).getMem());
+      return std::make_shared<StructV>(mem.take(idx + size).drop(idx).get_mem());
     }
     Stack update(size_t idx, const PtrVal& val) { return Stack(mem.update(idx, val), env, errno_location); }
     Stack update(size_t idx, const PtrVal& val, int size) { return Stack(mem.update(idx, val, size), env, errno_location); }
@@ -430,7 +430,7 @@ class SS: public Printable {
       auto loc = std::dynamic_pointer_cast<LocV>(addr);
       ASSERT(loc != nullptr, "Lookup an non-address value");
       if (loc->k == LocV::kStack) return stack.at_struct(loc->l, size);
-      return std::make_shared<StructV>(heap.take(loc->l + size).drop(loc->l).getMem());
+      return std::make_shared<StructV>(heap.take(loc->l + size).drop(loc->l).get_mem());
     }
     List<PtrVal> at_seq(const PtrVal& addr, int count) {
       auto s = std::dynamic_pointer_cast<StructV>(at_struct(addr, count));

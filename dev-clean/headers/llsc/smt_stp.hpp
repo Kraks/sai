@@ -265,6 +265,7 @@ inline CheckerSTP cstp;
 
 // To be compatible with generated code:
 
+// TODO: pass by ref?
 inline bool check_pc(PC pc) { return cstp.check_pc(std::move(pc)); }
 inline void check_pc_to_file(SS state) { cstp.generate_test(std::move(state.get_PC())); }
 

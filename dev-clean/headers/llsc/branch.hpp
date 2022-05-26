@@ -144,11 +144,10 @@ inline immer::flex_vector<std::pair<SS, PtrVal>>
 sym_exec_br(SS& ss, PtrVal t_cond, PtrVal f_cond,
             immer::flex_vector<std::pair<SS, PtrVal>> (*tf)(SS&),
             immer::flex_vector<std::pair<SS, PtrVal>> (*ff)(SS&)) {
-  auto pc = ss.get_path_conds();
-  pc.push_back(t_cond);
+  auto pc = ss.get_PC();
+  pc.add(t_cond);
   auto tbr_sat = check_pc(pc);
-  pc.pop_back();
-  pc.push_back(f_cond);
+  pc.replace_last_cond(f_cond);
   auto fbr_sat = check_pc(pc);
   if (tbr_sat && fbr_sat) {
     cov().inc_path(1);
@@ -178,11 +177,10 @@ inline std::vector<std::pair<SS, PtrVal>>
 sym_exec_br(SS& ss, PtrVal t_cond, PtrVal f_cond,
             std::vector<std::pair<SS, PtrVal>> (*tf)(SS&),
             std::vector<std::pair<SS, PtrVal>> (*ff)(SS&)) {
-  auto pc = ss.get_path_conds();
-  pc.push_back(t_cond);
+  auto pc = ss.get_PC();
+  pc.add(t_cond);
   auto tbr_sat = check_pc(pc);
-  pc.pop_back();
-  pc.push_back(f_cond);
+  pc.replace_last_cond(f_cond);
   auto fbr_sat = check_pc(pc);
   if (tbr_sat && fbr_sat) {
     cov().inc_path(1);
@@ -219,12 +217,12 @@ sym_exec_br_k(SS& ss, PtrVal t_cond, PtrVal f_cond,
               std::monostate (*tf)(SS&, std::function<std::monostate(SS&, PtrVal)>),
               std::monostate (*ff)(SS&, std::function<std::monostate(SS&, PtrVal)>),
               std::function<std::monostate(SS&, PtrVal)> k) {
-  auto pc = ss.get_path_conds();
-  pc.push_back(t_cond);
+  auto pc = ss.get_PC();
+  pc.add(t_cond);
   auto tbr_sat = check_pc(pc);
-  pc.pop_back();
-  pc.push_back(f_cond);
+  pc.replace_last_cond(f_cond);
   auto fbr_sat = check_pc(pc);
+
   if (tbr_sat && fbr_sat) {
     cov().inc_path(1);
     SS tbr_ss = ss.copy().add_PC(t_cond);
