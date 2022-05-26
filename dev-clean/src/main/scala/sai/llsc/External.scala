@@ -379,7 +379,7 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
     fs.setFile("/a", File("b"))
     fs.setFile("/a/b", File("c"))
     val f = fs.getFile("/a/b/c")
-    assertNeq(f, NullPtr(), "file should exist")
+    assertNeq(f, NullPtr[Value](), "file should exist")
   }
 
   def testEither = {
