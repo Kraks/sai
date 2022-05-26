@@ -184,7 +184,7 @@ class Stack {
     Stack(Mem mem, std::vector<Frame> env, PtrVal errno_location) : mem(std::move(mem)), env(std::move(env)), errno_location(std::move(errno_location)) {}
     size_t mem_size() { return mem.size(); }
     size_t frame_depth() { return env.size(); }
-    PtrVal getVarargLoc() { return env.at(env.size()-2).lookup_id(0); }
+    PtrVal vararg_loc() { return env.at(env.size()-2).lookup_id(0); }
     Stack&& init_error_loc() {
       auto error_addr = mem.size();
       mem.alloc(8);
@@ -192,7 +192,7 @@ class Stack {
       errno_location = make_LocV(error_addr, LocV::kStack, 4);
       return std::move(*this);
     }
-    PtrVal getErrorLoc() { return errno_location; }
+    PtrVal error_loc() { return errno_location; }
     Stack&& pop(size_t keep) {
       mem.take(keep);
       env.pop_back();
@@ -452,12 +452,12 @@ class SS {
     void set_PC(PC _pc) { pc = _pc; }
     const std::vector<PtrVal>& get_path_conds() { return pc.get_path_conds(); }
     // TODO temp solution
-    PtrVal getVarargLoc() { return stack.getVarargLoc(); }
+    PtrVal vararg_loc() { return stack.vararg_loc(); }
     SS&& init_error_loc() {
       stack.init_error_loc();
       return std::move(*this);
     }
-    PtrVal getErrorLoc() { return stack.getErrorLoc(); }
+    PtrVal error_loc() { return stack.error_loc(); }
     void set_fs(FS new_fs) { fs = new_fs; }
     FS get_fs() { return fs; }
 };

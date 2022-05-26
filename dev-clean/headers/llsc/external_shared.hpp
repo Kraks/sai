@@ -229,7 +229,7 @@ inline std::monostate abort(SS state, List<PtrVal> args, Cont k) {
 
 template<typename T>
 inline T ____errno_location(SS& state, List<PtrVal>& args, __Cont<T> k) {
-  return k(state, state.getErrorLoc());
+  return k(state, state.error_loc());
 }
 
 inline List<SSVal> __errno_location(SS state, List<PtrVal> args) {
