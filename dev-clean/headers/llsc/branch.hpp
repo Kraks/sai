@@ -225,6 +225,14 @@ sym_exec_br_k(SS& ss, PtrVal t_cond, PtrVal f_cond,
 
   if (tbr_sat && fbr_sat) {
     cov().inc_path(1);
+#if USE_TP
+    // Note: only works with state_tsnt
+    SS tbr_ss = ss.copy().add_PC(t_cond);
+    SS fbr_ss = ss.add_PC(f_cond);
+    tp.add_task([tf, tbr_ss=std::move(tbr_ss), k]{ return tf((SS&)tbr_ss, k); });
+    tp.add_task([ff, fbr_ss=std::move(fbr_ss), k]{ return ff((SS&)fbr_ss, k); });
+    return std::monostate{};
+#else
     SS tbr_ss = ss.copy().add_PC(t_cond);
     SS fbr_ss = ss.add_PC(f_cond);
     if (can_par_async()) {
@@ -240,6 +248,7 @@ sym_exec_br_k(SS& ss, PtrVal t_cond, PtrVal f_cond,
       ff(fbr_ss, k);
       return std::monostate{};
     }
+#endif
   } else if (tbr_sat) {
     SS tbr_ss = ss.add_PC(t_cond);
     return tf(tbr_ss, k);

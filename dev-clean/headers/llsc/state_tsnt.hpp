@@ -11,6 +11,7 @@ class PreMem {
     TrList<V> mem;
   public:
     PreMem(TrList<V> mem) : mem(std::move(mem)) {}
+  //PreMem(const PreMem& m) : mem(((PreMem&)m).mem.persistent().transient()) {}
     size_t size() { return mem.size(); }
     V at(size_t idx) { return mem.at(idx); }
     M&& update(size_t idx, V val) {
@@ -186,6 +187,7 @@ class Stack {
   public:
     Stack(Mem mem, TrList<Frame> env, PtrVal errno_location) :
       mem(std::move(mem)), env(std::move(env)), errno_location(std::move(errno_location)) {}
+  //Stack(const Stack& s) : mem(s.mem), env(((Stack&)s).env.persistent().transient()), errno_location(errno_location) {}
     size_t mem_size() { return mem.size(); }
     size_t frame_depth() { return env.size(); }
     PtrVal vararg_loc() { return env.at(env.size()-2).lookup_id(0); }
@@ -257,6 +259,7 @@ class PC {
     TrList<PtrVal> pc;
   public:
     PC(TrList<PtrVal> pc) : pc(std::move(pc)) {}
+  //PC(const PC& pc) : pc(((PC&)pc).pc.persistent().transient()) {}
     PC&& add(PtrVal e) {
       pc.push_back(e);
       return std::move(*this);
