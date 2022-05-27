@@ -295,20 +295,6 @@ abstract class ImpCPSLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName
   }
 }
 
-trait LLSC {
-  val insName: String
-  def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit]
-  def runLLSC(m: Module, name: String, fname: String, config: Config = Config(0, true, false)): Unit = {
-    BlockCounter.reset
-    val (_, t) = time {
-      val code = newInstance(m, name, fname, config)
-      code.extraFlags = "" // -D USE_LKFREE_Q"
-      code.genAll
-    }
-    println(s"[$insName] compiling $name, time $t ms")
-  }
-}
-
 case class Config(nSym: Int, argv: Boolean, test_coreutil: Boolean) {
   require(!(nSym > 0 && argv))
   def args(implicit d: ValueDefs) =
@@ -327,7 +313,32 @@ object Config {
   def testcoreutil = Config(0, true, true)
 }
 
-class PureLLSC extends LLSC {
+trait LLSC {
+  val insName: String
+  def extraFlags: String = "" // -D USE_LKFREE_Q
+  def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit]
+  def runLLSC(m: Module, name: String, fname: String, config: Config = Config(0, true, false)): GenericLLSCDriver[Int, Unit] = {
+    BlockCounter.reset
+    val (code, t) = time {
+      val code = newInstance(m, name, fname, config)
+      code.extraFlags = extraFlags
+      code.genAll
+      code
+    }
+    println(s"[$insName] compiling $name, time $t ms")
+    code
+  }
+}
+
+trait PureState { self: LLSC =>
+  override def extraFlags = "-D PURE_STATE"
+}
+
+trait ImpureState { self: LLSC =>
+  override def extraFlags = "-D IMPURE_STATE"
+}
+
+class PureLLSC extends LLSC with PureState {
   val insName = "PureLLSC"
   def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit] =
     new PureLLSCDriver[Int, Unit](m, name, "./llsc_gen", config) {
@@ -340,7 +351,7 @@ class PureLLSC extends LLSC {
     }
 }
 
-class PureCPSLLSC extends LLSC {
+class PureCPSLLSC extends LLSC with PureState {
   val insName = "PureCPSLLSC"
   def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit] =
     new PureCPSLLSCDriver[Int, Unit](m, name, "./llsc_gen", config) {
@@ -351,7 +362,7 @@ class PureCPSLLSC extends LLSC {
     }
 }
 
-class ImpLLSC extends LLSC {
+class ImpLLSC extends LLSC with ImpureState {
   val insName = "ImpLLSC"
   def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit] =
     new ImpLLSCDriver[Int, Unit](m, name, "./llsc_gen", config) {
@@ -363,7 +374,7 @@ class ImpLLSC extends LLSC {
     }
 }
 
-class ImpVecLLSC extends LLSC {
+class ImpVecLLSC extends LLSC with ImpureState {
   val insName = "ImpLLSC"
   def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit] =
     new ImpVecLLSCDriver[Int, Unit](m, name, "./llsc_gen", config) {
@@ -375,7 +386,7 @@ class ImpVecLLSC extends LLSC {
     }
 }
 
-class ImpCPSLLSC extends LLSC {
+class ImpCPSLLSC extends LLSC with ImpureState {
   val insName = "ImpCPSLLSC"
   def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit] =
     new ImpCPSLLSCDriver[Int, Unit](m, name, "./llsc_gen", config) {

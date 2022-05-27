@@ -34,12 +34,7 @@ class Optimization extends TestLLSC {
   def testLLSC(N: Int, llsc: LLSC, tst: TestPrg): Unit = {
     val TestPrg(m, name, f, config, cliArg, exp) = tst
     test(llsc.insName + "_" + name) {
-      val (code, t) = time {
-        val code = llsc.newInstance(m, llsc.insName + "_" + name, f, config)
-        code.genAll
-        code
-      }
-      System.out.println(s"Generated ${llsc.insName} - $name - $t")
+      val code = llsc.runLLSC(m, llsc.insName + "_" + name, f, config)
       val mkRet = code.make(4)
       assert(mkRet == 0, "make failed")
       for (i <- 1 to N) {

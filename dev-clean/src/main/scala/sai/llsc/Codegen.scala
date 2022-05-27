@@ -15,6 +15,7 @@ import collection.mutable.HashMap
 trait GenericLLSCCodeGen extends CppSAICodeGenBase {
   registerLibrary("-lz3")
   registerLibrary("-lstp")
+  registerHeader("./headers", "<llsc.hpp>")
 
   val codegenFolder: String
   // TODO: refactor to Sym => String map?
@@ -252,8 +253,6 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
 }
 
 trait PureLLSCCodeGen extends GenericLLSCCodeGen {
-  registerHeader("./headers", "<llsc.hpp>")
-
   override def shallow(n: Node): Unit = n match {
     case Node(s, "tp-async", List(b: Block), _) =>
       //emit("std::async(std::launch::async, [&]")
@@ -272,8 +271,6 @@ trait PureLLSCCodeGen extends GenericLLSCCodeGen {
 }
 
 trait ImpureLLSCCodeGen extends GenericLLSCCodeGen {
-  registerHeader("./headers", "<llsc_imp.hpp>")
-
   override def mayInline(n: Node): Boolean = n match {
     case Node(_, "ss-copy", _, _) => false
     case _ => super.mayInline(n)
