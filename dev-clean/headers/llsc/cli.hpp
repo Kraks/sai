@@ -8,12 +8,14 @@ inline bool use_cexcache = true;
 inline bool use_cons_indep = false;
 inline bool exlib_failure_branch = false;
 
+enum class SolverKind { z3, stp };
+inline SolverKind solver_kind = SolverKind::stp;
+
 // TODO: "--stack-size" to set stack size using `inc_stack`.
 
 static struct option long_options[] =
 {
   /* These options set a flag. */
-  {"disable-solver",       no_argument,       0, 'd'},
   {"exlib-failure-branch", no_argument,       0, 'f'},
   {"no-obj-cache",         no_argument,       0, 'O'},
   {"no-cex-cache",         no_argument,       0, 'C'},
@@ -22,10 +24,23 @@ static struct option long_options[] =
   {"sym-file-size",        required_argument, 0, 's'},
   {"thread",               required_argument, 0, 't'},
   {"queue",                required_argument, 0, 'q'},
+  {"solver",               required_argument, 0, 'v'},
   {"timeout",              required_argument, 0, 'e'},
   {"argv",                 required_argument, 0, 'a'},
   {0,                      0,                 0, 0  }
 };
+
+inline void set_solver(std::string& solver) {
+  if ("z3" == solver) {
+    solver_kind = SolverKind::z3;
+  } else if ("stp" == solver) {
+    solver_kind = SolverKind::stp;
+  } else if ("disable" == solver) {
+    use_solver = false;
+  } else {
+    ABORT("unknown solver");
+  }
+}
 
 inline void print_help(char* main_name) {
   struct option* p = long_options;
@@ -91,6 +106,11 @@ inline void handle_cli_args(int argc, char** argv) {
       case 'q': {
         int n = atoi(optarg);
         n_queue = n;
+        break;
+      }
+      case 'v': {
+        auto solver = std::string(optarg);
+        set_solver(solver);
         break;
       }
       case 'e':

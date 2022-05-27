@@ -5,9 +5,7 @@ inline void prelude(int argc, char** argv) {
   inc_stack(STACKSIZE_128MB);
   init_rand();
   handle_cli_args(argc, argv);
-#ifdef Z3
-  cz3.init_solvers();
-#endif
+  get_checker().init_solvers();
   cov().start_monitor();
 }
 

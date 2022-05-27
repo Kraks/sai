@@ -44,10 +44,7 @@ using namespace std::chrono;
 #include <llsc/args.hpp>
 #include <llsc/cli.hpp>
 #include <llsc/state_tsnt.hpp>
-
 #include <llsc/smt_checker.hpp>
-#include <llsc/smt_z3.hpp>
-
 #include <llsc/branch.hpp>
 #include <llsc/misc.hpp>
 

@@ -170,11 +170,4 @@ public:
   }
 };
 
-inline CheckerZ3 cz3;
-
-// To be compatible with generated code:
-
-inline bool check_pc(PC pc) { return cz3.check_pc(std::move(pc)); }
-inline void check_pc_to_file(SS state) { cz3.generate_test(std::move(state.get_PC())); }
-
 #endif
