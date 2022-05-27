@@ -16,6 +16,7 @@ inline SolverKind solver_kind = SolverKind::stp;
 static struct option long_options[] =
 {
   /* These options set a flag. */
+  {"help",                 no_argument,       0, 'h'},
   {"exlib-failure-branch", no_argument,       0, 'f'},
   {"no-obj-cache",         no_argument,       0, 'O'},
   {"no-cex-cache",         no_argument,       0, 'C'},
@@ -49,8 +50,15 @@ inline void print_help(char* main_name) {
   for (int i = 0; i < len; i++, p++) {
     if (p->name) {
       printf("[--%s", p->name);
-      if (p->has_arg == required_argument)
-        printf("=<value>");
+      if (p->has_arg == required_argument) {
+        std::string key = p->name;
+        if (key == "solver") {
+          printf("={stp,z3,disable}");
+        } else {
+          // TODO: doc for other options
+          printf("=<value>");
+        }
+      }
       printf("] ");
     }
   }
@@ -118,6 +126,7 @@ inline void handle_cli_args(int argc, char** argv) {
         break;
       case '?':
         // parsing error, should be printed by getopt
+      case 'h':
       default:
         print_help(argv[0]);
         exit(-1);
