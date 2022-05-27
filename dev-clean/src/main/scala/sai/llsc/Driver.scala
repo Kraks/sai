@@ -302,6 +302,7 @@ trait LLSC {
     BlockCounter.reset
     val (_, t) = time {
       val code = newInstance(m, name, fname, config)
+      code.extraFlags = "" // -D USE_LKFREE_Q"
       code.genAll
     }
     println(s"[$insName] compiling $name, time $t ms")
@@ -350,17 +351,6 @@ class PureCPSLLSC extends LLSC {
     }
 }
 
-class PureCPSLLSC_Z3 extends PureCPSLLSC {
-  override val insName = "PureCPSLLSC_Z3"
-  override def newInstance(m: Module, name: String, fname: String, config: Config) = {
-    val llsc = super.newInstance(m, name, fname, config)
-    llsc.codegen.libraryFlags.clear()
-    llsc.codegen.registerLibrary("-lz3")
-    llsc.extraFlags = "-D USE_TP -D Z3" // -D USE_LKFREE_Q"
-    llsc
-  }
-}
-
 class ImpLLSC extends LLSC {
   val insName = "ImpLLSC"
   def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit] =
@@ -394,17 +384,6 @@ class ImpCPSLLSC extends LLSC {
         exec(fname, config.args, fun { case sv => checkPCToFile(sv._1) })
       }
     }
-}
-
-class ImpCPSLLSC_Z3 extends ImpCPSLLSC {
-  override val insName = "ImpCPSLLSC_Z3"
-  override def newInstance(m: Module, name: String, fname: String, config: Config) = {
-    val llsc = super.newInstance(m, name, fname, config)
-    llsc.codegen.libraryFlags.clear()
-    llsc.codegen.registerLibrary("-lz3")
-    llsc.extraFlags = "-D USE_TP -D Z3" // -D USE_LKFREE_Q"
-    llsc
-  }
 }
 
 object RunLLSC {

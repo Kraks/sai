@@ -94,14 +94,18 @@ class TestPureCPSLLSC extends TestLLSC {
 }
 
 class TestPureCPSLLSC_Z3 extends TestLLSC {
-  val llsc = new PureCPSLLSC_Z3
-  testLLSC(llsc, TestCases.all ++ filesys ++ varArg)
+  val llsc = new PureCPSLLSC
+  val cases =  (TestCases.all ++ filesys ++ varArg).map { t =>
+    t.copy(runOpt = t.runOpt ++ Seq("--solver=z3"))
+  }
 
-  testLLSC(llsc, TestPrg(unboundedLoop, "unboundedLoop", "@main", noArg, "--timeout=2", minTest(1)))
-  testLLSC(llsc, TestPrg(unboundedLoop, "unboundedLoopMT", "@main", noArg, "--thread=2 --timeout=2", minTest(1)))
-  testLLSC(llsc, TestPrg(data_structures_set_multi_proc_ground_1, "testCompArraySet1", "@main", noArg, noOpt, status(255)))
-  testLLSC(llsc, TestPrg(standard_allDiff2_ground, "stdAllDiff2Ground", "@main", noArg, noOpt, status(255)))
-  testLLSC(llsc, TestPrg(standard_copy9_ground, "stdCopy9", "@main", noArg, noOpt, status(255)))
+  testLLSC(llsc, cases)
+
+  testLLSC(llsc, TestPrg(unboundedLoop, "unboundedLoop", "@main", noArg, "--timeout=2 --solver=z3", minTest(1)))
+  testLLSC(llsc, TestPrg(unboundedLoop, "unboundedLoopMT", "@main", noArg, "--thread=2 --timeout=2 --solver=z3", minTest(1)))
+  testLLSC(llsc, TestPrg(data_structures_set_multi_proc_ground_1, "testCompArraySet1", "@main", noArg, "--solver=z3", status(255)))
+  testLLSC(llsc, TestPrg(standard_allDiff2_ground, "stdAllDiff2Ground", "@main", noArg, "--solver=z3", status(255)))
+  testLLSC(llsc, TestPrg(standard_copy9_ground, "stdCopy9", "@main", noArg, "--solver=z3", status(255)))
 }
 
 class TestImpLLSC extends TestLLSC {
@@ -117,7 +121,7 @@ class TestImpCPSLLSC extends TestLLSC {
 
 class Playground extends TestLLSC {
   //testLLSC(new PureCPSLLSC, TestPrg(mp1048576, "mp1mTest_CPS", "@f", symArg(20), "--disable-solver", nPath(1048576)))
-  //val llsc = new PureCPSLLSC_Z3
+  //val llsc = new PureCPSLLSC
   Config.enableOpt
   testLLSC(new ImpCPSLLSC, TestPrg(mergesort, "mergeSortTest", "@main", noArg, noOpt, nPath(720)))
   //testLLSC(new PureCPSLLSC, TestPrg(mergesort, "mergeSortPureTest", "@main", noArg, noOpt, nPath(720)))

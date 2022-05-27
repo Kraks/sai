@@ -13,6 +13,9 @@ import java.io.FileOutputStream
 import collection.mutable.HashMap
 
 trait GenericLLSCCodeGen extends CppSAICodeGenBase {
+  registerLibrary("-lz3")
+  registerLibrary("-lstp")
+
   val codegenFolder: String
   // TODO: refactor to Sym => String map?
   var funMap = new HashMap[Int, String]()
@@ -237,11 +240,11 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     emitln(s"""
     |int main(int argc, char *argv[]) {
     |  prelude(argc, argv);
-    |#ifdef USE_TP
-    |  tp.add_task([]() { return $name(0); });
-    |#else
-    |  $name(0);
-    |#endif
+    |  if (can_par_tp()) {
+    |    tp.add_task([]() { return $name(0); });
+    |  } else {
+    |    $name(0);
+    |  }
     |  epilogue();
     |  return exit_code.load().value_or(0);
     |} """.stripMargin)
