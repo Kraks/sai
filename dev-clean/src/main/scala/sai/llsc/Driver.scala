@@ -173,11 +173,9 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     genMakefile
   }
 
-  def make(j: Int = 1): Int = {
-    Process(s"make -j$j", new File(s"$folder/$appName")).!
-  }
+  def make(j: Int = 1): Int = Process(s"make -j$j", new File(s"$folder/$appName")).!
 
-  def make_all_cores: Int = {
+  def makeWithAllCores: Int = {
     val cores = Process("nproc", new File(s"$folder/$appName")).!!.replaceAll("[\\n\\t ]", "").toInt
     Process(s"make -j$cores", new File(s"$folder/$appName")).!
   }
