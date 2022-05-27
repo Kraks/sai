@@ -21,9 +21,13 @@ import sai.llsc.imp.ImpCPSLLSCEngine
 
 import sys.process._
 
-abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, folder: String = ".", config: Config)
+abstract class GenericLLSCDriver[A: Manifest, B: Manifest]
     extends SAISnippet[A, B] with SAIOps { q =>
   import java.io.{File, PrintStream}
+
+  val appName: String
+  val folder: String
+  val config: Config
 
   val codegen: GenericLLSCCodeGen
   var extraFlags: String = ""
@@ -199,13 +203,9 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
   }
 }
 
-// Using immer data structures for
-//   1) internal state/memory representation
-//   2) function call argument list
-//   3) function return result list
-abstract class PureLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: String, folder: String = ".", config: Config)
-   extends GenericLLSCDriver[A, B](appName, folder, config) with LLSCEngine { q =>
-  val codegen = new PureLLSCCodeGen {
+abstract class PureEngineDriver[A: Manifest, B: Manifest] extends GenericLLSCDriver[A, B] {
+  q: EngineBase =>
+  override lazy val codegen: GenericLLSCCodeGen = new PureLLSCCodeGen {
     val IR: q.type = q
     val codegenFolder = s"$folder/$appName/"
     setFunMap(q.funNameMap)
@@ -221,36 +221,15 @@ abstract class PureLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: 
   }
 }
 
-// Using immer data structures but generating CPS code,
-// avoding reifying the returned nondet list.
-abstract class PureCPSLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: String, folder: String = ".", config: Config)
-    extends GenericLLSCDriver[A, B](appName, folder, config) with PureCPSLLSCEngine { q =>
-  val codegen = new PureLLSCCodeGen {
+abstract class ImpureEngineDriver[A: Manifest, B: Manifest] extends GenericLLSCDriver[A, B] {
+  q: EngineBase =>
+  override lazy val codegen: GenericLLSCCodeGen = new ImpureLLSCCodeGen {
     val IR: q.type = q
     val codegenFolder = s"$folder/$appName/"
     setFunMap(q.funNameMap)
     setBlockMap(q.blockNameMap)
   }
 
-  override def transform(g0: Graph): Graph = {
-    if (Config.opt) {
-      val (g1, subst1) = AssignElim.transform(g0)
-      codegen.reconsMapping(subst1)
-      g1
-    } else g0
-  }
-}
-
-// Using C++ std containers for internal state/memory representation,
-// but still using immer containers for function call argument lists and result lists.
-abstract class ImpLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: String, folder: String = ".", config: Config)
-   extends GenericLLSCDriver[A, B](appName, folder, config) with ImpLLSCEngine { q =>
-  val codegen = new ImpureLLSCCodeGen {
-    val IR: q.type = q
-    val codegenFolder = s"$folder/$appName/"
-    setFunMap(q.funNameMap)
-    setBlockMap(q.blockNameMap)
-  }
   override def transform(g0: Graph): Graph = {
     if (Config.opt) {
       val (g1, subst1) = AssignElim.impTransform(g0)
@@ -260,12 +239,33 @@ abstract class ImpLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: S
   }
 }
 
+// Using immer data structures for
+//   1) internal state/memory representation
+//   2) function call argument list
+//   3) function return result list
+abstract class PureLLSCDriver[A: Manifest, B: Manifest](
+  val m: Module, val appName: String, val folder: String, val config: Config)
+    extends PureEngineDriver[A, B] with LLSCEngine
+
+// Using immer data structures but generating CPS code,
+// avoding reifying the returned nondet list.
+abstract class PureCPSLLSCDriver[A: Manifest, B: Manifest](
+  val m: Module, val appName: String, val folder: String, val config: Config)
+    extends PureEngineDriver[A, B] with PureCPSLLSCEngine
+
+// Using C++ std containers for internal state/memory representation,
+// but still using immer containers for function call argument lists and result lists.
+abstract class ImpLLSCDriver[A: Manifest, B: Manifest](
+  val m: Module, val appName: String, val folder: String, val config: Config)
+    extends ImpureEngineDriver[A, B] with ImpLLSCEngine
+
 // Using C++ std containers for internal state/memory representation,
 // function call argument lists, and result lists.
 // Note the composition with `StdVectorCodeGen`.
-abstract class ImpVecLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: String, folder: String = ".", config: Config)
-   extends GenericLLSCDriver[A, B](appName, folder, config) with ImpLLSCEngine { q =>
-  val codegen = new ImpureLLSCCodeGen with StdVectorCodeGen {
+abstract class ImpVecLLSCDriver[A: Manifest, B: Manifest](
+  val m: Module, val appName: String, val folder: String, val config: Config)
+    extends ImpureEngineDriver[A, B] with ImpLLSCEngine { q =>
+  override lazy val codegen = new ImpureLLSCCodeGen with StdVectorCodeGen {
     val IR: q.type = q
     val codegenFolder = s"$folder/$appName/"
     setFunMap(q.funNameMap)
@@ -275,23 +275,9 @@ abstract class ImpVecLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName
 
 // Generting CPS code with C++ containers for internal state/memory representation.
 // Function call argument lists and result lists still use immer containers.
-abstract class ImpCPSLLSCDriver[A: Manifest, B: Manifest](val m: Module, appName: String, folder: String = ".", config: Config)
-   extends GenericLLSCDriver[A, B](appName, folder, config) with ImpCPSLLSCEngine { q =>
-  val codegen = new ImpureLLSCCodeGen /* with StdVectorCodeGen */ {
-    val IR: q.type = q
-    val codegenFolder = s"$folder/$appName/"
-    setFunMap(q.funNameMap)
-    setBlockMap(q.blockNameMap)
-  }
-
-  override def transform(g0: Graph): Graph = {
-    if (Config.opt) {
-      val (g1, subst1) = AssignElim.impTransform(g0)
-      codegen.reconsMapping(subst1)
-      g1
-    } else g0
-  }
-}
+abstract class ImpCPSLLSCDriver[A: Manifest, B: Manifest](
+  val m: Module, val appName: String, val folder: String , val config: Config)
+    extends ImpureEngineDriver[A, B] with ImpCPSLLSCEngine
 
 case class Config(nSym: Int, argv: Boolean, test_coreutil: Boolean) {
   require(!(nSym > 0 && argv))
