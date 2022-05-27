@@ -133,14 +133,13 @@ inline void handle_cli_args(int argc, char** argv) {
   }
   if (n_thread == 1) {
     // It is safe the reuse the global_vc object within one thread, but not otherwise.
-    std::cout << "Use global solver\n";
     use_global_solver = true;
+    std::cout << "Sequential execution mode; use global solver\n";
+  } else {
+    // thread pool will create (n_thread) threads, leaving the main thread idle.
+    tp.init(n_thread, n_queue);
+    std::cout << "Parallel execution mode: " << n_thread << " total threads; " << n_queue << " queues in the thread pool\n";
   }
-  std::cout << "Use " << n_thread << " total threads; " << n_queue << " queues in the thread pool\n";
-#ifdef USE_TP
-  // thread pool will create (n_thread) threads, leaving the main thread idle.
-  tp.init(n_thread, n_queue);
-#endif
   use_objcache = use_objcache && use_global_solver;
   use_cexcache = use_cexcache && use_global_solver;
   INFO(initial_fs);

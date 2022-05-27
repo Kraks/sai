@@ -10,9 +10,9 @@ inline void prelude(int argc, char** argv) {
 }
 
 inline void epilogue() {
-#ifdef USE_TP
-  tp.wait_for_tasks();
-#endif
+  if (can_par_tp()) {
+    tp.wait_for_tasks();
+  }
   cov().stop_monitor();
   cov().print_all(true);
 }
