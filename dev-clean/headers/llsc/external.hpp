@@ -17,8 +17,27 @@ std::monostate syscall_lseek(SS, immer::flex_vector<PtrVal>, std::function<std::
 immer::flex_vector<std::pair<SS, PtrVal>> syscall_stat(SS, immer::flex_vector<PtrVal>);
 std::monostate syscall_stat(SS, immer::flex_vector<PtrVal>, std::function<std::monostate(SS, PtrVal)>);
 FS set_file(FS, String, Ptr<File>);
+Ptr<File> set_file_type(Ptr<File>, int);
+bool has_file_type(Ptr<File>, int);
 
 /************* Functions **************/
+inline bool has_file_type(Ptr<File> x347, int x348) {
+immer::flex_vector<PtrVal> x349 = x347->stat.drop(24);
+immer::flex_vector<PtrVal> x350 = x349.take(4);
+return (bool)(proj_IntV(Value::from_bytes(x350)) & (int64_t)x348);
+}
+inline Ptr<File> set_file_type(Ptr<File> x337, int x338) {
+immer::flex_vector<PtrVal> x339 = x337->stat.drop(24);
+immer::flex_vector<PtrVal> x340 = x339.take(4);
+immer::flex_vector<PtrVal> x341 = make_IntV(proj_IntV(Value::from_bytes(x340)) & proj_IntV(make_IntV(~S_IFMT, 32)) | (int64_t)x338, 32)->to_bytes();
+immer::flex_vector<PtrVal> x342 = x337->stat.take(24);
+immer::flex_vector<PtrVal> x343 = x342 + x341;
+int x344 = x341.size();
+immer::flex_vector<PtrVal> x345 = x337->stat.drop(24 + x344);
+immer::flex_vector<PtrVal> x346 = x343 + x345;
+x337->stat = x346;
+return x337;
+}
 inline FS set_file(FS x323, String x324, Ptr<File> x325) {
 /* setFile */;
 Ptr<File> x326 = x323.root_file;

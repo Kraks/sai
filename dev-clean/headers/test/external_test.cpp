@@ -264,6 +264,21 @@ ASSERT((true), "Right value should not be set");
 ASSERT((true), "Right value should be set");
 /* assertEq */;
 ASSERT((true), "assigning to a string should work");
+int x128 = S_IFREG;
+immer::flex_vector<PtrVal> x129 = x63->stat.drop(24);
+immer::flex_vector<PtrVal> x130 = x129.take(4);
+immer::flex_vector<PtrVal> x131 = make_IntV(proj_IntV(Value::from_bytes(x130)) & proj_IntV(make_IntV(~S_IFMT, 32)) | (int64_t)x128, 32)->to_bytes();
+immer::flex_vector<PtrVal> x132 = x63->stat.take(24);
+immer::flex_vector<PtrVal> x133 = x132 + x131;
+int x134 = x131.size();
+immer::flex_vector<PtrVal> x135 = x63->stat.drop(24 + x134);
+immer::flex_vector<PtrVal> x136 = x133 + x135;
+x63->stat = x136;
+int x137 = S_IFREG;
+immer::flex_vector<PtrVal> x138 = x63->stat.drop(24);
+immer::flex_vector<PtrVal> x139 = x138.take(4);
+/* assertEq */;
+ASSERT(((bool)(proj_IntV(Value::from_bytes(x139)) & (int64_t)x137) == true), "file type should be correctly set");
 return std::monostate{};
 }
 

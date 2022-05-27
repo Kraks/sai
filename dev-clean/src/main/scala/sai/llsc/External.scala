@@ -152,6 +152,32 @@ trait GenExternal extends SymExeDefs {
     fs
   }
 
+  // mask values:
+  // S_IFSOCK: 00140000
+  // S_IFLNK: 00120000
+  // S_IFREG: 00100000
+  // S_IFBLK: 00060000
+  // S_IFDIR: 00040000
+  // S_IFCHR: 00020000
+  // S_IFIFO: 00010000
+
+  // NOTE: return type might not be necessary if using pointers <2022-05-27, David Deng> //
+  def _set_file_type(f: Rep[File], mask: Rep[Int]): Rep[File] = {
+    // want to unset the file type bits and leave the other bits unchanged
+    val clearMask: Rep[Value] = IntV(unchecked[Long]("~S_IFMT"), 32)
+    // make_IntV(S_IFSOCK, 32)->to_bytes()
+    val stat = f.readStatField("st_mode")
+    val newStat = IntV((stat.int & clearMask.int) | mask, 32)
+    f.writeStatField("st_mode", newStat)
+    f
+  }
+
+  // TODO: model boolean return value? Rep[Long] -> Rep[Boolean] conversion <2022-05-27, David Deng> //
+  def _has_file_type(f: Rep[File], mask: Rep[Int]): Rep[Boolean] = {
+    val stat = f.readStatField("st_mode")
+    stat.int & mask
+  }
+
   // generate different return style
   def gen_k(gen: (Rep[SS], Rep[List[Value]], (Rep[SS], Rep[Value]) => Rep[Unit]) => Rep[Unit]): ((Rep[SS], Rep[List[Value]], Rep[Cont]) => Rep[Unit]) = { case (ss, l, k) => ( gen(ss, l, { case (s,v) => k(s,v) }))}
   def gen_p(gen: (Rep[SS], Rep[List[Value]], (Rep[SS], Rep[Value]) => Rep[List[(SS, Value)]]) => Rep[List[(SS, Value)]]): ((Rep[SS], Rep[List[Value]]) => Rep[List[(SS, Value)]]) = { case (ss, l) => ( gen(ss, l, { case (s,v) => List[(SS, Value)]((s,v)) }))}
@@ -397,6 +423,12 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
     assertEq(s, "abcdef", "assigning to a string should work")
   }
 
+  def testSetFileType = {
+    val f = File("A")
+    val f1 = _set_file_type(f, unchecked[Int]("S_IFREG"))
+    assertEq(_has_file_type(f, unchecked[Int]("S_IFREG")), true, "file type should be correctly set")
+  }
+
   // def testSeek: Rep[Unit] = {
   //   unchecked("/* test seek */")
   //   val s1 = Stream(File("A"), ListOps.fill(20)(iv(0)))
@@ -530,6 +562,7 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
     testStreamCopy
     testDirStructure
     testEither
+    testSetFileType
     // testSeek
     ()
   }
@@ -587,6 +620,8 @@ class ExternalLLSCDriver(folder: String = "./headers/llsc") extends SAISnippet[I
     hardTopFun(gen_p(brg_fs(stat(_,_,_,_))), "syscall_stat", "inline")
     hardTopFun(gen_k(brg_fs(stat(_,_,_,_))), "syscall_stat", "inline")
     hardTopFun(_set_file(_,_,_), "set_file", "inline")
+    hardTopFun(_set_file_type(_,_), "set_file_type", "inline")
+    hardTopFun(_has_file_type(_,_), "has_file_type", "inline")
     // hardTopFun(gen_p(openat), "openat", "inline")
     // hardTopFun(gen_k(openat), "openat", "inline")
     ()
