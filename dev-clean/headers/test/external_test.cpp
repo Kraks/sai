@@ -1,6 +1,5 @@
-
 #include <iostream>
-#include <assert.h>
+#define PURE_STATE
 #include "../llsc.hpp"
 
 PtrVal intV_0 = make_IntV(0);

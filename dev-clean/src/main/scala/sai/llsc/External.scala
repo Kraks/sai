@@ -239,9 +239,8 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
       // g.show
       val ng = init(g)
       val src = run(name, ng)
-      emitln(s"""
-        |#include <iostream>
-        |#include <assert.h>
+      emitln(s"""#include <iostream>
+        |#define PURE_STATE
         |#include "../llsc.hpp"
         |
         |PtrVal intV_0 = make_IntV(0);
