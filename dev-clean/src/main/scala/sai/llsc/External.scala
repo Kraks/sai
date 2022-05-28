@@ -205,9 +205,7 @@ trait GenExternal extends SymExeDefs {
   }
 }
 
-class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[Int, Unit] with SAIOps with GenExternal { q =>
-  import java.io.{File, PrintStream}
-  import scala.collection.mutable.HashMap
+trait ExternalUtil { self: BasicDefs with ValueDefs with SAIOps =>
 
   def equalExplicit[T: Manifest](lhs: Rep[T], rhs: Rep[T])(implicit m: Manifest[T]): Rep[Boolean] = {
       m match {
@@ -233,6 +231,11 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
   def assert(cond: Rep[Boolean], msg: String = ""): Rep[Unit] = {
     "assert".reflectCtrlWith[Unit](cond, unit(msg))
   }
+}
+
+class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[Int, Unit] with SAIOps with GenExternal with ExternalUtil { q =>
+  import java.io.{File, PrintStream}
+  import scala.collection.mutable.HashMap
 
   val codegen: GenericLLSCCodeGen = new GenericLLSCCodeGen {
     val codegenFolder: String = folder
@@ -402,11 +405,11 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
   }
 
   def testDirStructure = {
-    unchecked("/* test get_file */")
+    unchecked("/* test directory structure */")
     val fs = FS()
-    fs.setFile("/", File("a"))
-    fs.setFile("/a", File("b"))
-    fs.setFile("/a/b", File("c"))
+    fs.setFile("/a", File("a"))
+    fs.setFile("/a/b", File("b"))
+    fs.setFile("/a/b/c", File("c"))
     val f = fs.getFile("/a/b/c")
     assertNeq(f, NullPtr[Value](), "file should exist")
   }

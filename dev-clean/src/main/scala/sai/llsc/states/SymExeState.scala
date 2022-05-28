@@ -33,7 +33,7 @@ import scala.collection.mutable.{Map => MutableMap, Set => MutableSet}
  */
 
 @virtualize
-trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs with Opaques with Coverage {
+trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs with Opaques with Coverage with ExternalUtil {
   type E = State[Rep[SS], *] ⊗ (Nondet ⊗ ∅)
   type Cont = PCont[Id]
 
@@ -333,7 +333,6 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
       }
     }
 
-
     def getFreshFd(): Rep[Fd] = "method-@".reflectCtrlWith[Fd](fs, "get_fresh_fd")
 
     // TODO: recursively search <2022-05-25, David Deng> //
@@ -342,9 +341,12 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
       unchecked("/* getFile */")
       getFileFromPathSegments(fs.rootFile, getPathSegments(name))
     }
+    // would set the file corresponding to name, parent should exist
     def setFile(name: Rep[String], f: Rep[File]): Rep[Unit] = {
       unchecked("/* setFile */")
-      val parent = getFileFromPathSegments(fs.rootFile, getPathSegments(name))
+      val segs: Rep[List[String]] = getPathSegments(name)
+      val parent: Rep[File] = getFileFromPathSegments(fs.rootFile, segs.take(segs.size - 1))
+      assertEq(segs.last, f.name, "setFile name should equal to last segment")
       if (parent != NullPtr()) parent.setChild(f.name, f)
     }
     def removeFile(name: Rep[String]): Rep[Unit]            = fs.rootFile.removeChild(name)
