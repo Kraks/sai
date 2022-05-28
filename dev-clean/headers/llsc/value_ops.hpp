@@ -70,6 +70,7 @@ struct Value : public std::enable_shared_from_this<Value>, public Printable {
     }
     return res.persistent();
   }
+
 };
 
 template<>
@@ -277,10 +278,10 @@ struct LocV : IntV {
   static constexpr int64_t MemOffset[3] = { 1LL<<28, 2LL<<28, 3LL<<28 };
   Addr l;
   Kind k;
-  int base, size;
+  size_t base, size;
 
-  LocV(Addr l, Kind k, int size, int off) : IntV(MemOffset[k] + l + off, 64),
-                                            l(l + off), k(k), base(l), size(size) {
+  LocV(Addr base, Kind k, int size, int off) :
+    IntV(MemOffset[k] + base + off, 64), l(base + off), k(k), base(base), size(size) {
     hash_combine(hash(), std::string("locv"));
     hash_combine(hash(), k);
     hash_combine(hash(), l);
@@ -300,8 +301,8 @@ struct LocV : IntV {
   }
 };
 
-inline PtrVal make_LocV(Addr i, LocV::Kind k, int size, int off = 0) {
-  return std::make_shared<LocV>(i, k, size, off);
+inline PtrVal make_LocV(Addr base, LocV::Kind k, size_t size, size_t off = 0) {
+  return std::make_shared<LocV>(base, k, size, off);
 }
 
 inline unsigned int proj_LocV(const PtrVal& v) {
@@ -326,16 +327,6 @@ inline bool is_LocV_null(PtrVal v) {
     return false;
   }
   return (64 == i->bw) && (0 == i->as_signed());
-}
-
-inline PtrVal operator+ (const PtrVal& lhs, const int& rhs) {
-  if (auto loc = std::dynamic_pointer_cast<LocV>(lhs)) {
-    return make_LocV(loc->base, loc->k, loc->size, loc->l - loc->base + rhs);
-  }
-  if (auto i = std::dynamic_pointer_cast<IntV>(lhs)) {
-    return make_IntV(i->i + rhs, i->bw);
-  }
-  ABORT("Unknown application of operator+");
 }
 
 // FunV types:
@@ -436,6 +427,8 @@ struct SymV : Value {
     auto end = steady_clock::now();
     return nullptr;
   }
+
+  static PtrVal neg(const PtrVal& v);
 };
 
 /*
@@ -451,13 +444,11 @@ inline std::map<size_t, PtrVal> symv_cache;
 */
 
 inline PtrVal make_SymV(const String& n) {
-  auto v = std::make_shared<SymV>(n, bitwidth);
-  return v;
+  return std::make_shared<SymV>(n, bitwidth);
 }
 
 inline PtrVal make_SymV(String n, size_t bw) {
-  auto v = std::make_shared<SymV>(n, bw);
-  return v;
+  return std::make_shared<SymV>(n, bw);
 }
 
 inline PtrVal make_SymV(iOP rator, List<PtrVal> rands, size_t bw) {
@@ -475,7 +466,8 @@ inline List<PtrVal> make_SymV_seq(unsigned length, const std::string& prefix, si
   }
   return res.persistent();
 }
-inline PtrVal to_SMTNeg(PtrVal v) {
+
+inline PtrVal SymV::neg(const PtrVal& v) {
   return make_SymV(iOP::op_neg, List<PtrVal>({ v }), v->get_bw());
 }
 
@@ -725,10 +717,20 @@ inline PtrVal bv_concat(const PtrVal& v1, const PtrVal& v2) {
   return make_SymV(iOP::op_concat, List<PtrVal>({ v1, v2 }), bw1 + bw2);
 }
 
-inline const PtrVal IntV0 = make_IntV(0);
+inline const PtrVal IntV0 = make_IntV(0, 64);
 
 inline std::string ptrval_to_string(const PtrVal& ptr) {
   return std::string(ptr == nullptr ? "nullptr" : ptr->toString());
+}
+
+inline PtrVal operator+ (const PtrVal& lhs, const int& rhs) {
+  if (auto loc = std::dynamic_pointer_cast<LocV>(lhs)) {
+    return make_LocV(loc->base, loc->k, loc->size, loc->l - loc->base + rhs);
+  }
+  if (auto i = std::dynamic_pointer_cast<IntV>(lhs)) {
+    return make_IntV(i->i + rhs, i->bw);
+  }
+  ABORT("Unknown application of operator+");
 }
 
 #endif
