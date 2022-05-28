@@ -91,7 +91,7 @@ trait Opaques { self: SAIOps with BasicDefs =>
       "__errno_location", "_exit", "abort", "calloc"
     )
     private val syscalls = MutableSet[String](
-      "open", "close", "read", "write", "lseek", "stat"
+      "open", "close", "read", "write", "lseek", "stat", "mkdir", "rmdir", "creat", "unlink"
     ) 
     val rederict = scala.collection.immutable.Set[String]("@memcpy", "@memset", "@memmove")
     def apply(f: String, ret: Option[LLVMType] = None): Rep[Value] = {

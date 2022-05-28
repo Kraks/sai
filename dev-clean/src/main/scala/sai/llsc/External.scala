@@ -136,6 +136,41 @@ trait GenExternal extends SymExeDefs {
     }
   }
 
+  // int mkdir(const char *pathname, mode_t mode);
+  def mkdir[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+    val path: Rep[String] = getString(args(0), ss)
+    // TODO: set mode <2022-05-28, David Deng> //
+    val mode: Rep[Value] = args(1)
+    val name: Rep[String] = getPathSegments(path).last
+    // TODO: set errno <2022-05-28, David Deng> //
+    if (fs.hasFile(path)) k(ss, fs, IntV(-1, 32))
+    else {
+      // TODO: refactor a get_dir method? <2022-05-28, David Deng> //
+      val f = _set_file_type(File(name, List[Value](), List.fill(144)(IntV(0, 8))), literal[Int]("S_IFDIR"))
+      unchecked("/* mkdir: fs.setFile */")
+      fs.setFile(path, f)
+      unchecked("/* mkdir: return */")
+      k(ss, fs, IntV(0, 32))
+    }
+  }
+
+  // // int rmdir(const char *pathname);
+  // def rmdir[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+  //   val path: Rep[String] = getString(args(0), ss)
+  //   k(ss, fs, IntV(0, 32))
+  // }
+
+  // // int creat(const char *pathname, mode_t mode);
+  // def creat[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+  //   k(ss, fs, IntV(0, 32))
+  // }
+
+  // // int unlink(const char *pathname);
+  // def unlink[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+  //   k(ss, fs, IntV(0, 32))
+  // }
+
+
   def openat[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
     // TODO: implement this <2022-01-23, David Deng> //
     // int __fd_openat(int basefd, const char *pathname, int flags, mode_t mode);
@@ -167,6 +202,7 @@ trait GenExternal extends SymExeDefs {
 
   // NOTE: return type might not be necessary if using pointers <2022-05-27, David Deng> //
   def _set_file_type(f: Rep[File], mask: Rep[Int]): Rep[File] = {
+    unchecked("/* _set_file_type */")
     // want to unset the file type bits and leave the other bits unchanged
     val clearMask: Rep[Value] = NEG_S_IFMT
     // make_IntV(S_IFSOCK, 32)->to_bytes()
@@ -176,7 +212,6 @@ trait GenExternal extends SymExeDefs {
     f
   }
 
-  // TODO: model boolean return value? Rep[Long] -> Rep[Boolean] conversion <2022-05-27, David Deng> //
   def _has_file_type(f: Rep[File], mask: Rep[Int]): Rep[Boolean] = {
     val stat = f.readStatField("st_mode")
     stat.int & mask
@@ -625,6 +660,8 @@ class ExternalLLSCDriver(folder: String = "./headers/llsc") extends SAISnippet[I
     hardTopFun(gen_k(brg_fs(lseek(_,_,_))), "syscall_lseek", "inline")
     hardTopFun(gen_p(brg_fs(stat(_,_,_,_))), "syscall_stat", "inline")
     hardTopFun(gen_k(brg_fs(stat(_,_,_,_))), "syscall_stat", "inline")
+    hardTopFun(gen_p(brg_fs(mkdir(_,_,_,_))), "syscall_mkdir", "inline")
+    hardTopFun(gen_k(brg_fs(mkdir(_,_,_,_))), "syscall_mkdir", "inline")
     hardTopFun(_set_file(_,_,_), "set_file", "inline")
     hardTopFun(_set_file_type(_,_), "set_file_type", "inline")
     hardTopFun(_has_file_type(_,_), "has_file_type", "inline")

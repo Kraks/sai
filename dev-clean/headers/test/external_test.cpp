@@ -280,6 +280,7 @@ ASSERT((true), "Right value should be set");
 /* assertEq */;
 ASSERT((true), "assigning to a string should work");
 int x138 = S_IFREG;
+/* _set_file_type */;
 immer::flex_vector<PtrVal> x139 = x63->stat.drop(24);
 immer::flex_vector<PtrVal> x140 = x139.take(4);
 immer::flex_vector<PtrVal> x141 = make_IntV(proj_IntV(Value::from_bytes(x140)) & proj_IntV(make_IntV(~S_IFMT, 32)) | (int64_t)x138, 32)->to_bytes();
