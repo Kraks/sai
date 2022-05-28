@@ -154,22 +154,76 @@ trait GenExternal extends SymExeDefs {
     }
   }
 
-  // // int rmdir(const char *pathname);
-  // def rmdir[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
-  //   val path: Rep[String] = getString(args(0), ss)
-  //   k(ss, fs, IntV(0, 32))
-  // }
+  // int rmdir(const char *pathname);
+  def rmdir[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+    val path: Rep[String] = getString(args(0), ss)
+    val dir = fs.getFile(path)
+    // TODO: set errno <2022-05-28, David Deng> //
+    if (dir == NullPtr() || !_has_file_type(dir, literal[Int]("S_IFDIR"))) k(ss, fs, IntV(-1, 32))
+    else {
+      // TODO: first get the parent to optimize <2022-05-28, David Deng> //
+      fs.removeFile(path)
+      k(ss, fs, IntV(0, 32))
+    }
+  }
 
-  // // int creat(const char *pathname, mode_t mode);
-  // def creat[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
-  //   k(ss, fs, IntV(0, 32))
-  // }
+  // int creat(const char *pathname, mode_t mode);
+  def creat[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+    val path: Rep[String] = getString(args(0), ss)
+    // TODO: set mode <2022-05-28, David Deng> //
+    val mode: Rep[Value] = args(1)
+    val name: Rep[String] = getPathSegments(path).last
+    // TODO: set errno <2022-05-28, David Deng> //
+    if (fs.hasFile(path)) k(ss, fs, IntV(-1, 32))
+    else {
+      // TODO: refactor a get_dir method? <2022-05-28, David Deng> //
+      val f = _set_file_type(File(name, List[Value](), List.fill(144)(IntV(0, 8))), literal[Int]("S_IFREG"))
+      fs.setFile(path, f)
+      k(ss, fs, IntV(0, 32))
+    }
+  }
 
-  // // int unlink(const char *pathname);
-  // def unlink[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
-  //   k(ss, fs, IntV(0, 32))
-  // }
+  // int unlink(const char *pathname);
+  def unlink[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+    val path: Rep[String] = getString(args(0), ss)
+    val file = fs.getFile(path)
+    // TODO: set errno <2022-05-28, David Deng> //
+    if (file == NullPtr() || !_has_file_type(file, literal[Int]("S_IFREG"))) k(ss, fs, IntV(-1, 32))
+    else {
+      // TODO: first get the parent to optimize <2022-05-28, David Deng> //
+      fs.removeFile(path)
+      k(ss, fs, IntV(0, 32))
+    }
+  }
 
+  // int chmod(const char *pathname, mode_t mode);
+  def chmod[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+    val path: Rep[String] = getString(args(0), ss)
+    val file = fs.getFile(path)
+    val mode: Rep[Value] = args(1)
+    // TODO: set errno <2022-05-28, David Deng> //
+    if (file == NullPtr()) k(ss, fs, IntV(-1, 32))
+    else {
+      _set_file_mode(file, mode.int.toInt)
+      k(ss, fs, IntV(0, 32))
+    }
+  }
+
+  // int chown(const char *pathname, uid_t owner, gid_t group);
+  def chown[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+    val path: Rep[String] = getString(args(0), ss)
+    val file = fs.getFile(path)
+    val owner: Rep[Value] = args(1)
+    val group: Rep[Value] = args(2)
+    // TODO: set errno <2022-05-28, David Deng> //
+    if (file == NullPtr()) k(ss, fs, IntV(-1, 32))
+    else {
+      // TODO: If the owner or group is specified as -1, then that ID is not changed. <2022-05-28, David Deng> //
+      file.writeStatField("st_uid", owner)
+      file.writeStatField("st_gid", group)
+      k(ss, fs, IntV(0, 32))
+    }
+  }
 
   def openat[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
     // TODO: implement this <2022-01-23, David Deng> //
@@ -205,13 +259,23 @@ trait GenExternal extends SymExeDefs {
     unchecked("/* _set_file_type */")
     // want to unset the file type bits and leave the other bits unchanged
     val clearMask: Rep[Value] = NEG_S_IFMT
-    // make_IntV(S_IFSOCK, 32)->to_bytes()
     val stat = f.readStatField("st_mode")
     val newStat = IntV((stat.int & clearMask.int) | mask, 32)
     f.writeStatField("st_mode", newStat)
     f
   }
 
+  def _set_file_mode(f: Rep[File], mask: Rep[Int]): Rep[File] = {
+    unchecked("/* _set_file_mode */")
+    // preserve the file type bits
+    val clearMask: Rep[Value] = S_IFMT
+    val stat = f.readStatField("st_mode")
+    val newStat = IntV((stat.int & clearMask.int) | mask, 32)
+    f.writeStatField("st_mode", newStat)
+    f
+  }
+
+  // TODO: rename? <2022-05-28, David Deng> //
   def _has_file_type(f: Rep[File], mask: Rep[Int]): Rep[Boolean] = {
     val stat = f.readStatField("st_mode")
     stat.int & mask
@@ -225,16 +289,16 @@ trait GenExternal extends SymExeDefs {
   def brg_fs[T: Manifest](f: (Rep[FS], Rep[List[Value]], ((Rep[FS], Rep[Value]) => Rep[T])) => Rep[T])
   (ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): (Rep[T]) = {
     def kp(fs: Rep[FS], ret: Rep[Value]): Rep[T] = {
-        ss.setFs(fs)
-        k(ss, ret)
+      ss.setFs(fs)
+      k(ss, ret)
     }
     f(ss.getFs, args, kp)
   }
   def brg_fs[T: Manifest](f: (Rep[SS], Rep[FS], Rep[List[Value]], ((Rep[SS], Rep[FS], Rep[Value]) => Rep[T])) => Rep[T])
   (ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): (Rep[T]) = {
     def kp(ss: Rep[SS], fs: Rep[FS], ret: Rep[Value]): Rep[T] = {
-        ss.setFs(fs)
-        k(ss, ret)
+      ss.setFs(fs)
+      k(ss, ret)
     }
     f(ss, ss.getFs, args, kp)
   }
@@ -243,7 +307,7 @@ trait GenExternal extends SymExeDefs {
 trait ExternalUtil { self: BasicDefs with ValueDefs with SAIOps =>
 
   def equalExplicit[T: Manifest](lhs: Rep[T], rhs: Rep[T])(implicit m: Manifest[T]): Rep[Boolean] = {
-      m match {
+    m match {
       case m if m == manifest[Value] => equalExplicit(lhs.asRepOf[Value].deref, rhs.asRepOf[Value].deref)
       case m => "==".reflectCtrlWith[Boolean](lhs, rhs)
     }
@@ -662,6 +726,16 @@ class ExternalLLSCDriver(folder: String = "./headers/llsc") extends SAISnippet[I
     hardTopFun(gen_k(brg_fs(stat(_,_,_,_))), "syscall_stat", "inline")
     hardTopFun(gen_p(brg_fs(mkdir(_,_,_,_))), "syscall_mkdir", "inline")
     hardTopFun(gen_k(brg_fs(mkdir(_,_,_,_))), "syscall_mkdir", "inline")
+    hardTopFun(gen_p(brg_fs(rmdir(_,_,_,_))), "syscall_rmdir", "inline")
+    hardTopFun(gen_k(brg_fs(rmdir(_,_,_,_))), "syscall_rmdir", "inline")
+    hardTopFun(gen_p(brg_fs(creat(_,_,_,_))), "syscall_creat", "inline")
+    hardTopFun(gen_k(brg_fs(creat(_,_,_,_))), "syscall_creat", "inline")
+    hardTopFun(gen_p(brg_fs(unlink(_,_,_,_))), "syscall_unlink", "inline")
+    hardTopFun(gen_k(brg_fs(unlink(_,_,_,_))), "syscall_unlink", "inline")
+    hardTopFun(gen_p(brg_fs(chmod(_,_,_,_))), "syscall_chmod", "inline")
+    hardTopFun(gen_k(brg_fs(chmod(_,_,_,_))), "syscall_chmod", "inline")
+    hardTopFun(gen_p(brg_fs(chown(_,_,_,_))), "syscall_chown", "inline")
+    hardTopFun(gen_k(brg_fs(chown(_,_,_,_))), "syscall_chown", "inline")
     hardTopFun(_set_file(_,_,_), "set_file", "inline")
     hardTopFun(_set_file_type(_,_), "set_file_type", "inline")
     hardTopFun(_has_file_type(_,_), "has_file_type", "inline")
