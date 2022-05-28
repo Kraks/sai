@@ -146,6 +146,10 @@ trait GenExternal extends SymExeDefs {
   ////////////////////////
   //  helper functions  //
   ////////////////////////
+  def flag(f: String, bw: Int): Rep[Value] = IntV(unchecked[Long](f), bw)
+
+  def S_IFMT: Rep[Value] = flag("S_IFMT", 32)
+  def NEG_S_IFMT: Rep[Value] = flag("~S_IFMT", 32)
 
   def _set_file(fs: Rep[FS], p: Rep[String], f: Rep[File]): Rep[FS] = {
     fs.setFile(p, f)
@@ -164,7 +168,7 @@ trait GenExternal extends SymExeDefs {
   // NOTE: return type might not be necessary if using pointers <2022-05-27, David Deng> //
   def _set_file_type(f: Rep[File], mask: Rep[Int]): Rep[File] = {
     // want to unset the file type bits and leave the other bits unchanged
-    val clearMask: Rep[Value] = IntV(unchecked[Long]("~S_IFMT"), 32)
+    val clearMask: Rep[Value] = NEG_S_IFMT
     // make_IntV(S_IFSOCK, 32)->to_bytes()
     val stat = f.readStatField("st_mode")
     val newStat = IntV((stat.int & clearMask.int) | mask, 32)
