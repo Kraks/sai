@@ -159,7 +159,7 @@ trait GenExternal extends SymExeDefs {
     val path: Rep[String] = getString(args(0), ss)
     val dir = fs.getFile(path)
     // TODO: set errno <2022-05-28, David Deng> //
-    if (dir == NullPtr() || !_has_file_type(dir, literal[Int]("S_IFDIR"))) k(ss, fs, IntV(-1, 32))
+    if (dir == NullPtr[File] || !_has_file_type(dir, literal[Int]("S_IFDIR"))) k(ss, fs, IntV(-1, 32))
     else {
       // TODO: first get the parent to optimize <2022-05-28, David Deng> //
       fs.removeFile(path)
@@ -188,7 +188,7 @@ trait GenExternal extends SymExeDefs {
     val path: Rep[String] = getString(args(0), ss)
     val file = fs.getFile(path)
     // TODO: set errno <2022-05-28, David Deng> //
-    if (file == NullPtr() || !_has_file_type(file, literal[Int]("S_IFREG"))) k(ss, fs, IntV(-1, 32))
+    if (file == NullPtr[File] || !_has_file_type(file, literal[Int]("S_IFREG"))) k(ss, fs, IntV(-1, 32))
     else {
       // TODO: first get the parent to optimize <2022-05-28, David Deng> //
       fs.removeFile(path)
@@ -202,7 +202,7 @@ trait GenExternal extends SymExeDefs {
     val file = fs.getFile(path)
     val mode: Rep[Value] = args(1)
     // TODO: set errno <2022-05-28, David Deng> //
-    if (file == NullPtr()) k(ss, fs, IntV(-1, 32))
+    if (file == NullPtr[File]) k(ss, fs, IntV(-1, 32))
     else {
       _set_file_mode(file, mode.int.toInt)
       k(ss, fs, IntV(0, 32))
@@ -216,7 +216,7 @@ trait GenExternal extends SymExeDefs {
     val owner: Rep[Value] = args(1)
     val group: Rep[Value] = args(2)
     // TODO: set errno <2022-05-28, David Deng> //
-    if (file == NullPtr()) k(ss, fs, IntV(-1, 32))
+    if (file == NullPtr[File]) k(ss, fs, IntV(-1, 32))
     else {
       // TODO: If the owner or group is specified as -1, then that ID is not changed. <2022-05-28, David Deng> //
       file.writeStatField("st_uid", owner)
@@ -510,7 +510,7 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
     fs.setFile("/a/b", File("b"))
     fs.setFile("/a/b/c", File("c"))
     val f = fs.getFile("/a/b/c")
-    assertNeq(f, NullPtr[Value](), "file should exist")
+    assertNeq(f, NullPtr[Value], "file should exist")
   }
 
   def testEither = {

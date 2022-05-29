@@ -305,7 +305,7 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
   // TODO: use option type? <2022-05-26, David Deng> //
   def getFileFromPathSegments(file: Rep[File], segs: Rep[List[String]]): Rep[File] = {
     segs.foldLeft(file: Rep[File])((f: Rep[File], seg: Rep[String]) => {
-      if (f == NullPtr() || !f.hasChild(seg)) NullPtr()
+      if (f == NullPtr[File] || !f.hasChild(seg)) NullPtr[File]
       else f.getChild(seg)
       // TODO: check that file is a directory <2022-05-26, David Deng> //
     })
@@ -336,7 +336,7 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
     def getFreshFd(): Rep[Fd] = "method-@".reflectCtrlWith[Fd](fs, "get_fresh_fd")
 
     // TODO: recursively search <2022-05-25, David Deng> //
-    def hasFile(name: Rep[String]): Rep[Boolean]            = fs.getFile(name) != NullPtr()
+    def hasFile(name: Rep[String]): Rep[Boolean]            = fs.getFile(name) != NullPtr[File]
     def getFile(name: Rep[String]): Rep[File]               = {
       unchecked("/* getFile */")
       getFileFromPathSegments(fs.rootFile, getPathSegments(name))
@@ -347,7 +347,7 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
       val segs: Rep[List[String]] = getPathSegments(name)
       val parent: Rep[File] = getFileFromPathSegments(fs.rootFile, segs.take(segs.size - 1))
       assertEq(segs.last, f.name, "setFile name should equal to last segment")
-      if (parent != NullPtr()) parent.setChild(f.name, f)
+      if (parent != NullPtr[File]) parent.setChild(f.name, f)
     }
     def removeFile(name: Rep[String]): Rep[Unit]            = fs.rootFile.removeChild(name)
 
