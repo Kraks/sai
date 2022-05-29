@@ -174,10 +174,10 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
   // )
 
   object File {
-    def apply(name: Rep[String])                            = "File::create".reflectWith[File](name)
+    def apply(name: Rep[String]) = "File::create".reflectWith[File](name)
     def apply(name: Rep[String], content: Rep[List[Value]]) = "File::create".reflectWith[File](name, content)
     def apply(name: Rep[String], content: Rep[List[Value]], stat: Rep[List[Value]]) = "File::create".reflectWith[File](name, content, stat)
-    def copy(f: Rep[File])                            = "File::create".reflectCtrlWith[File](f)
+    def copy(f: Rep[File]) = "File::create".reflectCtrlWith[File](f)
   }
   
   implicit class FileOps(file: Rep[File]) {
@@ -232,7 +232,7 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
       file.writeAtNoFill(c, pos)
     }
     def append(c: Rep[List[Value]]): Rep[Unit] = file.writeAtNoFill(c, file.content.size)
-    def clear(): Rep[File] = { 
+    def clear(): Rep[File] = {
       file.content = List[Value]() 
       file
     }
@@ -349,7 +349,7 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
       assertEq(segs.last, f.name, "setFile name should equal to last segment")
       if (parent != NullPtr[File]) parent.setChild(f.name, f)
     }
-    def removeFile(name: Rep[String]): Rep[Unit]            = fs.rootFile.removeChild(name)
+    def removeFile(name: Rep[String]): Rep[Unit]          = fs.rootFile.removeChild(name)
 
     def hasStream(fd: Rep[Fd]): Rep[Boolean]              = fs.openedFiles.contains(fd)
     def getStream(fd: Rep[Fd]): Rep[Stream]               = fs.openedFiles(fd)
