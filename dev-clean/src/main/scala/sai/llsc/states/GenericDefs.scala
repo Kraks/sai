@@ -227,7 +227,7 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
 
   // This refers to null in LLVM
   object NullLoc {
-    def apply(): Rep[Value] = "make_LocV_null".reflectMutableWith[Value]()
+    def apply: Rep[Value] = "make_LocV_null".reflectMutableWith[Value]()
     def unapply(v: Rep[Value]): Boolean = Unwrap(v) match {
       case gNode("make_LocV_null", _) => true
       case _ => false
