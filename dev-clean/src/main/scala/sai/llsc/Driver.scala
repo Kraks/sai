@@ -135,7 +135,7 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     |SRC_DIR = .
     |SOURCES = $$(shell find $$(SRC_DIR)/ -name "*.cpp" ! -name "$${TARGET}.cpp")
     |OBJECTS = $$(SOURCES:$$(SRC_DIR)/%.cpp=$$(BUILD_DIR)/%.o)
-    |CC = g++ -std=c++17 -O3
+    |CC = g++ -std=c++17 -O0 -g
     |PERFFLAGS = -fno-omit-frame-pointer #-g
     |CXXFLAGS = $includes $extraFlags $$(PERFFLAGS)
     |LDFLAGS = $libraryPaths
@@ -151,7 +151,7 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest](appName: String, fold
     |
     |$$(BUILD_DIR)/$${TARGET}.o : $${TARGET}.cpp
     |\tmkdir -p $$(@D)
-    |\tg++ -std=c++17 $main_file_opt -c -o $$@ $$< $$(CXXFLAGS)
+    |\tg++ -std=c++17 $main_file_opt -g -c -o $$@ $$< $$(CXXFLAGS)
     |
     |$$(TARGET): $$(OBJECTS) $$(BUILD_DIR)/$${TARGET}.o
     |\t$$(CC) -o $$@ $$^ $$(LDFLAGS) $$(LDLIBS)

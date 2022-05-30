@@ -43,7 +43,7 @@ enum class iOP {
   op_sge, op_sgt, op_sle, op_slt, op_neq,
   op_shl, op_lshr, op_ashr, op_and, op_or, op_xor,
   op_urem, op_srem, op_neg, op_sext, op_zext, op_trunc,
-  op_concat, op_extract
+  op_concat, op_extract, op_bool2bv
 };
 
 enum class fOP {
@@ -62,6 +62,32 @@ inline void set_exit_code(int code) {
   if (!exit_code.load().has_value()) {
     exit_code.store(std::make_optional<int>(code));
   }
+}
+
+inline bool is_binop_bool(iOP op) {
+  switch (op) {
+    case iOP::op_eq:
+    case iOP::op_neq:
+    case iOP::op_uge:
+    case iOP::op_sge:
+    case iOP::op_ugt:
+    case iOP::op_sgt:
+    case iOP::op_ule:
+    case iOP::op_sle:
+    case iOP::op_ult:
+    case iOP::op_slt:
+      return true;
+    default:
+      return false;
+  }
+}
+
+inline bool is_uop_bool(iOP op) {
+  return iOP::op_neg == op;
+}
+
+inline bool is_op_bool(iOP op) {
+  return is_binop_bool(op) || is_uop_bool(op);
 }
 
 inline std::string int_op2string(iOP op) {
@@ -95,6 +121,7 @@ inline std::string int_op2string(iOP op) {
     case iOP::op_trunc: return "trunc";
     case iOP::op_concat: return "concat";
     case iOP::op_extract: return "extract";
+    case iOP::op_bool2bv: return "booltobv";
   }
   return "unknown op";
 }

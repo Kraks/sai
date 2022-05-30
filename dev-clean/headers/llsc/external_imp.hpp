@@ -20,7 +20,7 @@ inline T __llsc_assert(SS& state, List<PtrVal>& args, __Cont<T> k, __Halt<T> h) 
   pc.add(cond);
   if (check_pc(pc)) return h(state, { make_IntV(-1) }); // check if v == 1 is not valid
   pc.pop_back();
-  pc.add(v);
+  pc.add(to_cond(v));
   state.set_PC(pc);
   return k(state, make_IntV(1, 32));
 }
@@ -259,7 +259,7 @@ inline T __llsc_assume(SS& state, List<PtrVal>& args, __Cont<T> k, __Halt<T> h) 
   // otherwise add a symbolic condition that constraints it to be true
   // undefined/error if v is a value of other types
   ASSERT(std::dynamic_pointer_cast<SymV>(v) != nullptr, "Non-Symv");
-  auto cond = v;
+  auto cond = to_cond(v);
   auto pc = state.get_PC();
   pc.add(cond);
   if (!check_pc(pc)) return h(state, { make_IntV(-1) }); // check if v == 1 is satisfiable

@@ -370,11 +370,11 @@ class Stack: public Printable {
 };
 
 class PC: public Printable {
-  private:
+  public:
     List<PtrVal> pc;
   public:
     PC(List<PtrVal> pc) : pc(pc) {}
-    PC add(const PtrVal& e) { return PC(pc.push_back(e)); }
+    PC add(const PtrVal& e) { return PC(pc.push_back(to_cond(e))); }
     PC add_set(List<PtrVal> new_pc) { return PC(pc + new_pc); }
     List<PtrVal> get_path_conds() { return pc; }
     PtrVal get_last_cond() {

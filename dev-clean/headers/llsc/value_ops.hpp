@@ -8,6 +8,11 @@ struct SS;
 using PtrVal = std::shared_ptr<Value>;
 inline PtrVal bv_extract(const PtrVal& v1, int hi, int lo);
 inline PtrVal make_IntV(IntData i, int bw=bitwidth, bool toMSB=true);
+inline PtrVal int_op_2(iOP op, const PtrVal& v1, const PtrVal& v2);
+
+inline const PtrVal TrueV = make_IntV(1, 1);
+
+inline const PtrVal FalseV = make_IntV(0, 1);
 
 /* Value representations */
 
@@ -141,6 +146,8 @@ inline List<PtrVal> make_ShadowV_seq(int8_t size) {
   return res.persistent();
 }
 
+inline int g_indent = 0;
+
 struct IntV : Value {
   int bw;
   IntData i;
@@ -152,7 +159,7 @@ struct IntV : Value {
   IntV(const IntV& v) : IntV(v.i, v.bw) {}
   std::string toString() const override {
     std::ostringstream ss;
-    ss << "IntV(" << as_signed() << ", " << bw << ")";
+    ss << std::string(g_indent, ' ') << "IntV(" << as_signed() << ", " << bw << ")\n";
     return ss.str();
   }
   virtual std::shared_ptr<IntV> to_IntV() override {
@@ -193,11 +200,6 @@ inline IntData proj_IntV(const PtrVal& v) {
   return std::dynamic_pointer_cast<IntV>(v)->as_signed();
 }
 
-inline char proj_IntV_char(const PtrVal& v) {
-  std::shared_ptr<IntV> intV = v->to_IntV();
-  ASSERT(intV->get_bw() == 8, "proj_IntV_char: Bitwidth mismatch");
-  return static_cast<char>(proj_IntV(intV));
-}
 
 struct FloatV : Value {
   long double f;
@@ -377,18 +379,21 @@ struct SymV : Value {
     for (auto &r: rands) hash_combine(hash(), std::hash<PtrVal>{}(r));
   }
   std::string toString() const override {
+    int old_indent = g_indent;
     std::ostringstream ss;
-    ss << "SymV(";
+    ss << std::string(old_indent, ' ') << "SymV(";
     if (!name.empty()) {
       ss << name;
     } else {
-      ss << int_op2string(rator) << ", { ";
+      ss << int_op2string(rator) << ", {\n";
       for (auto e : rands) {
-        ss << *e << ", ";
+        g_indent = old_indent + 1;
+        ss << *e;
       }
-      ss << "}";
+      ss << std::string(old_indent, ' ') << "}";
     }
-    ss << ", " << bw << ")";
+    ss << ", " << bw << ")\n";
+    g_indent = old_indent;
     return ss.str();
   }
   virtual bool is_conc() const override { return false; }
@@ -437,6 +442,17 @@ struct SymV : Value {
   }
 };
 
+inline char proj_IntV_char(const PtrVal& v) {
+  std::shared_ptr<IntV> intV = v->to_IntV();
+  if (nullptr != intV) {
+    ASSERT(intV->get_bw() == 8, "proj_IntV_char: Bitwidth mismatch");
+    return static_cast<char>(proj_IntV(intV));
+  } else {
+    auto symv = std::dynamic_pointer_cast<SymV>(v);
+    return 0;
+  }
+}
+
 /*
 inline std::map<size_t, PtrVal> symv_cache;
   size_t h = 0;
@@ -474,8 +490,27 @@ inline List<PtrVal> make_SymV_seq(unsigned length, const std::string& prefix, si
   }
   return res.persistent();
 }
+
+inline PtrVal to_cond(PtrVal cond) {
+  auto sp = std::dynamic_pointer_cast<SymV>(cond);
+  assert(sp);
+  iOP op = sp->rator;
+  assert(1 == sp->bw);
+  if (!is_op_bool(op)) {
+    if (iOP::op_bool2bv == op) {
+      auto sb_cond = std::dynamic_pointer_cast<SymV>(sp->rands[0]);
+      assert(is_op_bool(sb_cond->rator));
+      return sp->rands[0];
+    }
+    return make_SymV(iOP::op_eq, List<PtrVal>({ cond, TrueV }), 1);
+  }
+  return cond;
+}
+
 inline PtrVal to_SMTNeg(PtrVal v) {
-  return make_SymV(iOP::op_neg, List<PtrVal>({ v }), v->get_bw());
+  auto cond = std::dynamic_pointer_cast<SymV>(v);
+  assert(1 == cond->bw);
+  return make_SymV(iOP::op_neg, List<PtrVal>({ to_cond(v) }), v->get_bw());
 }
 
 struct StructV : Value {
@@ -579,20 +614,9 @@ inline PtrVal int_op_2(iOP op, const PtrVal& v1, const PtrVal& v2) {
     }
   } else {
     int bw = bw1;
-    switch (op) {
-      case iOP::op_eq:
-      case iOP::op_neq:
-      case iOP::op_uge:
-      case iOP::op_sge:
-      case iOP::op_ugt:
-      case iOP::op_sgt:
-      case iOP::op_ule:
-      case iOP::op_sle:
-      case iOP::op_ult:
-      case iOP::op_slt:
-        bw = 1;
-      default:
-        break;
+    if (is_op_bool(op)) {
+      bw = 1;
+      return make_SymV(iOP::op_bool2bv, List<PtrVal>({ make_SymV(op, List<PtrVal>({ v1, v2 }), bw) }), 1);
     }
     return make_SymV(op, List<PtrVal>({ v1, v2 }), bw);
   }

@@ -255,7 +255,7 @@ class PC {
   public:
     PC(std::vector<PtrVal> pc) : pc(std::move(pc)) {}
     PC&& add(PtrVal e) {
-      pc.push_back(e);
+      pc.push_back(to_cond(e));
       return std::move(*this);
     }
     PC&& add_set(const std::set<PtrVal>& new_pc) {

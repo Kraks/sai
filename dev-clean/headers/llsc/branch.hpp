@@ -10,6 +10,10 @@ sym_exec_br(SS ss, PtrVal t_cond, PtrVal f_cond,
             immer::flex_vector<std::pair<SS, PtrVal>> (*tf)(SS),
             immer::flex_vector<std::pair<SS, PtrVal>> (*ff)(SS)) {
   auto pc = ss.get_PC();
+  //std::cout << "true cond: " << *t_cond << std::endl;
+  //std::cout << "false cond: " << *f_cond << std::endl;
+  t_cond = to_cond(t_cond);
+  f_cond = to_cond(f_cond);
   auto tbr_sat = check_pc(pc.add(t_cond));
   auto fbr_sat = check_pc(pc.add(f_cond));
   if (tbr_sat && fbr_sat) {
@@ -87,17 +91,56 @@ array_lookup(SS ss, PtrVal base, PtrVal offset, size_t esize) {
   }
   else if (auto offsym = std::dynamic_pointer_cast<SymV>(offset)) {
     int cnt = 0;
-    for (int newl = (baseloc->l - baseloc->base) % esize + baseloc->base;
-         newl + esize <= baseloc->base + baseloc->size; newl += esize) {
-      auto cond = int_op_2(iOP::op_eq, offset, make_IntV((newl - baseloc->l) / esize, offset->get_bw()));
-      auto ss2 = ss.add_PC(cond);
-      if (check_pc(ss2.get_PC())) {
+    std::cout << "symbolic locv, addr:" << baseloc->l << " Kind:" << baseloc->k << " base:" << baseloc->base << " size:" << baseloc->size << std::endl;
+    //int poss_val = get_valid_value(ss.get_PC(), make_IntV(1));
+    //std::cout << "symbolic off poss:" << poss_val << std::endl;
+    auto res = get_valid_value(ss.get_PC(), offsym);
+    assert(res.first);
+    int poss_val = res.second;
+    //poss_val = get_valid_value(ss.get_PC(), make_SymV("x1", 8));
+    std::cout << "symbolic off poss:" << poss_val << std::endl;
+    //std::cout << "PC: " << std::endl;
+    //for (auto pcd : ss.get_PC().pc) {
+    //  std::cout << *pcd << std::endl;
+    //}
+    int loc_start = (baseloc->l - baseloc->base) % esize + baseloc->base;
+    int loc_end = loc_start + ((baseloc->base + baseloc->size - loc_start) / esize - 1) * esize;
+    assert(loc_end > loc_start);
+    assert(0 == (loc_end - loc_start) % esize);
+    int possible_num = (loc_end - loc_start) / esize + 1;
+    std::cout << "possible_num: " << possible_num << std::endl;
+    if (possible_num > 100) {
+      auto ss2 = ss;
+      res = get_valid_value(ss2.get_PC(), offsym);
+      while (res.first) {
         cnt++;
-        tmp.push_back(std::make_pair(ss2, baseloc + (newl - baseloc->l)));
+        IntData offset_val = res.second;
+        auto t_cond = int_op_2(iOP::op_eq, offset, make_IntV(offset_val, offset->get_bw()));
+        assert(check_pc(ss.add_PC(t_cond).get_PC()));
+        std::cout << "*****feasible" << " val: " << offset_val << std::endl;
+        tmp.push_back(std::make_pair(ss.add_PC(t_cond), baseloc + (offset_val*esize)));
+        ss2 = ss2.add_PC(to_SMTNeg(t_cond));
+        res = get_valid_value(ss2.get_PC(), offsym);
+      }
+      std::cout << "feasible_num: " << cnt << std::endl;
+      //assert(0);
+    } else {
+      for (int newl = (baseloc->l - baseloc->base) % esize + baseloc->base;
+           newl + esize <= baseloc->base + baseloc->size; newl += esize) {
+        auto cond = int_op_2(iOP::op_eq, offset, make_IntV((newl - baseloc->l) / esize, offset->get_bw()));
+        //std::cout << "off: " << (newl - baseloc->l) << " type_byte: " << esize << std::endl;
+        //std::cout << *cond << std::endl;
+        auto ss2 = ss.add_PC(cond);
+        if (check_pc(ss2.get_PC())) {
+          std::cout << "*****feasible" << " val: " << (newl - baseloc->l) / esize << std::endl;
+          cnt++;
+          tmp.push_back(std::make_pair(ss2, baseloc + (newl - baseloc->l)));
+        }
       }
     }
     assert(cnt > 0);
     cov().inc_path(cnt - 1);
+    //assert(0);
   }
   else ABORT("Error: unknown array offset kind.");
 

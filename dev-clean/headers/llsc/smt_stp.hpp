@@ -37,10 +37,12 @@ private:
     return &cex2;
   }
 
+  // get counter example
   void get_STP_counterexample(CexType &cex) {
     for (auto expr: variables) {
       auto val = vc_getCounterExample(vc, expr.get());
       cex[expr] = getBVUnsignedLongLong(val);
+      //std::cout << "cex: " << cex[expr] << std::endl;
       vc_DeleteExpr(val);
     }
   }
@@ -118,10 +120,27 @@ private:
       return vc_notExpr(vc, vc_eqExpr(vc, expr_rands.at(0).get(), expr_rands.at(1).get()));
     case iOP::op_neg:
       return vc_notExpr(vc, expr_rands.at(0).get());
-    case iOP::op_sext:
-      return vc_bvSignExtend(vc, expr_rands.at(0).get(), bw);
-    case iOP::op_zext:
-      return vc_bvSignExtend(vc, expr_rands.at(0).get(), bw);  // TODO
+    case iOP::op_sext: {
+      auto v = expr_rands.at(0).get();
+      assert(BOOLEAN_TYPE != getType(v));
+      //if (BOOLEAN_TYPE == getType(v)) {
+      //  v = vc_boolToBVExpr(vc, v);
+      //  //v = vc_iteExpr(vc, v, vc_bvConstExprFromLL(vc, 1, 1), vc_bvConstExprFromLL(vc, 1, 0));
+      //}
+      return vc_bvSignExtend(vc, v, bw);
+    }
+    case iOP::op_zext: {
+      // TODO : zero extend
+      auto v = expr_rands.at(0).get();
+      assert(BOOLEAN_TYPE != getType(v));
+      //if (BOOLEAN_TYPE == getType(v)) {
+      //  v = vc_boolToBVExpr(vc, v);
+      //}
+      int from_bw = getBVLength(v);
+      assert(bw > from_bw);
+      auto left = vc_bvConstExprFromLL(vc, bw - from_bw, 0);
+      return vc_bvConcatExpr(vc, left, v);
+    }
     case iOP::op_shl:
       return vc_bvLeftShiftExprExpr(vc, bw, expr_rands.at(0).get(), expr_rands.at(1).get());
     case iOP::op_lshr:
@@ -147,6 +166,11 @@ private:
       return vc_bvExtract(vc, expr_rands.at(0).get(),
                               getBVInt(expr_rands.at(1).get()),
                               getBVInt(expr_rands.at(2).get()));
+    case iOP::op_bool2bv: {
+      auto v = expr_rands.at(0).get();
+      assert(BOOLEAN_TYPE == getType(v));
+      return vc_boolToBVExpr(vc, v);
+    }
     default: break;
     }
     ABORT("unkown operator when constructing STP expr");
@@ -157,6 +181,10 @@ private:
     auto pc = pcobj.get_path_conds();
     auto last = pcobj.get_last_cond();
     CacheKey pc2;
+    //std::cout << "PC: " << std::endl;
+    //for (auto &e: pc) {
+    //  std::cout << *e << std::endl;
+    //}
     // constraint independence
     if (use_cons_indep && last && pc.size() > 1) {
       std::map<ExprHandle, std::set<ExprHandle>> v2q, q2v;
@@ -202,6 +230,7 @@ private:
     // actual solving
     auto start = steady_clock::now();
     for (auto &e: pc2) {
+      //vc_printExpr(vc, e.get());
       vc_assertFormula(vc, e.get());
     }
     ExprHandle fls = vc_falseExpr(vc);
@@ -259,6 +288,51 @@ public:
     vc_Destroy(vc);
     vc = vc_createValidityChecker();
   }
+
+  std::pair<bool, IntData> get_valid_value(PC pcobj, PtrVal v) override {
+    // TODO: do i need to consider counter example cache here ???
+
+    push();
+    CacheResult *result;
+    auto pc = pcobj.get_path_conds();
+    CacheKey pc2;
+    auto val = construct_STP_expr(v, variables);
+    //std::cout << "PC: " << std::endl;
+    //for (auto &e: pc) {
+    //  std::cout << *e << std::endl;
+    //}
+    // constraint independence
+    for (auto& e: pc)
+      pc2.insert(construct_STP_expr(e, variables));
+
+    // actual solving
+    auto start = steady_clock::now();
+    for (auto &e: pc2) {
+      //vc_printExpr(vc, e.get());
+      vc_assertFormula(vc, e.get());
+    }
+    ExprHandle fls = vc_falseExpr(vc);
+    int retcode = vc_query(vc, fls.get());
+    auto end = steady_clock::now();
+    solver_time += duration_cast<microseconds>(end - start);
+
+    //assert(0 == retcode);
+    int ret_val = -1;
+
+    if (0 == retcode) {
+      auto const_val = vc_getCounterExample(vc, val.get());
+
+      std::cout << "const expr: " << std::endl;
+      //std::cout << *v << std::endl;
+      //vc_printExpr(vc, val.get());
+      vc_printExpr(vc, const_val);
+      std::cout << std::endl;
+      ret_val = getBVUnsignedLongLong(const_val);
+    }
+    pop();
+
+    return std::make_pair(0 == retcode, ret_val);
+  }
 };
 
 inline CheckerSTP cstp;
@@ -267,5 +341,9 @@ inline CheckerSTP cstp;
 
 inline bool check_pc(PC pc) { return cstp.check_pc(std::move(pc)); }
 inline void check_pc_to_file(SS state) { cstp.generate_test(std::move(state.get_PC())); }
+
+inline std::pair<bool, IntData> get_valid_value(PC pc, PtrVal v) {
+  return cstp.get_valid_value(pc, v);
+}
 
 #endif

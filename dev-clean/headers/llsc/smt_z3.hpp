@@ -168,6 +168,10 @@ public:
     std::tie(c, s) = get_my_thread_local_instance();
     s->reset();
   }
+  std::pair<bool, IntData> get_valid_value(PC pcobj, PtrVal v) override {
+   assert(0);
+   return std::make_pair(false, 0);
+  }
 };
 
 inline CheckerZ3 cz3;

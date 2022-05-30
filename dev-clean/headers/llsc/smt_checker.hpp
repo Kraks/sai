@@ -57,6 +57,7 @@ public:
     }
     pop();
   }
+  virtual std::pair<bool, IntData> get_valid_value(PC pcobj, PtrVal v) = 0;
 };
 
 #endif
