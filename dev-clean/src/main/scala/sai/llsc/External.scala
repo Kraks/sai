@@ -41,20 +41,6 @@ trait GenExternal extends SymExeDefs {
   // <2022-05-12, David Deng> //
   def getString(ptr: Rep[Value], s: Rep[SS]): Rep[String] = "get_string".reflectWith[String](ptr, s)
 
-  def llsc_assert[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
-    val v = args(0)
-    if (v.isConc) {
-      // Note: we directly project the integer field of v, which is safe if
-      // the source program is type checked against the C llsc_assert declaration.
-      if (v.int == 0) sym_exit[T](ss, args)
-      else k(ss, IntV(1, 32))
-    } else {
-      val ss1 = ss.addPC(v.toSMTBoolNeg)
-      if (checkPC(ss1.pc)) sym_exit[T](ss1, args)
-      else k(ss.addPC(v.toSMTBool), IntV(1, 32))
-    }
-  }
-
   def open[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
     val ptr = args(0)
     val name: Rep[String] = getString(ptr, ss)

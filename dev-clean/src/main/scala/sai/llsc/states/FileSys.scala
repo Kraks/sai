@@ -167,20 +167,6 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
     }
   }
 
-  // path helpers
-  def getPathSegments(path: Rep[String]): Rep[List[String]] = {
-    path.split("/").filter(_.length > 0)
-  }
-
-  // TODO: use option type? <2022-05-26, David Deng> //
-  def getFileFromPathSegments(file: Rep[File], segs: Rep[List[String]]): Rep[File] = {
-    segs.foldLeft(file: Rep[File])((f: Rep[File], seg: Rep[String]) => {
-      if (f == NullPtr[File] || !f.hasChild(seg)) NullPtr[File]
-      else f.getChild(seg)
-      // TODO: check that file is a directory <2022-05-26, David Deng> //
-    })
-  }
-
   object FS {
     def apply() = "FS".reflectCtrlWith[FS]()
     def SEEK_SET = cmacro[Int]("SEEK_SET")
@@ -191,6 +177,17 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
     def S_IFREG = cmacro[Int]("S_IFREG")
 
     def O_RDONLY = cmacro[Int]("O_RDONLY")
+
+    def getPathSegments(path: Rep[String]): Rep[List[String]] = path.split("/").filter(_.length > 0)
+
+    // TODO: use option type? <2022-05-26, David Deng> //
+    def getFileFromPathSegments(file: Rep[File], segs: Rep[List[String]]): Rep[File] = {
+      segs.foldLeft(file: Rep[File])((f: Rep[File], seg: Rep[String]) => {
+        if (f == NullPtr[File] || !f.hasChild(seg)) NullPtr[File]
+        else f.getChild(seg)
+        // TODO: check that file is a directory <2022-05-26, David Deng> //
+      })
+    }
   }
 
   implicit class FSOps(fs: Rep[FS]) {
@@ -219,6 +216,7 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
       unchecked("/* getFile */")
       getFileFromPathSegments(fs.rootFile, getPathSegments(name))
     }
+
     // would set the file corresponding to name, parent should exist
     def setFile(name: Rep[String], f: Rep[File]): Rep[Unit] = {
       unchecked("/* setFile */")
@@ -227,13 +225,12 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
       assertEq(segs.last, f.name, "setFile name should equal to last segment")
       if (parent != NullPtr[File]) parent.setChild(f.name, f)
     }
-    def removeFile(name: Rep[String]): Rep[Unit]          = fs.rootFile.removeChild(name)
 
+    def removeFile(name: Rep[String]): Rep[Unit]          = fs.rootFile.removeChild(name)
     def hasStream(fd: Rep[Fd]): Rep[Boolean]              = fs.openedFiles.contains(fd)
     def getStream(fd: Rep[Fd]): Rep[Stream]               = fs.openedFiles(fd)
     def setStream(fd: Rep[Fd], s: Rep[Stream]): Rep[Unit] = fs.openedFiles = fs.openedFiles + (fd, s)
     def removeStream(fd: Rep[Fd]): Rep[Unit]              = fs.openedFiles = fs.openedFiles - fd
   }
-
 
 }
