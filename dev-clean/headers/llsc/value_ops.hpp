@@ -8,6 +8,11 @@ struct SS;
 using PtrVal = std::shared_ptr<Value>;
 inline PtrVal bv_extract(const PtrVal& v1, int hi, int lo);
 inline PtrVal make_IntV(IntData i, int bw=bitwidth, bool toMSB=true);
+inline PtrVal int_op_2(iOP op, const PtrVal& v1, const PtrVal& v2);
+
+// True False Value
+inline const PtrVal TrueV = make_IntV(1, 1);
+inline const PtrVal FalseV = make_IntV(0, 1);
 
 /* Value representations */
 
@@ -423,6 +428,8 @@ struct SymV : Value {
     return nullptr;
   }
 
+  static PtrVal to_cond(const PtrVal& v);
+
   static PtrVal neg(const PtrVal& v);
 };
 
@@ -462,8 +469,26 @@ inline List<PtrVal> make_SymV_seq(unsigned length, const std::string& prefix, si
   return res.persistent();
 }
 
+inline PtrVal SymV::to_cond(const PtrVal& v) {
+  auto sp = std::dynamic_pointer_cast<SymV>(v);
+  iOP op = sp->rator;
+  ASSERT(1 == sp->bw, "Only Symv of 1 bit can be transformed into path condition");
+  if (!is_op_bool(op)) {
+    if (iOP::op_bool2bv == op) {
+      // If the symv is a bool2bv, we can just take the original bool as condition
+      auto sb_cond = std::dynamic_pointer_cast<SymV>(sp->rands[0]);
+      ASSERT(is_op_bool(sb_cond->rator), "Illegal structure");
+      return sp->rands[0];
+    }
+    return make_SymV(iOP::op_eq, List<PtrVal>({ v, TrueV }), 1);
+  }
+  return v;
+}
+
 inline PtrVal SymV::neg(const PtrVal& v) {
-  return make_SymV(iOP::op_neg, List<PtrVal>({ v }), v->get_bw());
+  auto cond = std::dynamic_pointer_cast<SymV>(v);
+  ASSERT(1 == cond->bw, "Negating a non Boolean formula");
+  return make_SymV(iOP::op_neg, List<PtrVal>({  SymV::to_cond(v) }), v->get_bw());
 }
 
 struct StructV : Value {
@@ -504,6 +529,8 @@ inline PtrVal structV_at(const PtrVal& v, int idx) {
 
 // assume all values are signed, convert to unsigned if necessary
 // require return value to be signed or non-negative
+// Note: int_op_2 will return bitvector only, even for i1 type
+// int_op_2 will not return boolean type symv for icmp
 inline PtrVal int_op_2(iOP op, const PtrVal& v1, const PtrVal& v2) {
   auto i1 = v1->to_IntV();
   auto i2 = v2->to_IntV();
@@ -567,20 +594,10 @@ inline PtrVal int_op_2(iOP op, const PtrVal& v1, const PtrVal& v2) {
     }
   } else {
     int bw = bw1;
-    switch (op) {
-      case iOP::op_eq:
-      case iOP::op_neq:
-      case iOP::op_uge:
-      case iOP::op_sge:
-      case iOP::op_ugt:
-      case iOP::op_sgt:
-      case iOP::op_ule:
-      case iOP::op_sle:
-      case iOP::op_ult:
-      case iOP::op_slt:
-        bw = 1;
-      default:
-        break;
+    if (is_op_bool(op)) {
+      bw = 1;
+      // Now int_op_2 will only return bitvector even for i1.
+      return make_SymV(iOP::op_bool2bv, List<PtrVal>({ make_SymV(op, List<PtrVal>({ v1, v2 }), bw) }), 1);
     }
     return make_SymV(op, List<PtrVal>({ v1, v2 }), bw);
   }

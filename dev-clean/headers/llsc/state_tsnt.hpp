@@ -261,12 +261,12 @@ class PC {
     PC(TrList<PtrVal> pc) : pc(std::move(pc)) {}
   //PC(const PC& pc) : pc(((PC&)pc).pc.persistent().transient()) {}
     PC&& add(PtrVal e) {
-      pc.push_back(e);
+      pc.push_back(SymV::to_cond(e));
       return std::move(*this);
     }
     PC&& add_set(const List<PtrVal>& new_pc) {
       for (auto& it : new_pc) {
-	pc.push_back(it);
+	      pc.push_back(SymV::to_cond(it));
       }
       return std::move(*this);
     }
@@ -281,7 +281,7 @@ class PC {
     }
     PC&& replace_last_cond(PtrVal e) {
       if (pc.size() == 0) return std::move(*this);
-      pc.set(pc.size()-1, e);
+      pc.set(pc.size()-1, SymV::to_cond(e));
       return std::move(*this);
     }
     void print() { print_set(pc); }

@@ -116,10 +116,19 @@ private:
       return vc_notExpr(vc, vc_eqExpr(vc, expr_rands.at(0).get(), expr_rands.at(1).get()));
     case iOP::op_neg:
       return vc_notExpr(vc, expr_rands.at(0).get());
-    case iOP::op_sext:
-      return vc_bvSignExtend(vc, expr_rands.at(0).get(), bw);
-    case iOP::op_zext:
-      return vc_bvSignExtend(vc, expr_rands.at(0).get(), bw);  // TODO
+    case iOP::op_sext: {
+      auto v = expr_rands.at(0).get();
+      ASSERT(BOOLEAN_TYPE != getType(v), "Extend a boolean formula");
+      return vc_bvSignExtend(vc, v, bw);
+    }
+    case iOP::op_zext: {
+      auto v = expr_rands.at(0).get();
+      ASSERT(BOOLEAN_TYPE != getType(v), "Extend a boolean formula");
+      int from_bw = getBVLength(v);
+      ASSERT(bw > from_bw, "Zero extend to a smaller type");
+      auto left = vc_bvConstExprFromLL(vc, bw - from_bw, 0);
+      return vc_bvConcatExpr(vc, left, v);
+    }
     case iOP::op_shl:
       return vc_bvLeftShiftExprExpr(vc, bw, expr_rands.at(0).get(), expr_rands.at(1).get());
     case iOP::op_lshr:
@@ -145,6 +154,11 @@ private:
       return vc_bvExtract(vc, expr_rands.at(0).get(),
                               getBVInt(expr_rands.at(1).get()),
                               getBVInt(expr_rands.at(2).get()));
+    case iOP::op_bool2bv: {
+      auto v = expr_rands.at(0).get();
+      ASSERT(BOOLEAN_TYPE == getType(v), "Casting a non Boolean formula");
+      return vc_boolToBVExpr(vc, v);
+    }
     default: break;
     }
     ABORT("unkown operator when constructing STP expr");

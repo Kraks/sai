@@ -374,8 +374,14 @@ class PC: public Printable {
     List<PtrVal> pc;
   public:
     PC(List<PtrVal> pc) : pc(pc) {}
-    PC add(const PtrVal& e) { return PC(pc.push_back(e)); }
-    PC add_set(List<PtrVal> new_pc) { return PC(pc + new_pc); }
+    PC add(const PtrVal& e) { return PC(pc.push_back(SymV::to_cond(e))); }
+    PC add_set(List<PtrVal> new_pc) {
+      auto temp_pc = pc;
+      for (auto&e : new_pc) {
+        temp_pc = temp_pc.push_back(SymV::to_cond(e));
+      }
+      return PC(temp_pc);
+    }
     List<PtrVal> get_path_conds() { return pc; }
     PtrVal get_last_cond() {
       if (pc.size() > 0) return pc.back();

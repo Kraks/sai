@@ -101,8 +101,7 @@ public:
         return !expr_rands.at(0);
       case iOP::op_sext: {
         auto v = expr_rands.at(0);
-        if (v.get_sort().is_bool())
-          v = ite(v, c->bv_val(1, 1), c->bv_val(0, 1));
+        ASSERT(!v.get_sort().is_bool(), "Extend a boolean formula");
         auto ext_size = bw - v.get_sort().bv_size();
         ASSERT(ext_size >= 0, "negative sign extension size");
         if (ext_size > 0) return sext(v, ext_size);
@@ -110,8 +109,7 @@ public:
       }
       case iOP::op_zext: {
         auto v = expr_rands.at(0);
-        if (v.get_sort().is_bool())
-          v = ite(v, c->bv_val(1, 1), c->bv_val(0, 1));
+        ASSERT(!v.get_sort().is_bool(), "Extend a boolean formula");
         auto ext_size = bw - v.get_sort().bv_size();
         ASSERT(ext_size >= 0, "negative zero extension size");
         if (ext_size > 0) return zext(v, ext_size);
@@ -142,6 +140,11 @@ public:
         return expr_rands.at(0).extract(
                                 expr_rands.at(1).get_numeral_uint(),
                                 expr_rands.at(2).get_numeral_uint());
+      case iOP::op_bool2bv: {
+        auto v = expr_rands.at(0);
+        ASSERT(v.get_sort().is_bool(), "Casting a non Boolean formula");
+        return ite(v, c->bv_val(1, 1), c->bv_val(0, 1));
+      }
       default: break;
     }
     ABORT("unkown operator when constructing STP expr");
