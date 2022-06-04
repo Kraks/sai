@@ -100,7 +100,7 @@ array_lookup(SS ss, PtrVal base, PtrVal offset, size_t esize) {
     auto res = get_value(ss2.get_PC(), offsym);
     while (res.first) {
       cnt++;
-      UIntData offset_val = res.second;
+      int offset_val = res.second;
       auto t_cond = int_op_2(iOP::op_eq, offset, make_IntV(offset_val, offset->get_bw()));
       tmp.push_back(std::make_pair(ss.add_PC(t_cond), baseloc + (offset_val*esize)));
       ss2 = ss2.add_PC(SymV::neg(t_cond));
@@ -135,7 +135,7 @@ array_lookup_k(SS ss, PtrVal base, PtrVal offset, size_t esize,
     auto res = get_value(ss2.get_PC(), offsym);
     while (res.first) {
       cnt++;
-      UIntData offset_val = res.second;
+      int offset_val = res.second;
       auto t_cond = int_op_2(iOP::op_eq, offset, make_IntV(offset_val, offset->get_bw()));
       auto new_loc = baseloc + (offset_val*esize);
       auto new_ss = ss.add_PC(t_cond);
@@ -298,7 +298,7 @@ array_lookup(SS& ss, PtrVal base, PtrVal offset, size_t esize) {
     auto res = get_value(ss2.get_PC(), offsym);
     while (res.first) {
       cnt++;
-      UIntData offset_val = res.second;
+      int offset_val = res.second;
       auto t_cond = int_op_2(iOP::op_eq, offset, make_IntV(offset_val, offset->get_bw()));
       tmp.push_back(std::make_pair(std::move(ss.copy().add_PC(t_cond)), baseloc + (offset_val*esize)));
       ss2.add_PC(SymV::neg(t_cond));
@@ -333,7 +333,7 @@ array_lookup_k(SS& ss, PtrVal base, PtrVal offset, size_t esize,
     auto res = get_value(ss2.get_PC(), offsym);
     while (res.first) {
       cnt++;
-      UIntData offset_val = res.second;
+      int offset_val = res.second;
       auto t_cond = int_op_2(iOP::op_eq, offset, make_IntV(offset_val, offset->get_bw()));
       auto new_loc = baseloc + (offset_val*esize);
       auto new_ss = ss.copy().add_PC(t_cond);
