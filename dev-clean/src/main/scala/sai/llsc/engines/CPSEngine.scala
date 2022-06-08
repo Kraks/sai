@@ -359,7 +359,9 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
   def execBlockEager(funName: String, block: BB, s: Rep[SS], k: Rep[Cont]): Rep[Unit] = {
     def runInst(insts: List[Instruction], t: Terminator, s: Rep[SS], k: Rep[Cont]): Rep[Unit] =
       insts match {
-        case Nil => execTerm(t, block.label.get, k)(s, funName)
+        case Nil =>
+          Coverage.incInst(block.ins.size+1)
+          execTerm(t, block.label.get, k)(s, funName)
         case i::inst => execInst(i, s, s1 => runInst(inst, t, s1, k))(funName)
       }
     runInst(block.ins, block.term, s, k)

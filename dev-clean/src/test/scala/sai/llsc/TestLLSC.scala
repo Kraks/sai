@@ -136,6 +136,8 @@ class TestUnit extends TestLLSC {
 class Playground extends TestLLSC {
   //val llsc = new PureCPSLLSC
   Config.enableOpt
+  val llsc = new ImpCPSLLSC
+  testLLSC(llsc, TestPrg(parseFile("benchmarks/opt_experiments/quicksort.ll"), "quicksort_Opt", "@main", noArg, "--solver=z3", nPath(5040)))
   // testLLSC(new ImpCPSLLSC, TestPrg(standard_minInArray_ground_1, "standard_minInArray_ground_1", "@main", noArg, noOpt, status(255)))
 
   //testLLSC(new PureCPSLLSC, TestPrg(mp1048576, "mp1mTest_CPS", "@f", symArg(20), "--disable-solver", nPath(1048576)))
