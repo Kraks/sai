@@ -32,8 +32,12 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
     "sym_exec_br_k".reflectWriteWith[Unit](ss, tCond, fCond, unchecked[String](tBrFunName), unchecked[String](fBrFunName), k)(Adapter.CTRL)
   }
 
-  // Note: now ty is mainly for eval IntConst to contain bit width
-  // does it have some other implications?
+  def asyncExecBlock(funName: String, lab: String, ss: Rep[SS], k: Rep[Cont]): Rep[Unit] = {
+    // execBlock(funName, lab, ss, k) //TODO: phantom application
+    val realBlockFunName = getRealBlockFunName(getBBFun(funName, lab))
+    "async_exec_block".reflectWriteWith[Unit](unchecked[String](realBlockFunName), ss, k)(Adapter.CTRL)
+  }
+
   def eval(v: LLVMValue, ty: LLVMType, ss: Rep[SS])(implicit funName: String): Rep[Value] =
     v match {
       case LocalId(x) => ss.lookup(funName + "_" + x)
@@ -242,7 +246,6 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
     }
   }
 
-  // Note: Comp[E, Rep[Value]] vs Comp[E, Rep[Option[Value]]]?
   def execTerm(inst: Terminator, incomingBlock: String, k: Rep[Cont])(implicit ss: Rep[SS], funName: String): Rep[Unit] = {
     inst match {
       // FIXME: unreachable
@@ -355,7 +358,9 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
   def execBlockEager(funName: String, block: BB, s: Rep[SS], k: Rep[Cont]): Rep[Unit] = {
     def runInst(insts: List[Instruction], t: Terminator, s: Rep[SS], k: Rep[Cont]): Rep[Unit] =
       insts match {
-        case Nil => execTerm(t, block.label.get, k)(s, funName)
+        case Nil =>
+          Coverage.incInst(block.ins.size+1)
+          execTerm(t, block.label.get, k)(s, funName)
         case i::inst => execInst(i, s, s1 => runInst(inst, t, s1, k))(funName)
       }
     runInst(block.ins, block.term, s, k)
