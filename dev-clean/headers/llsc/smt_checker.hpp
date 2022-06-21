@@ -4,6 +4,8 @@
 // TODO: generic caching mechanisms should be shared no matter the solver
 class Checker {
 public:
+  virtual ~Checker() {}
+
   enum solver_result {
     unsat, sat, unknown
   };
@@ -69,21 +71,38 @@ public:
 #include "smt_stp.hpp"
 #include "smt_z3.hpp"
 
-inline Checker& get_checker() {
-  if (solver_kind == SolverKind::z3) {
-    static CheckerZ3 cz3;
-    return cz3;
-  } else if (solver_kind == SolverKind::stp) {
-    static CheckerSTP cstp;
-    return cstp;
+class CheckerManager {
+public:
+  std::map<std::thread::id, std::shared_ptr<Checker>> checker_map;
+
+  void init_checkers() {
+    auto fun = [this](auto id) {
+      if (solver_kind == SolverKind::z3) {
+        checker_map[id] = std::make_shared<CheckerZ3>();
+      }
+      else if (solver_kind == SolverKind::stp) {
+        checker_map[id] = std::make_shared<CheckerSTP>();
+      }
+      else {
+        ABORT("unknown solver");
+      }
+    };
+    fun(std::this_thread::get_id());
+    tp.with_thread_ids(fun);
   }
-  ABORT("unknown solver");
-}
+
+  Checker& get_checker() {
+    return *(checker_map[std::this_thread::get_id()]);
+  }
+};
+
+inline CheckerManager checker_manager;
 
 // To be compatible with generated code:
 
-inline bool check_pc(PC pc) { return get_checker().check_pc(std::move(pc)); }
-inline void check_pc_to_file(SS state) { get_checker().generate_test(std::move(state.get_PC())); }
-inline std::pair<bool, UIntData> get_sat_value(PC pc, PtrVal v) { return get_checker().get_sat_value(std::move(pc), v); }
+inline void init_solvers() { checker_manager.init_checkers(); }
+inline bool check_pc(PC pc) { return checker_manager.get_checker().check_pc(std::move(pc)); }
+inline void check_pc_to_file(SS state) { checker_manager.get_checker().generate_test(std::move(state.get_PC())); }
+inline std::pair<bool, UIntData> get_sat_value(PC pc, PtrVal v) { return checker_manager.get_checker().get_sat_value(std::move(pc), v); }
 
 #endif

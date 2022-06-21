@@ -19,29 +19,17 @@ private:
 public:
   CheckerZ3() {
     std::cout << "Use Z3 " << Z3_get_full_version() << "\n";
+    init_solvers();
   }
   ~CheckerZ3() { destroy_solvers(); }
   void init_solvers() override {
-    if (n_thread == 1) {
-      std::tie(g_ctx, g_solver) = new_instance();
-    } else {
-      checker_map[std::this_thread::get_id()] = new_instance();
-      tp.with_thread_ids([this](auto id) { checker_map[id] = new_instance(); });
-    }
+    std::tie(g_ctx, g_solver) = new_instance();
   }
   void destroy_solvers() override {
-    if (n_thread == 1) {
-      delete g_solver;
-    } else {
-      for (auto& [t, cs] : checker_map) {
-        //delete std::get<0>(cs);
-        delete std::get<1>(cs);
-      }
-    }
+    delete g_solver;
   }
   instance get_my_thread_local_instance() {
-    if (n_thread == 1) return std::make_tuple(g_ctx, g_solver);
-    else return checker_map[std::this_thread::get_id()];
+    return std::make_tuple(g_ctx, g_solver);
   }
   solver_result make_query(PC pc) override {
     auto pc_set = pc.get_path_conds();
