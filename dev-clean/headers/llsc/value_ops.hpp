@@ -198,6 +198,7 @@ struct IntV : Value {
 
 inline PtrVal make_IntV(IntData i, int bw, bool toMSB) {
   auto ret = std::make_shared<IntV>(toMSB ? (i << (addr_bw - bw)) : i, bw);
+  if (!use_hashcons) return ret;
   auto ins = objpool.insert(ret);
   return *(ins.first);
 }
@@ -246,12 +247,14 @@ struct FloatV : Value {
 
 inline PtrVal make_FloatV(long double f) {
   auto ret = std::make_shared<FloatV>(f);
+  if (!use_hashcons) return ret;
   auto ins = objpool.insert(ret);
   return *(ins.first);
 }
 
 inline PtrVal make_FloatV(long double f, size_t bw) {
   auto ret = std::make_shared<FloatV>(f, bw);
+  if (!use_hashcons) return ret;
   auto ins = objpool.insert(ret);
   return *(ins.first);
 }
@@ -319,6 +322,7 @@ struct LocV : IntV {
 
 inline PtrVal make_LocV(Addr base, LocV::Kind k, size_t size, size_t off = 0) {
   auto ret = std::make_shared<LocV>(base, k, size, off);
+  if (!use_hashcons) return ret;
   auto ins = objpool.insert(ret);
   return *(ins.first);
 }
@@ -458,12 +462,14 @@ inline std::map<size_t, PtrVal> symv_cache;
 
 inline PtrVal make_SymV(const String& n) {
   auto ret = std::make_shared<SymV>(n, default_bw);
+  if (!use_hashcons) return ret;
   auto ins = objpool.insert(ret);
   return *(ins.first);
 }
 
 inline PtrVal make_SymV(String n, size_t bw) {
   auto ret = std::make_shared<SymV>(n, bw);
+  if (!use_hashcons) return ret;
   auto ins = objpool.insert(ret);
   return *(ins.first);
 }
@@ -474,6 +480,7 @@ inline PtrVal make_SymV(iOP rator, List<PtrVal> rands, size_t bw) {
   //   return s;
   // }
   auto ret = std::make_shared<SymV>(rator, std::move(rands), bw);
+  if (!use_hashcons) return ret;
   auto ins = objpool.insert(ret);
   return *(ins.first);
 }
