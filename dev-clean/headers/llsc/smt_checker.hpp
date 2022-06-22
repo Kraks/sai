@@ -30,11 +30,11 @@ class CachedChecker : public Checker {
   }
 
 public:
-  using VarMap = std::map<PtrVal, Expr>;
+  using VarMap = std::map<std::shared_ptr<SymV>, Expr>;
   using ExprDetail = std::tuple<Expr, std::shared_ptr<VarMap>>;
   std::map<PtrVal, ExprDetail> objcache;
 
-  using Model = std::map<PtrVal, IntData>;
+  using Model = std::map<std::shared_ptr<SymV>, IntData>;
   using CheckResult = std::tuple<solver_result, std::shared_ptr<Model>>;
   std::map<std::set<PtrVal>, CheckResult> cexcache;
 
@@ -52,7 +52,7 @@ public:
   template <template <typename> typename Cont>
   CheckResult check_model(
         const Cont<PtrVal>& conds,
-        PtrVal query_expr=nullptr,
+        std::shared_ptr<SymV> query_expr=nullptr,
         bool require_model=false) {
 
     self()->push_internal();
@@ -101,7 +101,7 @@ public:
     }
 
     //solving with counterexample caching
-    if (use_cexcache && (!query_expr || std::dynamic_pointer_cast<SymV>(query_expr)->name.size())) {
+    if (use_cexcache && (!query_expr || query_expr->name.size())) {
       if (auto it = cexcache.find(conds2); it != cexcache.end()) {
         self()->pop_internal();
         return it->second;
@@ -111,7 +111,7 @@ public:
     //assert and check
     VarMap varmap;
     for (auto &v: conds2) {
-      auto& [e, vm] = exprmap.find(v)->second;
+      auto& [e, vm] = exprmap.at(v);
       self()->add_constraint_internal(e);
       varmap.insert(vm->begin(), vm->end());
     }
@@ -122,15 +122,15 @@ public:
     if (result == sat && (use_cexcache || require_model)) {
       model = std::make_shared<Model>();
       for (auto [v, e]: varmap) {
-        (*model)[v] = self()->get_value_internal(e);
+        model->emplace(v, self()->get_value_internal(e));
       }
     }
     if (use_cexcache) {
-      cexcache[conds2] = std::make_tuple(result, model);
+      cexcache.emplace(conds2, std::make_tuple(result, model));
     }
     if (query_expr) {
       model = std::make_shared<Model>();
-      (*model).emplace(query_expr, self()->get_value_internal(std::get<Expr>(exprmap.find(query_expr)->second)));
+      model->emplace(query_expr, self()->get_value_internal(std::get<Expr>(exprmap.at(query_expr))));
     }
     self()->pop_internal();
     return std::make_tuple(result, model);
@@ -146,8 +146,9 @@ public:
   }
 
   virtual std::pair<bool, UIntData> get_sat_value(PC pc, PtrVal v) override {
-    auto [r, m] = check_model(pc.get_path_conds(), v);
-    return std::make_pair(r == sat, r == sat ? (*m)[v] : 0);
+    auto v2 = std::dynamic_pointer_cast<SymV>(v);
+    auto [r, m] = check_model(pc.get_path_conds(), v2);
+    return std::make_pair(r == sat, r == sat ? m->at(v2) : 0);
   }
 
   virtual void generate_test(PC pc) override {
@@ -169,7 +170,7 @@ public:
         ABORT("Cannot create the test case file, abort.\n");
       }
       for (auto [k, v]: *model) {
-        output << std::dynamic_pointer_cast<SymV>(k)->name << " == " << v << std::endl;
+        output << k->name << " == " << v << std::endl;
       }
       int n = write(out_fd, output.str().c_str(), output.str().size());
       close(out_fd);
