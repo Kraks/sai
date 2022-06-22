@@ -148,8 +148,6 @@ inline void handle_cli_args(int argc, char** argv) {
     tp.init(n_thread, n_queue);
     std::cout << "Parallel execution mode: " << n_thread << " total threads; " << n_queue << " queues in the thread pool\n";
   }
-  use_objcache = use_objcache && use_global_solver;
-  use_cexcache = use_cexcache && use_global_solver;
   INFO(initial_fs);
 }
 

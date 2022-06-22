@@ -17,30 +17,140 @@ public:
       default: ABORT("wow");
     }
   }
-  virtual void init_solvers() = 0;
-  virtual void destroy_solvers() = 0;
-  virtual solver_result make_query(PC pc) = 0;
-  virtual std::pair<bool, UIntData> concretize(PC pc, PtrVal v) = 0;
-  virtual void push() = 0;
-  virtual void pop() = 0;
-  virtual void reset() = 0;
-  virtual void print_model(std::stringstream&) = 0;
 
-  bool check_pc(PC pc) {
+  virtual bool check_pc(PC pc) = 0;
+  virtual std::pair<bool, UIntData> get_sat_value(PC pc, PtrVal v) = 0;
+  virtual void generate_test(PC pc) = 0;
+};
+
+template <typename Self, typename Expr>
+class CachedChecker : public Checker {
+  Self* self() {
+    return static_cast<Self*>(this);
+  }
+
+public:
+  using VarMap = std::map<PtrVal, Expr>;
+  using ExprDetail = std::tuple<Expr, std::shared_ptr<VarMap>>;
+  std::map<PtrVal, ExprDetail> objcache;
+
+  using Model = std::map<PtrVal, IntData>;
+  using CheckResult = std::tuple<solver_result, std::shared_ptr<Model>>;
+  std::map<std::set<PtrVal>, CheckResult> cexcache;
+
+  ExprDetail construct_expr(PtrVal e) {
+    if (use_objcache)
+      if (auto it = objcache.find(e); it != objcache.end())
+        return it->second;
+    auto varmap = std::make_shared<VarMap>();
+    auto expr = self()->construct_expr_internal(e, *varmap);
+    if (use_objcache)
+      objcache.emplace(e, std::make_tuple(expr, varmap));
+    return std::make_tuple(expr, varmap);
+  }
+
+  template <template <typename> typename Cont>
+  CheckResult check_model(
+        const Cont<PtrVal>& conds,
+        PtrVal query_expr=nullptr,
+        bool require_model=false) {
+
+    self()->push_internal();
+    // translation
+    std::map<PtrVal, ExprDetail> exprmap;
+    for (auto &e: conds) {
+      exprmap.emplace(e, construct_expr(e));
+    }
+    if (query_expr) {
+      exprmap.emplace(query_expr, construct_expr(query_expr));
+    }
+
+    // constraint independence resolving
+    std::set<PtrVal> conds2;
+    if (use_cons_indep && (query_expr || conds.size() > 1)) {
+      // std::map<PtrVal, std::set<PtrVal>> v2q, q2v;
+      // std::queue<PtrVal> queue;
+      // for (auto [v, ev]: exprmap)
+      // for (auto &e: pc) {
+      //   std::set<PtrVal> vars;
+      //   auto q = construct_STP_expr(e, vars);
+      //   if (e == last)
+      //     queue.push(q);
+      //   for (auto &v: vars)
+      //     v2q[v].insert(q);
+      //   q2v[q] = std::move(vars);
+      // }
+      // while (!queue.empty()) {
+      //   auto q = queue.front(); queue.pop();
+      //   auto &vars = q2v[q];
+      //   if (!vars.empty()) {
+      //     pc2.insert(q);
+      //     variables.insert(vars.begin(), vars.end());
+      //     for (auto &v: vars) {
+      //       for (auto &q2: v2q[v])
+      //         if (q2 != q)
+      //           queue.push(q2);
+      //       v2q[v].clear();
+      //     }
+      //     vars.clear();
+      //   }
+      // }
+    } else {
+      for (auto &e: conds)
+        conds2.insert(e);
+    }
+
+    //solving with counterexample caching
+    if (use_cexcache && (!query_expr || std::dynamic_pointer_cast<SymV>(query_expr)->name.size())) {
+      if (auto it = cexcache.find(conds2); it != cexcache.end()) {
+        self()->pop_internal();
+        return it->second;
+      }
+    }
+
+    //assert and check
+    VarMap varmap;
+    for (auto &v: conds2) {
+      auto& [e, vm] = exprmap.find(v)->second;
+      self()->add_constraint_internal(e);
+      varmap.insert(vm->begin(), vm->end());
+    }
+    solver_result result = self()->check_model_internal();
+
+    //get model
+    std::shared_ptr<Model> model;
+    if (result == sat && (use_cexcache || require_model)) {
+      model = std::make_shared<Model>();
+      for (auto [v, e]: varmap) {
+        (*model)[v] = self()->get_value_internal(e);
+      }
+    }
+    if (use_cexcache) {
+      cexcache[conds2] = std::make_tuple(result, model);
+    }
+    if (query_expr) {
+      model = std::make_shared<Model>();
+      (*model).emplace(query_expr, self()->get_value_internal(std::get<Expr>(exprmap.find(query_expr)->second)));
+    }
+    self()->pop_internal();
+    return std::make_tuple(result, model);
+  }
+
+  // interfaces
+  
+  virtual bool check_pc(PC pc) override {
     if (!use_solver) return true;
     br_query_num++;
-    push();
-    auto r = make_query(std::move(pc));
-    pop();
+    auto [r, m] = check_model(pc.get_path_conds());
     return r == sat;
   }
-  std::pair<bool, UIntData> get_sat_value(PC pc, PtrVal v) {
-    push();
-    auto r = concretize(std::move(pc), v);
-    pop();
-    return r;
+
+  virtual std::pair<bool, UIntData> get_sat_value(PC pc, PtrVal v) override {
+    auto [r, m] = check_model(pc.get_path_conds(), v);
+    return std::make_pair(r == sat, r == sat ? (*m)[v] : 0);
   }
-  void generate_test(PC pc) {
+
+  virtual void generate_test(PC pc) override {
     if (!use_solver) return;
     if (mkdir("tests", 0777) == -1) {
       if (errno == EEXIST) { }
@@ -48,9 +158,7 @@ public:
     }
     std::stringstream output;
     output << "Query number: " << (test_query_num+1) << std::endl;
-    push();
-    // XXX: reset harms performance a lot of Z3
-    auto result = make_query(std::move(pc));
+    auto [result, model] = check_model(pc.get_path_conds(), nullptr, true);
     output << "Query is " << check_result_to_string(result) << std::endl;
     if (result == sat) {
       test_query_num++;
@@ -60,11 +168,12 @@ public:
       if (out_fd == -1) {
         ABORT("Cannot create the test case file, abort.\n");
       }
-      print_model(output);
+      for (auto [k, v]: *model) {
+        output << std::dynamic_pointer_cast<SymV>(k)->name << " == " << v << std::endl;
+      }
       int n = write(out_fd, output.str().c_str(), output.str().size());
       close(out_fd);
     }
-    pop();
   }
 };
 

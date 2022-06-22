@@ -5,61 +5,36 @@
 
 using namespace z3;
 
-class CheckerZ3 : public Checker {
+class CheckerZ3 : public CachedChecker<CheckerZ3, expr> {
 private:
-  using instance = std::tuple<context*, solver*>;
-  std::map<std::thread::id, instance> checker_map;
-  instance new_instance() {
-    context* c = new context;
-    solver* s = new solver(*c);
-    return std::make_tuple(c, s);
-  }
   context* g_ctx;
   solver* g_solver;
 public:
   CheckerZ3() {
     std::cout << "Use Z3 " << Z3_get_full_version() << "\n";
-    init_solvers();
+    context* g_ctx = new context;
+    solver* g_solver = new solver(*g_ctx);
   }
-  ~CheckerZ3() { destroy_solvers(); }
-  void init_solvers() override {
-    std::tie(g_ctx, g_solver) = new_instance();
-  }
-  void destroy_solvers() override {
+  virtual ~CheckerZ3() override {
     delete g_solver;
   }
-  instance get_my_thread_local_instance() {
-    return std::make_tuple(g_ctx, g_solver);
+  void add_constraint_internal(expr e) {
+    g_solver->add(e);
   }
-  solver_result make_query(PC pc) override {
-    auto pc_set = pc.get_path_conds();
-    context* c; solver* s;
-    std::tie(c, s) = get_my_thread_local_instance();
-    for (auto& e: pc_set)
-      s->add(construct_z3_expr(c, e));
-    //std::cout << *s << "\n";
+  solver_result check_model_internal() {
     auto start = steady_clock::now();
-    auto result = s->check();
+    auto result = g_solver->check();
     auto end = steady_clock::now();
     solver_time += duration_cast<microseconds>(end - start);
     return (solver_result) result;
   }
-  std::pair<bool, UIntData> concretize(PC pc, PtrVal v) override {
-    context* c; solver* s;
-    std::tie(c, s) = get_my_thread_local_instance();
-    auto val = construct_z3_expr(c, v);
-    auto result = make_query(pc);
 
-    UIntData ret_val = 0;
-
-    if (solver_result::sat == result) {
-      auto const_val = s->get_model().eval(val, true);
-      ret_val = const_val.get_numeral_uint64();
-    }
-
-    return std::make_pair(solver_result::sat == result, ret_val);
+  IntData get_value_internal(expr val) {
+    auto const_val = g_solver->get_model().eval(val, true);
+    return const_val.get_numeral_uint64();
   }
-  expr construct_z3_expr(context* c, PtrVal e) {
+  expr construct_expr_internal(PtrVal e, std::map<PtrVal, expr> &vars) {
+    auto c = g_ctx;
     auto int_e = std::dynamic_pointer_cast<IntV>(e);
     if (int_e) {
       if (int_e->bw == 1)
@@ -70,12 +45,16 @@ public:
     if (!sym_e) ABORT("Non-symbolic/integer value in path condition");
     if (!sym_e->name.empty()) {
       ASSERT(sym_e->bw > 1, "i1 symv");
-      return c->bv_const(sym_e->name.c_str(), sym_e->bw);
+      auto ret = c->bv_const(sym_e->name.c_str(), sym_e->bw);
+      vars.emplace(e, ret);
+      return ret;
     }
     int bw = sym_e->bw;
     std::vector<expr> expr_rands;
     for (auto& e : sym_e->rands) {
-      expr_rands.push_back(construct_z3_expr(c, e));
+      auto [e2, vm] = construct_expr(e);
+      expr_rands.push_back(e2);
+      vars.insert(vm->begin(), vm->end());
     }
     switch (sym_e->rator) {
       case iOP::op_add:
@@ -164,33 +143,18 @@ public:
     ABORT("unkown operator when constructing STP expr");
     return c->bv_const("x", 32);
   }
-  void print_model(std::stringstream& output) override {
-    context* c; solver* s;
-    std::tie(c, s) = get_my_thread_local_instance();
-    model m = s->get_model();
-    output << m << std::endl;
-  }
-  void push() override {
-    context* c; solver* s;
-    std::tie(c, s) = get_my_thread_local_instance();
+  void push_internal() {
     // XXX: z3's pop/push operation is quite expensive!
     auto start = steady_clock::now();
-    s->push();
+    g_solver->push();
     auto end = steady_clock::now();
     solver_time += duration_cast<microseconds>(end - start);
   }
-  void pop() override {
-    context* c; solver* s;
-    std::tie(c, s) = get_my_thread_local_instance();
+  void pop_internal() {
     auto start = steady_clock::now();
-    s->pop();
+    g_solver->pop();
     auto end = steady_clock::now();
     solver_time += duration_cast<microseconds>(end - start);
-  }
-  void reset() override {
-    context* c; solver* s;
-    std::tie(c, s) = get_my_thread_local_instance();
-    s->reset();
   }
 };
 
