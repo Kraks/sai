@@ -85,49 +85,45 @@ public:
     push();
     // translation
     std::map<PtrVal, ExprDetail> exprmap;
+    bool query_include = false;
     for (auto &v: conds) {
+      if (v == query_expr) query_include = true;
       exprmap.emplace(v, construct_expr(v));
     }
-    if (query_expr) {
+    if (query_expr && !query_include) {
       exprmap.emplace(query_expr, construct_expr(query_expr));
     }
 
     // constraint independence resolving
     std::set<PtrVal> condset;
-    VarMap varmap;
-    if (use_cons_indep && (query_expr || conds.size() > 1)) {
-      // std::map<PtrVal, std::set<PtrVal>> v2q, q2v;
-      // std::queue<PtrVal> queue;
-      // for (auto [v, ev]: exprmap)
-      // for (auto &e: pc) {
-      //   std::set<PtrVal> vars;
-      //   auto q = construct_STP_expr(e, vars);
-      //   if (e == last)
-      //     queue.push(q);
-      //   for (auto &v: vars)
-      //     v2q[v].insert(q);
-      //   q2v[q] = std::move(vars);
-      // }
-      // while (!queue.empty()) {
-      //   auto q = queue.front(); queue.pop();
-      //   auto &vars = q2v[q];
-      //   if (!vars.empty()) {
-      //     pc2.insert(q);
-      //     variables.insert(vars.begin(), vars.end());
-      //     for (auto &v: vars) {
-      //       for (auto &q2: v2q[v])
-      //         if (q2 != q)
-      //           queue.push(q2);
-      //       v2q[v].clear();
-      //     }
-      //     vars.clear();
-      //   }
-      // }
+    if (use_cons_indep && exprmap.size() > 1) {
+      std::map<std::shared_ptr<SymV>, std::set<PtrVal>> v2q;
+      for (auto& [q, ev]: exprmap) {
+        auto& [e, vm] = ev;
+        for (auto& [v, v2]: *vm) {
+          v2q[v].insert(q);
+        }
+      }
+      std::queue<PtrVal> queue;
+      queue.push(query_expr ? query_expr : conds.back());
+      while (!queue.empty()) {
+        auto q = queue.front(); queue.pop();
+        if (condset.find(q) == condset.end()) {
+          condset.insert(q);
+          auto& [e, vm] = exprmap.at(q);
+          for (auto& [v, v2]: *vm) {
+            for (auto& q2: v2q[v])
+              if (q2 != q)
+                queue.push(q2);
+            v2q[v].clear();
+          }
+        }
+      }
+      if (query_expr && !query_include)
+        condset.erase(query_expr);
     } else {
       for (auto &v: conds) {
-        auto& [e, vm] = exprmap.at(v);
         condset.insert(v);
-        varmap.insert(vm->begin(), vm->end());
       }
     }
 
@@ -140,9 +136,11 @@ public:
     }
 
     //assert and check
+    VarMap varmap;
     for (auto& v: condset) {
       auto& [e, vm] = exprmap.at(v);
       self()->add_constraint_internal(e);
+      varmap.insert(vm->begin(), vm->end());
     }
     solver_result result = check_model();
 
