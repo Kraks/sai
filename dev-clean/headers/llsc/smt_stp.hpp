@@ -167,6 +167,7 @@ public:
   }
 
   virtual ~CheckerSTP() override {
+    clear_cache();
     vc_Destroy(vc);
   }
 

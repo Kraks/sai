@@ -38,6 +38,11 @@ public:
   using CheckResult = std::tuple<solver_result, std::shared_ptr<Model>>;
   std::map<std::set<PtrVal>, CheckResult> cexcache;
 
+  void clear_cache() {
+    objcache.clear();
+    cexcache.clear();
+  }
+
   ExprDetail construct_expr(PtrVal e) {
     if (use_objcache)
       if (auto it = objcache.find(e); it != objcache.end())

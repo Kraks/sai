@@ -16,6 +16,7 @@ public:
     solver* g_solver = new solver(*g_ctx);
   }
   virtual ~CheckerZ3() override {
+    clear_cache();
     delete g_solver;
   }
   void add_constraint_internal(expr e) {
