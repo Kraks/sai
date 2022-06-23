@@ -147,10 +147,7 @@ public:
 
   solver_result check_model_internal() {
     ExprHandle fls = vc_falseExpr(vc);
-    auto start = steady_clock::now();
     int retcode = vc_query(vc, fls.get());
-    auto end = steady_clock::now();
-    solver_time += duration_cast<microseconds>(end - start);
     static solver_result mapping[4] = {sat, unsat, unknown, unknown};
     return mapping[retcode];
   }
@@ -172,17 +169,11 @@ public:
   }
 
   void push_internal() {
-    auto start = steady_clock::now();
     vc_push(vc);
-    auto end = steady_clock::now();
-    solver_time += duration_cast<microseconds>(end - start);
   }
 
   void pop_internal() {
-    auto start = steady_clock::now();
     vc_pop(vc);
-    auto end = steady_clock::now();
-    solver_time += duration_cast<microseconds>(end - start);
   }
 };
 

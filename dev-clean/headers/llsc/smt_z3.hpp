@@ -12,8 +12,8 @@ private:
 public:
   CheckerZ3() {
     std::cout << "Use Z3 " << Z3_get_full_version() << "\n";
-    context* g_ctx = new context;
-    solver* g_solver = new solver(*g_ctx);
+    g_ctx = new context;
+    g_solver = new solver(*g_ctx);
   }
   virtual ~CheckerZ3() override {
     clear_cache();
@@ -23,10 +23,7 @@ public:
     g_solver->add(e);
   }
   solver_result check_model_internal() {
-    auto start = steady_clock::now();
     auto result = g_solver->check();
-    auto end = steady_clock::now();
-    solver_time += duration_cast<microseconds>(end - start);
     return (solver_result) result;
   }
 
@@ -146,16 +143,10 @@ public:
   }
   void push_internal() {
     // XXX: z3's pop/push operation is quite expensive!
-    auto start = steady_clock::now();
     g_solver->push();
-    auto end = steady_clock::now();
-    solver_time += duration_cast<microseconds>(end - start);
   }
   void pop_internal() {
-    auto start = steady_clock::now();
     g_solver->pop();
-    auto end = steady_clock::now();
-    solver_time += duration_cast<microseconds>(end - start);
   }
 };
 
