@@ -105,7 +105,7 @@ public:
         }
       }
       std::queue<PtrVal> queue;
-      queue.push(query_expr ? query_expr : conds.back());
+      queue.push(query_expr ? query_expr : conds[conds.size() - 1]);
       while (!queue.empty()) {
         auto q = queue.front(); queue.pop();
         if (condset.find(q) == condset.end()) {
