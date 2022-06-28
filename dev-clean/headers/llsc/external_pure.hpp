@@ -252,6 +252,7 @@ inline SS copy_native2state(SS state, PtrVal ptr, char* buf, int size) {
       ASSERT(bytes_num > 0, "Invalid bytes");
       // All bytes must be concrete IntV
       if (std::dynamic_pointer_cast<SymV>(old_val)) {
+        // Todo: should we overwrite symbolic variables?
         i = i + bytes_num;
       } else {
         for (int j=0; j<bytes_num; j++) {
