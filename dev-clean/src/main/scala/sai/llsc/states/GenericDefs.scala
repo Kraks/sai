@@ -134,7 +134,7 @@ trait Opaques { self: SAIOps with BasicDefs =>
       "open", "close", "read", "write", "lseek", "stat", "mkdir", "rmdir", "creat", "unlink", "chmod", "chown"
     )
     val rederict = scala.collection.immutable.Set[String]("@memcpy", "@memset", "@memmove")
-    val unsafeExternals = MutableSet[String]("fork", "exec", "error", "raise", "kill", "free")
+    val unsafeExternals = MutableSet[String]("fork", "exec", "error", "raise", "kill", "free", "vprintf")
     def apply(f: String, ret: Option[LLVMType] = None): Rep[Value] = {
       if (!used.contains(f)) {
         System.out.println(s"Use external function $f.")
@@ -155,9 +155,9 @@ trait Opaques { self: SAIOps with BasicDefs =>
       else if (id.startsWith("@llvm.memcpy")) Some(ExternalFun("llvm_memcpy"))
       else if (id.startsWith("@llvm.memset")) Some(ExternalFun("llvm_memset"))
       else if (id.startsWith("@llvm.memmove")) Some(ExternalFun("llvm_memmove"))
-      else if (id.eq("@memcpy")) Some(ExternalFun("llvm_memcpy"))
-      else if (id.eq("@memset")) Some(ExternalFun("llvm_memset"))
-      else if (id.eq("@memmove")) Some(ExternalFun("llvm_memmove"))
+      else if (id == "@memcpy") Some(ExternalFun("llvm_memcpy"))
+      else if (id == "@memset") Some(ExternalFun("llvm_memset"))
+      else if (id == "@memmove") Some(ExternalFun("llvm_memmove"))
       else if (unsafeExternals.contains(id.tail)) {
         if (!warned.contains(id)) {
           System.out.println(s"Unsafe External function ${id.tail} is treated as a noop.")
