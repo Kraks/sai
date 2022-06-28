@@ -351,6 +351,13 @@ inline bool is_LocV_null(const PtrVal& v) {
   return (0 == int_v->i);
 }
 
+inline size_t get_pointer_realsize(const PtrVal& v) {
+  auto loc = std::dynamic_pointer_cast<LocV>(v);
+  ASSERT((loc->l >= loc->base) && (loc->l < (loc->base + loc->size)), "Out of bound pointer");
+  size_t count = loc->size - (loc->l - loc->base);
+  return count;
+}
+
 // FunV types:
 //   use template to delay type instantiation
 //   cause SS is currently incomplete, unable to use in containers
