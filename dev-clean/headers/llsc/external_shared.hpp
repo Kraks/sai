@@ -288,6 +288,16 @@ inline std::monostate _exit(SS state, List<PtrVal> args, Cont k) {
 
 /******************************************************************************/
 
+inline List<SSVal> exit(SS state, List<PtrVal> args) {
+  return stop(state, args);
+}
+
+inline std::monostate exit(SS state, List<PtrVal> args, Cont k) {
+  return stop(state, args, k);
+}
+
+/******************************************************************************/
+
 inline List<SSVal> abort(SS state, List<PtrVal> args) {
   return stop(state, List<PtrVal>{make_IntV(-1)});
 }
