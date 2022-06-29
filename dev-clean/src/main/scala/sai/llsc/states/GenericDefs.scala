@@ -158,7 +158,7 @@ trait Opaques { self: SAIOps with BasicDefs =>
       else if (id == "@memcpy") Some(ExternalFun("llvm_memcpy"))
       else if (id == "@memset") Some(ExternalFun("llvm_memset"))
       else if (id == "@memmove") Some(ExternalFun("llvm_memmove"))
-      else if (unsafeExternals.contains(id.tail)) {
+      else if (unsafeExternals.contains(id.tail) || id.startsWith("@llvm.")) {
         if (!warned.contains(id)) {
           System.out.println(s"Unsafe External function ${id.tail} is treated as a noop.")
           warned.add(id)
