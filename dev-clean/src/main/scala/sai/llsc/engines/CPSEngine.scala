@@ -401,9 +401,9 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
       info("running native function: " + f.id)
       val native_args: List[Rep[Any]] = argTypes.zipWithIndex.map { case (ty, id) => {
          ty match {
-          case PtrType(_, _) => ss.getPointerArg(args(id)) // Rep[CppAddr] -> char *
-          case IntType(size: Int) => ss.getIntArg(args(id)) // Rep[Long] -> long
-          case FloatType(k: FloatKind) => ss.getFloatArg(args(id)) // Rep[Double] -> double
+          case PtrType(_, _) => applyWithManifestRes[CppAddr, Rep, Rep](getPrimitiveTypeManifest(ty), poly_rep_cast)(ss.getPointerArg(args(id))) // Rep[CppAddr] -> char *
+          case IntType(size: Int) => applyWithManifestRes[Long, Rep, Rep](getPrimitiveTypeManifest(ty), poly_rep_cast)(ss.getIntArg(args(id))) // Rep[Long] -> long
+          case FloatType(k: FloatKind) => applyWithManifestRes[Double, Rep, Rep](getPrimitiveTypeManifest(ty), poly_rep_cast)(ss.getFloatArg(args(id))) // Rep[Double] -> double
           case _ => ???
         }
       }}

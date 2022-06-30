@@ -117,8 +117,27 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     else if (m == manifest[Long]) f[Long](arg)
     else if (m == manifest[Float]) f[Float](arg)
     else if (m == manifest[Double]) f[Double](arg)
-    else if (m == manifest[CppAddr]) f[CppAddr](arg)
+    else if (m == manifest[Array[Boolean]]) f[Array[Boolean]](arg)
+    else if (m == manifest[Array[Char]]) f[Array[Char]](arg)
+    else if (m == manifest[Array[Short]]) f[Array[Short]](arg)
+    else if (m == manifest[Array[Int]]) f[Array[Int]](arg)
+    else if (m == manifest[Array[Long]]) f[Array[Long]](arg)
     else ???
+  }
+
+  abstract class highfuncPoly[F[_], G[_]] {
+    def apply[T:Manifest, A:Manifest](a: F[T]): G[A]
+  }
+
+  def applyWithManifestRes[T:Manifest,F[_],G[+_]](m: Manifest[_], f : highfuncPoly[F, G])(arg : F[T]): G[Any] = {
+    val f_arg = new highfunc[T, F, G] {
+      def apply[A:Manifest](a: F[T]): G[A] = f[T, A](arg)
+    }
+    applyWithManifestRes[T, F, G](m, f_arg)(arg)
+  }
+
+  val poly_rep_cast = new highfuncPoly[Rep, Rep] {
+    def apply[T:Manifest, A:Manifest](arg: Rep[T]): Rep[A] = rep_cast[T, A](arg)
   }
 
   // For function that has Variable Arguments, we need to generate different template for different argument types.

@@ -256,10 +256,14 @@ inline void copy_native2state(SS& state, PtrVal ptr, char* buf, int size) {
   }
 }
 
-inline void writeback_pointer_arg(SS& state, PtrVal loc, char* buf) {
+inline void writeback_pointer_arg(SS& state, PtrVal loc, void* buf) {
+  if (is_LocV_null(loc)) {
+    ASSERT(nullptr == buf, "allocate memory for null locv");
+    return;
+  }
   ASSERT(std::dynamic_pointer_cast<LocV>(loc), "Non LocV");
   size_t count = get_pointer_realsize(loc);
-  copy_native2state(state, loc, buf, count);
+  copy_native2state(state, loc, (char*)buf, count);
   free(buf);
 }
 

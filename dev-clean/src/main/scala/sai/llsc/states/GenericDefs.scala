@@ -54,7 +54,11 @@ trait BasicDefs { self: SAIOps =>
     case IntType(64) => manifest[Long]
     case FloatType(FK_Float) => manifest[Float]
     case FloatType(FK_Double) => manifest[Double]
-    case PtrType(ty, addrSpace) => manifest[CppAddr]
+    case PtrType(IntType(1), addrSpace) => manifest[Array[Boolean]]
+    case PtrType(IntType(8), addrSpace) => manifest[Array[Char]]
+    case PtrType(IntType(16), addrSpace) => manifest[Array[Short]]
+    case PtrType(IntType(32), addrSpace) => manifest[Array[Int]]
+    case PtrType(IntType(64), addrSpace) => manifest[Array[Long]]
     case _ => ???
   }
 

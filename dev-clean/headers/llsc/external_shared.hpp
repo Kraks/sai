@@ -114,6 +114,9 @@ inline void copy_state2native(SS& state, PtrVal ptr, char* buf, int size) {
 }
 
 inline char * get_pointer_arg(SS& state, PtrVal loc) {
+  if (is_LocV_null(loc)) {
+    return nullptr;
+  }
   ASSERT(std::dynamic_pointer_cast<LocV>(loc), "Non LocV");
   size_t count = get_pointer_realsize(loc);
   char * buf = (char*)malloc(count);

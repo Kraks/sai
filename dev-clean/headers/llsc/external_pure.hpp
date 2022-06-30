@@ -270,10 +270,14 @@ inline SS copy_native2state(SS state, PtrVal ptr, char* buf, int size) {
   return res;
 }
 
-inline SS writeback_pointer_arg(SS state, PtrVal loc, char* buf) {
+inline SS writeback_pointer_arg(SS state, PtrVal loc, void* buf) {
+  if (is_LocV_null(loc)) {
+    ASSERT(nullptr == buf, "allocate memory for null locv");
+    return state;
+  }
   ASSERT(std::dynamic_pointer_cast<LocV>(loc), "Non LocV");
   size_t count = get_pointer_realsize(loc);
-  SS res = copy_native2state(state, loc, buf, count);
+  SS res = copy_native2state(state, loc, (char*)buf, count);
   free(buf);
   return res;
 }

@@ -311,14 +311,16 @@ struct LocV : IntV {
 
   std::string toString() const override {
     std::ostringstream ss;
-    ss << "LocV(" << l << ", " << std::string(k == kStack ? "kStack" : "kHeap") << ")";
+    ss << "LocV(l:" << l << ", " << "base:" <<base <<", size:" << size <<", " << std::string(k == kStack ? "kStack" : "kHeap") << ")";
     return ss.str();
   }
 
   virtual bool compare(const Value* v) const override {
     auto that = static_cast<decltype(this)>(v);
     if (this->l != that->l) return false;
-    return this->k == that->k;
+    if (this->k != that->k) return false;
+    if (this->base != that->base) return false;
+    return this->size == that->size;
   }
 };
 
