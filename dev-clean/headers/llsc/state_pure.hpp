@@ -422,9 +422,42 @@ class SS: public Printable {
     }
     PtrVal at(const PtrVal& addr, int size) {
       auto loc = std::dynamic_pointer_cast<LocV>(addr);
-      ASSERT(loc != nullptr, "Lookup an non-address value");
-      if (loc->k == LocV::kStack) return stack.at(loc->l, size);
-      return heap.at(loc->l, size);
+      if (loc != nullptr) {
+        if (loc->k == LocV::kStack) return stack.at(loc->l, size);
+        return heap.at(loc->l, size);
+      } else {
+        auto symloc = std::dynamic_pointer_cast<SymLocV>(addr);
+        ASSERT(symloc != nullptr && symloc->size > 0, "Lookup an non-address value");
+        std::vector<std::pair<PtrVal, int>> result;
+        int cnt = 0;
+        auto offsym = std::dynamic_pointer_cast<SymV>(symloc->off);
+        ASSERT(offsym && (offsym->get_bw() == addr_index_bw), "Invalid sym offset");
+        auto low_cond = int_op_2(iOP::op_sge, offsym, make_IntV(0, addr_index_bw));
+        auto high_cond = int_op_2(iOP::op_slt, offsym, make_IntV(symloc->size, addr_index_bw));
+        // Todo: should modify SS's PC upon return, can we directly modify it?
+        auto pc2 = pc.add(low_cond).add(high_cond);
+        auto res = get_sat_value(pc2, offsym);
+        while (res.first) {
+          cnt++;
+          int offset_val = res.second;
+          auto t_cond = int_op_2(iOP::op_eq, offsym, make_IntV(offset_val, offsym->get_bw()));
+          result.push_back(std::make_pair(t_cond, offset_val));
+          pc2 = pc2.add(SymV::neg(t_cond));
+          res = get_sat_value(pc2, offsym);
+        }
+        ASSERT(cnt > 0, "No satisfiable offset value");
+        PtrVal read_res = nullptr;
+        for(auto it = result.rbegin(); it != result.rend(); ++it) {
+          auto val = at(make_LocV(symloc->base, symloc->k, symloc->size, it->second), size);
+          if (result.rbegin() == it) {
+            read_res = val;
+          } else {
+            read_res = ite(it->first, val, read_res);
+          }
+        }
+        pc = pc.add(low_cond).add(high_cond);
+        return read_res;
+      }
     }
     PtrVal at_struct(const PtrVal& addr, int size) {
       auto loc = std::dynamic_pointer_cast<LocV>(addr);

@@ -23,6 +23,8 @@ inline unsigned int default_bw = 32;
 // The bitwidth of addresses (64 by default)
 inline unsigned int addr_bw = 64;
 
+inline unsigned int addr_index_bw = 64;
+
 inline std::atomic<std::optional<int>> exit_code;
 inline std::mutex exit_code_lock;
 
@@ -78,7 +80,7 @@ enum class iOP {
   op_sge, op_sgt, op_sle, op_slt, op_neq,
   op_shl, op_lshr, op_ashr, op_and, op_or, op_xor,
   op_urem, op_srem, op_neg, op_sext, op_zext, op_trunc,
-  op_concat, op_extract
+  op_concat, op_extract, op_ite
 };
 
 enum class fOP {
@@ -130,6 +132,7 @@ inline std::string int_op2string(iOP op) {
     case iOP::op_trunc: return "trunc";
     case iOP::op_concat: return "concat";
     case iOP::op_extract: return "extract";
+    case iOP::op_ite: return "ifthenelse";
   }
   return "unknown op";
 }
