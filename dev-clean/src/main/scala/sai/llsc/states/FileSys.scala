@@ -50,7 +50,8 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
     def apply(name: Rep[String], content: Rep[List[Value]]) = "File::create".reflectWith[File](name, content)
     def apply(name: Rep[String], content: Rep[List[Value]], stat: Rep[List[Value]]) =
       "File::create".reflectWith[File](name, content, stat)
-    def copy(f: Rep[File]) = "File::create".reflectCtrlWith[File](f)
+    def copy(f: Rep[File]) = "File::shallow_copy".reflectCtrlWith[File](f)
+    def dcopy(f: Rep[File]) = "File::deep_copy".reflectCtrlWith[File](f)
   }
   
   implicit class FileOps(file: Rep[File]) {
@@ -116,7 +117,7 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
     def apply(f: Rep[File]) = "Stream::create".reflectCtrlWith[Stream](f)
     def apply(f: Rep[File], m: Rep[Int]) = "Stream::create".reflectCtrlWith[Stream](f, m)
     def apply(f: Rep[File], m: Rep[Int], c: Rep[Long]) = "Stream::create".reflectCtrlWith[Stream](f, m, c)
-    def copy(strm: Rep[Stream]) = "Stream::create".reflectCtrlWith[Stream](strm)
+    def copy(strm: Rep[Stream]) = "Stream::shallow_copy".reflectCtrlWith[Stream](strm)
   }
 
   implicit class StreamOps(strm: Rep[Stream]) {
@@ -173,6 +174,17 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
 
   object FS {
     def apply() = "FS".reflectCtrlWith[FS]()
+    def apply(opened_files: Rep[Map[Fd, Stream]], root_file: Rep[File]) = "FS".reflectCtrlWith[FS](opened_files, root_file)
+    def dcopy(fs: Rep[FS]) = {
+      val rootFile = File.dcopy(fs.rootFile)
+      val openedFiles = Map[Fd, Stream]()
+      val newFS = "FS".reflectCtrlWith[FS](openedFiles, rootFile)
+      // for ((fd, s) <- fs.openedFiles) {
+      //   val strm = Stream(newFS.getFile(s.file.name), s.mode, s.cursor)
+      //   fs.setStream(fd, strm)
+      // }
+      newFS
+    }
     def SEEK_SET = cmacro[Int]("SEEK_SET")
     def SEEK_CUR = cmacro[Int]("SEEK_CUR")
     def SEEK_END = cmacro[Int]("SEEK_END")

@@ -160,7 +160,7 @@ int x77 = Str::split("another phrase that is longer", " ").size();
 ASSERT((x77 == 5), "segment should have five elements");
 /* test stream copy constructor */;
 Ptr<Stream> x78 = Stream::create(x63, O_RDONLY, 1L);
-Ptr<Stream> x79 = Stream::create(x78);
+Ptr<Stream> x79 = Stream::shallow_copy(x78);
 x78;
 x78->cursor = 5L;
 x78;
@@ -174,100 +174,102 @@ ASSERT((x81 == 1L), "strm2 should not be updated");
 FS x82 = FS();
 Ptr<File> x83 = File::create("a");
 /* setFile */;
-immer::flex_vector<String> x84 = Vec::filter(Str::split("/a", "/"), [&](auto x85) {
-return x85.length() > 0;
+immer::flex_vector<String> x84 = Str::split("/a", "/");
+immer::flex_vector<String> x85 = Vec::filter(x84, [&](auto x86) {
+return x86.length() > 0;
 });
-int x86 = x84.size();
-immer::flex_vector<String> x87 = x84.take(x86 - 1);
-Ptr<File> x88 = Vec::foldLeft(x87, x82.root_file, [&](auto x89, auto x90) {
-bool x91 = x89 == nullptr || ({
-bool x92 = Map::contains(x89->children, x90);
-!x92;
+int x87 = x85.size();
+immer::flex_vector<String> x88 = x85.take(x87 - 1);
+Ptr<File> x89 = Vec::foldLeft(x88, x82.root_file, [&](auto x90, auto x91) {
+bool x92 = x90 == nullptr || ({
+bool x93 = Map::contains(x90->children, x91);
+!x93;
 });
-Ptr<File> x93 = x91 ? nullptr : ({
-Ptr<File> x94 = x89->children.at(x90);
-x94;
+Ptr<File> x94 = x92 ? nullptr : ({
+Ptr<File> x95 = x90->children.at(x91);
+x95;
 });
-return x93;
+return x94;
 });
-String x95 = x84.back();
-String x96 = x83->name;
+String x96 = x85.back();
+String x97 = x83->name;
 /* assertEq */;
-ASSERT((x95 == x96), "setFile name should equal to last segment");
-if (x88 != nullptr) {
-immer::map<String, Ptr<File>> x97 = x88->children.insert(std::make_pair(x96, x83));
-x88->children = x97;
+ASSERT((x96 == x97), "setFile name should equal to last segment");
+if (x89 != nullptr) {
+immer::map<String, Ptr<File>> x98 = x89->children.insert(std::make_pair(x97, x83));
+x89->children = x98;
 }
-Ptr<File> x98 = File::create("b");
+Ptr<File> x99 = File::create("b");
 /* setFile */;
-immer::flex_vector<String> x99 = Vec::filter(Str::split("/a/b", "/"), [&](auto x100) {
-return x100.length() > 0;
+immer::flex_vector<String> x100 = Str::split("/a/b", "/");
+immer::flex_vector<String> x101 = Vec::filter(x100, [&](auto x102) {
+return x102.length() > 0;
 });
-int x101 = x99.size();
-immer::flex_vector<String> x102 = x99.take(x101 - 1);
-Ptr<File> x103 = Vec::foldLeft(x102, x82.root_file, [&](auto x104, auto x105) {
-bool x106 = x104 == nullptr || ({
-bool x107 = Map::contains(x104->children, x105);
-!x107;
+int x103 = x101.size();
+immer::flex_vector<String> x104 = x101.take(x103 - 1);
+Ptr<File> x105 = Vec::foldLeft(x104, x82.root_file, [&](auto x106, auto x107) {
+bool x108 = x106 == nullptr || ({
+bool x109 = Map::contains(x106->children, x107);
+!x109;
 });
-Ptr<File> x108 = x106 ? nullptr : ({
-Ptr<File> x109 = x104->children.at(x105);
-x109;
+Ptr<File> x110 = x108 ? nullptr : ({
+Ptr<File> x111 = x106->children.at(x107);
+x111;
 });
-return x108;
+return x110;
 });
-String x110 = x99.back();
-String x111 = x98->name;
+String x112 = x101.back();
+String x113 = x99->name;
 /* assertEq */;
-ASSERT((x110 == x111), "setFile name should equal to last segment");
-if (x103 != nullptr) {
-immer::map<String, Ptr<File>> x112 = x103->children.insert(std::make_pair(x111, x98));
-x103->children = x112;
+ASSERT((x112 == x113), "setFile name should equal to last segment");
+if (x105 != nullptr) {
+immer::map<String, Ptr<File>> x114 = x105->children.insert(std::make_pair(x113, x99));
+x105->children = x114;
 }
-Ptr<File> x113 = File::create("c");
+Ptr<File> x115 = File::create("c");
 /* setFile */;
-immer::flex_vector<String> x114 = Str::split("/a/b/c", "/");
-immer::flex_vector<String> x115 = Vec::filter(x114, [&](auto x116) {
-return x116.length() > 0;
+immer::flex_vector<String> x116 = Str::split("/a/b/c", "/");
+immer::flex_vector<String> x117 = Vec::filter(x116, [&](auto x118) {
+return x118.length() > 0;
 });
-int x117 = x115.size();
-immer::flex_vector<String> x118 = x115.take(x117 - 1);
-Ptr<File> x119 = Vec::foldLeft(x118, x82.root_file, [&](auto x120, auto x121) {
-bool x122 = x120 == nullptr || ({
-bool x123 = Map::contains(x120->children, x121);
-!x123;
+int x119 = x117.size();
+immer::flex_vector<String> x120 = x117.take(x119 - 1);
+Ptr<File> x121 = Vec::foldLeft(x120, x82.root_file, [&](auto x122, auto x123) {
+bool x124 = x122 == nullptr || ({
+bool x125 = Map::contains(x122->children, x123);
+!x125;
 });
-Ptr<File> x124 = x122 ? nullptr : ({
-Ptr<File> x125 = x120->children.at(x121);
-x125;
+Ptr<File> x126 = x124 ? nullptr : ({
+Ptr<File> x127 = x122->children.at(x123);
+x127;
 });
-return x124;
+return x126;
 });
-String x126 = x115.back();
-String x127 = x113->name;
+String x128 = x117.back();
+String x129 = x115->name;
 /* assertEq */;
-ASSERT((x126 == x127), "setFile name should equal to last segment");
-if (x119 != nullptr) {
-immer::map<String, Ptr<File>> x128 = x119->children.insert(std::make_pair(x127, x113));
-x119->children = x128;
+ASSERT((x128 == x129), "setFile name should equal to last segment");
+if (x121 != nullptr) {
+immer::map<String, Ptr<File>> x130 = x121->children.insert(std::make_pair(x129, x115));
+x121->children = x130;
 }
 /* getFile */;
-immer::flex_vector<String> x129 = Vec::filter(x114, [&](auto x130) {
-return x130.length() > 0;
+immer::flex_vector<String> x131 = Vec::filter(x116, [&](auto x132) {
+return x132.length() > 0;
 });
-Ptr<File> x131 = Vec::foldLeft(x129, x82.root_file, [&](auto x132, auto x133) {
-bool x134 = x132 == nullptr || ({
-bool x135 = Map::contains(x132->children, x133);
-!x135;
+Ptr<File> x133 = Vec::foldLeft(x131, x82.root_file, [&](auto x134, auto x135) {
+bool x136 = x134 == nullptr || ({
+bool x137 = Map::contains(x134->children, x135);
+!x137;
 });
-Ptr<File> x136 = x134 ? nullptr : ({
-Ptr<File> x137 = x132->children.at(x133);
-x137;
+Ptr<File> x138 = x136 ? nullptr : ({
+Ptr<File> x139 = x134->children.at(x135);
+x139;
 });
-return x136;
+return x138;
 });
 /* assertNeq */;
-ASSERT((!(x131 == nullptr)), "file should exist");
+ASSERT((!(x133 == nullptr)), "file should exist");
 /* test isLeft */;
 false;
 ASSERT((true), "Left value should not be set");
@@ -279,22 +281,192 @@ ASSERT((true), "Right value should not be set");
 ASSERT((true), "Right value should be set");
 /* assertEq */;
 ASSERT((true), "assigning to a string should work");
-int x138 = S_IFREG;
+int x140 = S_IFREG;
 /* _set_file_type */;
-immer::flex_vector<PtrVal> x139 = x63->stat.drop(24);
-immer::flex_vector<PtrVal> x140 = x139.take(4);
-immer::flex_vector<PtrVal> x141 = make_IntV(proj_IntV(Value::from_bytes(x140)) & proj_IntV(make_IntV(~S_IFMT, 32)) | (int64_t)x138, 32)->to_bytes();
-immer::flex_vector<PtrVal> x142 = x63->stat.take(24);
-immer::flex_vector<PtrVal> x143 = x142 + x141;
-int x144 = x141.size();
-immer::flex_vector<PtrVal> x145 = x63->stat.drop(24 + x144);
-immer::flex_vector<PtrVal> x146 = x143 + x145;
-x63->stat = x146;
-int x147 = S_IFREG;
-immer::flex_vector<PtrVal> x148 = x63->stat.drop(24);
-immer::flex_vector<PtrVal> x149 = x148.take(4);
+immer::flex_vector<PtrVal> x141 = x63->stat.drop(24);
+immer::flex_vector<PtrVal> x142 = x141.take(4);
+immer::flex_vector<PtrVal> x143 = make_IntV(proj_IntV(Value::from_bytes(x142)) & proj_IntV(make_IntV(~S_IFMT, 32)) | (int64_t)x140, 32)->to_bytes();
+immer::flex_vector<PtrVal> x144 = x63->stat.take(24);
+immer::flex_vector<PtrVal> x145 = x144 + x143;
+int x146 = x143.size();
+immer::flex_vector<PtrVal> x147 = x63->stat.drop(24 + x146);
+immer::flex_vector<PtrVal> x148 = x145 + x147;
+x63->stat = x148;
+int x149 = S_IFREG;
+immer::flex_vector<PtrVal> x150 = x63->stat.drop(24);
+immer::flex_vector<PtrVal> x151 = x150.take(4);
 /* assertEq */;
-ASSERT(((bool)(proj_IntV(Value::from_bytes(x149)) & (int64_t)x147) == true), "file type should be correctly set");
+ASSERT(((bool)(proj_IntV(Value::from_bytes(x151)) & (int64_t)x149) == true), "file type should be correctly set");
+/* test fs copy */;
+FS x152 = FS();
+/* setFile */;
+immer::flex_vector<String> x153 = Vec::filter(x84, [&](auto x154) {
+return x154.length() > 0;
+});
+int x155 = x153.size();
+immer::flex_vector<String> x156 = x153.take(x155 - 1);
+Ptr<File> x157 = Vec::foldLeft(x156, x152.root_file, [&](auto x158, auto x159) {
+bool x160 = x158 == nullptr || ({
+bool x161 = Map::contains(x158->children, x159);
+!x161;
+});
+Ptr<File> x162 = x160 ? nullptr : ({
+Ptr<File> x163 = x158->children.at(x159);
+x163;
+});
+return x162;
+});
+String x164 = x153.back();
+/* assertEq */;
+ASSERT((x164 == x97), "setFile name should equal to last segment");
+if (x157 != nullptr) {
+immer::map<String, Ptr<File>> x165 = x157->children.insert(std::make_pair(x97, x83));
+x157->children = x165;
+}
+/* setFile */;
+immer::flex_vector<String> x166 = Vec::filter(x100, [&](auto x167) {
+return x167.length() > 0;
+});
+int x168 = x166.size();
+immer::flex_vector<String> x169 = x166.take(x168 - 1);
+Ptr<File> x170 = Vec::foldLeft(x169, x152.root_file, [&](auto x171, auto x172) {
+bool x173 = x171 == nullptr || ({
+bool x174 = Map::contains(x171->children, x172);
+!x174;
+});
+Ptr<File> x175 = x173 ? nullptr : ({
+Ptr<File> x176 = x171->children.at(x172);
+x176;
+});
+return x175;
+});
+String x177 = x166.back();
+/* assertEq */;
+ASSERT((x177 == x113), "setFile name should equal to last segment");
+if (x170 != nullptr) {
+immer::map<String, Ptr<File>> x178 = x170->children.insert(std::make_pair(x113, x99));
+x170->children = x178;
+}
+Ptr<File> x179 = File::create("c", immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2});
+/* setFile */;
+immer::flex_vector<String> x180 = Vec::filter(x116, [&](auto x181) {
+return x181.length() > 0;
+});
+int x182 = x180.size();
+immer::flex_vector<String> x183 = x180.take(x182 - 1);
+Ptr<File> x184 = Vec::foldLeft(x183, x152.root_file, [&](auto x185, auto x186) {
+bool x187 = x185 == nullptr || ({
+bool x188 = Map::contains(x185->children, x186);
+!x188;
+});
+Ptr<File> x189 = x187 ? nullptr : ({
+Ptr<File> x190 = x185->children.at(x186);
+x190;
+});
+return x189;
+});
+String x191 = x180.back();
+String x192 = x179->name;
+/* assertEq */;
+ASSERT((x191 == x192), "setFile name should equal to last segment");
+if (x184 != nullptr) {
+immer::map<String, Ptr<File>> x193 = x184->children.insert(std::make_pair(x192, x179));
+x184->children = x193;
+}
+/* make a copy */;
+Ptr<File> x194 = File::deep_copy(x152.root_file);
+immer::map<int, Ptr<Stream>> x195 = immer::map<int, Ptr<Stream>>({});
+FS x196 = FS(x195, x194);
+/* getFile */;
+immer::flex_vector<String> x197 = Vec::filter(x116, [&](auto x198) {
+return x198.length() > 0;
+});
+Ptr<File> x199 = Vec::foldLeft(x197, x196.root_file, [&](auto x200, auto x201) {
+bool x202 = x200 == nullptr || ({
+bool x203 = Map::contains(x200->children, x201);
+!x203;
+});
+Ptr<File> x204 = x202 ? nullptr : ({
+Ptr<File> x205 = x200->children.at(x201);
+x205;
+});
+return x204;
+});
+/* assertNeq */;
+ASSERT((!(x199 == nullptr)), "file should exist in the copied file system");
+/* modify a file in the copied file system */;
+immer::flex_vector<PtrVal> x206 = immer::flex_vector<PtrVal>{intV_3, intV_4, intV_5};
+// File.writeAtNoFill;
+immer::flex_vector<PtrVal> x207 = x199->content.take(3);
+immer::flex_vector<PtrVal> x208 = x207 + x206;
+int x209 = x206.size();
+immer::flex_vector<PtrVal> x210 = x199->content.drop(3 + x209);
+immer::flex_vector<PtrVal> x211 = x208 + x210;
+x199->content = x211;
+/* check that the original file is not modified */;
+/* getFile */;
+immer::flex_vector<String> x212 = Vec::filter(x116, [&](auto x213) {
+return x213.length() > 0;
+});
+Ptr<File> x214 = Vec::foldLeft(x212, x152.root_file, [&](auto x215, auto x216) {
+bool x217 = x215 == nullptr || ({
+bool x218 = Map::contains(x215->children, x216);
+!x218;
+});
+Ptr<File> x219 = x217 ? nullptr : ({
+Ptr<File> x220 = x215->children.at(x216);
+x220;
+});
+return x219;
+});
+/* assertEq */;
+ASSERT((x214->content == immer::flex_vector<PtrVal>{intV_0, intV_1, intV_2}), "file should not be modified");
+/* add a file in the original system */;
+Ptr<File> x221 = File::create("d");
+/* setFile */;
+immer::flex_vector<String> x222 = Str::split("/a/b/d", "/");
+immer::flex_vector<String> x223 = Vec::filter(x222, [&](auto x224) {
+return x224.length() > 0;
+});
+int x225 = x223.size();
+immer::flex_vector<String> x226 = x223.take(x225 - 1);
+Ptr<File> x227 = Vec::foldLeft(x226, x152.root_file, [&](auto x228, auto x229) {
+bool x230 = x228 == nullptr || ({
+bool x231 = Map::contains(x228->children, x229);
+!x231;
+});
+Ptr<File> x232 = x230 ? nullptr : ({
+Ptr<File> x233 = x228->children.at(x229);
+x233;
+});
+return x232;
+});
+String x234 = x223.back();
+String x235 = x221->name;
+/* assertEq */;
+ASSERT((x234 == x235), "setFile name should equal to last segment");
+if (x227 != nullptr) {
+immer::map<String, Ptr<File>> x236 = x227->children.insert(std::make_pair(x235, x221));
+x227->children = x236;
+}
+/* check that the copied file system is not modified */;
+/* getFile */;
+immer::flex_vector<String> x237 = Vec::filter(x222, [&](auto x238) {
+return x238.length() > 0;
+});
+Ptr<File> x239 = Vec::foldLeft(x237, x196.root_file, [&](auto x240, auto x241) {
+bool x242 = x240 == nullptr || ({
+bool x243 = Map::contains(x240->children, x241);
+!x243;
+});
+Ptr<File> x244 = x242 ? nullptr : ({
+Ptr<File> x245 = x240->children.at(x241);
+x245;
+});
+return x244;
+});
+/* assertEq */;
+ASSERT((x239 == nullptr), "file should not be added to the copied file system");
 return std::monostate{};
 }
 
