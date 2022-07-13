@@ -731,7 +731,7 @@ class ExternalTestDriver(folder: String = "./headers/test") extends SAISnippet[I
     testEither
     testSetFileType
     testFsCopy
-    // testFsCopyWithStream
+    testFsCopyWithStream
     // testSeek
     ()
   }

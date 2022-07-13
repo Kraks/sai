@@ -215,7 +215,7 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
       val openedFiles = Map[Fd, Stream]()
       val newFS = "FS".reflectCtrlWith[FS](openedFiles, rootFile)
       fs.openedFiles.foreach({ case (fd, s) => {
-        val strm = Stream(newFS.getFile(s.file.name), s.mode, s.cursor)
+        val strm = Stream(newFS.getFile(s.file.fullPath), s.mode, s.cursor)
         newFS.setStream(fd, strm)
       }})
       newFS
