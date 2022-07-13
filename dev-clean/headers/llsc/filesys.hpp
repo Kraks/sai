@@ -61,16 +61,13 @@ struct File: public Printable {
   }
   [[nodiscard]] inline static Ptr<File> deep_copy(Ptr<File> f) {
     auto f2 = Ptr<File>(new File(*f));
-    f2->children = immer::map<String, Ptr<File>>();
-    /* TODO: use transient <2022-07-11, David Deng> */
-    /* immer::map_transient<String, Ptr<File>> children; */
+    immer::map_transient<String, Ptr<File>> children;
     for (auto &p: f->children) {
       auto child = deep_copy(p.second);
       child->parent = f2;
-      f2->children = f2->children.set(p.first, child);
-      /* children.set(p.first, child); */
+      children.set(p.first, child);
     }
-    /* f2->children = children.persistent(); */
+    f2->children = children.persistent();
     return f2;
   }
 private:

@@ -32,7 +32,7 @@
 
 #include <sai.hpp>
 #include <immer/flex_vector_transient.hpp>
-/* #include <immer/map_transient.hpp> */
+#include <immer/map_transient.hpp>
 #include <parallel_hashmap/phmap.h>
 
 using namespace std::chrono;
