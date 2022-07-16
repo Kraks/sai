@@ -74,6 +74,14 @@ inline SolverKind solver_kind = SolverKind::stp;
 // Global counter to record time spent in solver
 inline duration<double, std::micro> solver_time = microseconds::zero();
 
+// Different strategies to handle symbolic pointer index read/write
+// one:       only search one feasible concrete index
+// feasible:  search all feasible concrete indexes
+// all:       enumerate all possible indexes (feasible or not)
+enum class SymLocStrategy { one, feasible, all };
+
+inline SymLocStrategy symloc_strategy = SymLocStrategy::all;
+
 enum class iOP {
   op_add, op_sub, op_mul, op_sdiv, op_udiv,
   op_eq, op_uge, op_ugt, op_ule, op_ult,

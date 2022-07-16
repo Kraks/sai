@@ -333,26 +333,38 @@ class SS {
         return heap.at(loc->l, size);
       } else {
         auto symloc = std::dynamic_pointer_cast<SymLocV>(addr);
-        ASSERT(symloc != nullptr && symloc->size > 0, "Lookup an non-address value");
+        ASSERT(symloc != nullptr && symloc->size >= size, "Lookup an non-address value");
         std::vector<std::pair<PtrVal, int>> result;
-        int cnt = 0;
         auto offsym = std::dynamic_pointer_cast<SymV>(symloc->off);
         ASSERT(offsym && (offsym->get_bw() == addr_index_bw), "Invalid sym offset");
-        auto low_cond = int_op_2(iOP::op_sge, offsym, make_IntV(0, addr_index_bw));
-        auto high_cond = int_op_2(iOP::op_slt, offsym, make_IntV(symloc->size, addr_index_bw));
-        // Todo: should modify SS's PC upon return
-        auto pc2 = pc;
-        pc2.add(low_cond).add(high_cond);
-        auto res = get_sat_value(pc2, offsym);
-        while (res.first) {
-          cnt++;
-          int offset_val = res.second;
-          auto t_cond = int_op_2(iOP::op_eq, offsym, make_IntV(offset_val, offsym->get_bw()));
-          result.push_back(std::make_pair(t_cond, offset_val));
-          pc2.add(SymV::neg(t_cond));
-          res = get_sat_value(pc2, offsym);
+        if (SymLocStrategy::one == symloc_strategy || SymLocStrategy::feasible == symloc_strategy) {
+          int cnt_bound = -1;
+          int cnt = 0;
+          if (SymLocStrategy::one == symloc_strategy)
+            cnt_bound = 1;
+          auto low_cond = int_op_2(iOP::op_sge, offsym, make_IntV(0, addr_index_bw));
+          auto high_cond = int_op_2(iOP::op_sle, offsym, make_IntV(symloc->size - size, addr_index_bw));
+          auto pc2 = pc;
+          pc2.add(low_cond).add(high_cond);
+          auto res = get_sat_value(pc2, offsym);
+          while (res.first) {
+            cnt++;
+            int offset_val = res.second;
+            auto t_cond = int_op_2(iOP::op_eq, offsym, make_IntV(offset_val, offsym->get_bw()));
+            result.push_back(std::make_pair(t_cond, offset_val));
+            if (cnt_bound == cnt)
+              break;
+            pc2.add(SymV::neg(t_cond));
+            res = get_sat_value(pc2, offsym);
+          }
+          ASSERT(cnt > 0, "No satisfiable offset value");
+        } else {
+          ASSERT(SymLocStrategy::all == symloc_strategy, "Bad symloc strategy");
+          for (int offset_val=0; offset_val <= (symloc->size - size); offset_val++) {
+            auto t_cond = int_op_2(iOP::op_eq, offsym, make_IntV(offset_val, offsym->get_bw()));
+            result.push_back(std::make_pair(t_cond, offset_val));
+          }
         }
-        ASSERT(cnt > 0, "No satisfiable offset value");
         PtrVal read_res = nullptr;
         for(auto it = result.rbegin(); it != result.rend(); ++it) {
           auto val = at(make_LocV(symloc->base, symloc->k, symloc->size, it->second), size);
@@ -362,7 +374,8 @@ class SS {
             read_res = ite(it->first, val, read_res);
           }
         }
-        pc.add(low_cond).add(high_cond);
+        ASSERT(read_res, "Bad result");
+        // Todo: should we modify the pc to add the in-bound constraints
         return read_res;
       }
     }
