@@ -8,7 +8,7 @@ struct SS;
 class PC;
 
 template <typename T>
-class simple_ptr {
+struct simple_ptr {
   T *ptr;
 public:
   simple_ptr(T* p): ptr(p) { }
@@ -27,7 +27,7 @@ public:
 
 template <typename T>
 std::ostream& operator<<(std::ostream& outs, const simple_ptr<T>& rhs) {
-  return outs << rhs;
+  return outs << rhs.ptr;
 }
 
 template <typename T>
