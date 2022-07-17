@@ -31,7 +31,7 @@ public:
     auto const_val = g_solver->get_model().eval(val, true);
     return const_val.get_numeral_uint64();
   }
-  expr construct_expr_internal(PtrVal e, VarMap &vars) {
+  expr construct_expr_internal(PtrVal e, VarSet &vars) {
     auto c = g_ctx;
     auto int_e = std::dynamic_pointer_cast<IntV>(e);
     if (int_e) {
@@ -44,15 +44,15 @@ public:
     if (!sym_e->name.empty()) {
       ASSERT(sym_e->bw > 1, "i1 symv");
       auto ret = c->bv_const(sym_e->name.c_str(), sym_e->bw);
-      vars.emplace(sym_e, ret);
+      vars.insert(sym_e);
       return ret;
     }
     int bw = sym_e->bw;
     std::vector<expr> expr_rands;
     for (auto& e : sym_e->rands) {
-      auto [e2, vm] = construct_expr(e);
+      auto& [e2, vm] = construct_expr(e);
       expr_rands.push_back(e2);
-      vars.insert(vm->begin(), vm->end());
+      vars.insert(vm.begin(), vm.end());
     }
     switch (sym_e->rator) {
       case iOP::op_add:

@@ -18,7 +18,7 @@ class CheckerSTP : public CachedChecker<CheckerSTP, ExprHandle> {
 public:
   VC vc;
 
-  ExprHandle construct_expr_internal(PtrVal e, VarMap &vars) {
+  ExprHandle construct_expr_internal(PtrVal e, VarSet &vars) {
     auto int_e = std::dynamic_pointer_cast<IntV>(e);
     if (int_e) {
       if (1 == int_e->bw)
@@ -32,16 +32,16 @@ public:
       ASSERT(sym_e->bw > 1, "i1 symv");
       auto name = sym_e->name;
       ExprHandle stp_expr = vc_varExpr(vc, name.c_str(), vc_bvType(vc, sym_e->bw));
-      vars.emplace(sym_e, stp_expr);
+      vars.insert(sym_e);
       return stp_expr;
     }
 
     std::vector<ExprHandle> expr_rands;
     int bw = sym_e->bw;
     for (auto e : sym_e->rands) {
-      auto [e2, vm] = construct_expr(e);
+      auto& [e2, vm] = construct_expr(e);
       expr_rands.push_back(e2);
-      vars.insert(vm->begin(), vm->end());
+      vars.insert(vm.begin(), vm.end());
     }
     switch (sym_e->rator) {
     case iOP::op_add:
