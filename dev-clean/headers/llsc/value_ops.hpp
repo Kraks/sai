@@ -437,13 +437,13 @@ struct SymV : Value {
   String name;
   size_t bw;
   iOP rator;
-  immer::flex_vector<PtrVal> rands;
+  immer::array<PtrVal> rands;
   SymV(String name, size_t bw) : name(name), bw(bw) {
     hash_combine(hash(), std::string("symv1"));
     hash_combine(hash(), name);
     hash_combine(hash(), bw);
   }
-  SymV(iOP rator, immer::flex_vector<PtrVal> rands, size_t bw) : rator(rator), rands(rands), bw(bw) {
+  SymV(iOP rator, immer::array<PtrVal> rands, size_t bw) : rator(rator), rands(rands), bw(bw) {
     hash_combine(hash(), std::string("symv2"));
     hash_combine(hash(), rator);
     hash_combine(hash(), bw);
@@ -534,7 +534,7 @@ inline PtrVal make_SymV(String n, size_t bw) {
   return hashconsing(ret);
 }
 
-inline PtrVal make_SymV(iOP rator, List<PtrVal> rands, size_t bw) {
+inline PtrVal make_SymV(iOP rator, immer::array<PtrVal> rands, size_t bw) {
   // auto s = SymV::simplify(rator, rands, bw);
   // if (s) {
   //   return s;
@@ -552,7 +552,7 @@ inline List<PtrVal> make_SymV_seq(unsigned length, const std::string& prefix, si
 }
 
 inline PtrVal SymV::neg(const PtrVal& v) {
-  return make_SymV(iOP::op_neg, List<PtrVal>({ v }), v->get_bw());
+  return make_SymV(iOP::op_neg, { v }, v->get_bw());
 }
 
 struct StructV : Value {
@@ -671,7 +671,7 @@ inline PtrVal int_op_2(iOP op, const PtrVal& v1, const PtrVal& v2) {
       default:
         break;
     }
-    return make_SymV(op, List<PtrVal>({ v1, v2 }), bw);
+    return make_SymV(op, { v1, v2 }, bw);
   }
 }
 
@@ -743,7 +743,7 @@ inline PtrVal bv_sext(const PtrVal& v, int bw) {
     if (s1) {
       // Note: instead of passing new bw as an operand
       // we override the original bw here
-      return make_SymV(iOP::op_sext, List<PtrVal>({ s1 }), bw);
+      return make_SymV(iOP::op_sext, { s1 }, bw);
     }
     ABORT("Sext an invalid value, exit");
   }
@@ -758,7 +758,7 @@ inline PtrVal bv_zext(const PtrVal& v, int bw) {
     if (s1) {
       // Note: instead of passing new bw as an operand
       // we override the original bw here
-      return make_SymV(iOP::op_zext, List<PtrVal>({ s1 }), bw);
+      return make_SymV(iOP::op_zext, { s1 }, bw);
     }
     ABORT("Zext an invalid value, exit");
   }
@@ -771,7 +771,7 @@ inline PtrVal trunc(const PtrVal& v1, int from, int to) {
   }
   auto s1 = std::dynamic_pointer_cast<SymV>(v1);
   if (s1) {
-    return make_SymV(iOP::op_trunc, List<PtrVal>({ v1 }), to);
+    return make_SymV(iOP::op_trunc, { v1 }, to);
   }
   ABORT("Truncate an invalid value, exit");
 }
@@ -798,7 +798,7 @@ inline PtrVal bv_concat(const PtrVal& v1, const PtrVal& v2) {
   ASSERT(!std::dynamic_pointer_cast<ShadowV>(v1) && !std::dynamic_pointer_cast<ShadowV>(v2),
          "Cannot concat ShadowV values");
   // XXX: also check LocV and FunV?
-  return make_SymV(iOP::op_concat, List<PtrVal>({ v1, v2 }), bw1 + bw2);
+  return make_SymV(iOP::op_concat, { v1, v2 }, bw1 + bw2);
 }
 
 inline const PtrVal IntV0 = make_IntV(0, 64);
