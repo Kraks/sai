@@ -411,7 +411,7 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
 
     def deref: Rep[Any] = "ValPtr-deref".reflectUnsafeWith[Any](v)
 
-    val ext_simpl_op = StaticList[String]("make_SymV", "make_IntV", "bv_sext", "bv_sext")
+    val ext_simpl_op = StaticList[String]("make_SymV", "make_IntV", "bv_sext", "bv_zext")
 
     def sExt(bw: Int): Rep[Value] = Unwrap(v) match {
       case gNode(s, (v1: bExp)::bConst(bw1: Int)::_) if (ext_simpl_op.contains(s) && (bw1 == bw)) => v
