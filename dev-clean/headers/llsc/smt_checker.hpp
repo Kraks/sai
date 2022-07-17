@@ -52,11 +52,11 @@ class CachedChecker : public Checker {
   }
 
 public:
-  using VarMap = std::map<std::shared_ptr<SymV>, Expr>;
+  using VarMap = std::map<simple_ptr<SymV>, Expr>;
   using ExprDetail = std::tuple<Expr, std::shared_ptr<VarMap>>;
   std::map<PtrVal, ExprDetail> objcache;
 
-  using Model = std::map<std::shared_ptr<SymV>, IntData>;
+  using Model = std::map<simple_ptr<SymV>, IntData>;
   using CheckResult = std::tuple<solver_result, std::shared_ptr<Model>>;
   std::map<std::set<PtrVal>, CheckResult> cexcache;
 
@@ -79,7 +79,7 @@ public:
   template <template <typename> typename Cont>
   CheckResult check_model(
         const Cont<PtrVal>& conds,
-        std::shared_ptr<SymV> query_expr=nullptr,
+        simple_ptr<SymV> query_expr=nullptr,
         bool require_model=false) {
 
     push();
@@ -97,7 +97,7 @@ public:
     // constraint independence resolving
     std::set<PtrVal> condset;
     if (use_cons_indep && exprmap.size() > 1) {
-      std::map<std::shared_ptr<SymV>, std::set<PtrVal>> v2q;
+      std::map<simple_ptr<SymV>, std::set<PtrVal>> v2q;
       for (auto& [q, ev]: exprmap) {
         auto& [e, vm] = ev;
         for (auto& [v, v2]: *vm) {

@@ -7,19 +7,73 @@ struct SymV;
 struct SS;
 class PC;
 
-using PtrVal = std::shared_ptr<Value>;
+template <typename T>
+class simple_ptr {
+  T *ptr;
+public:
+  simple_ptr(T* p): ptr(p) { }
+  simple_ptr(): simple_ptr(nullptr) { }
+  template<typename U, typename = std::enable_if_t<std::is_base_of_v<T, U>>>
+  simple_ptr(const simple_ptr<U> &rhs): simple_ptr(static_cast<T*>(rhs.get())) { }
+  ~simple_ptr() { }
+  T* get() const { return ptr; }
+  T& operator*() const { return *ptr; }
+  T* operator->() const { return ptr; }
+  explicit operator bool() const { return bool(ptr); }
+  bool operator<(const simple_ptr& rhs) const { return ptr < rhs.ptr; }
+  bool operator!=(const simple_ptr& rhs) const { return ptr != rhs.ptr; }
+  bool operator==(const simple_ptr& rhs) const { return ptr == rhs.ptr; }
+};
+
+template <typename T>
+std::ostream& operator<<(std::ostream& outs, const simple_ptr<T>& rhs) {
+  return outs << rhs;
+}
+
+template <typename T>
+struct enable_simple_from_this {
+  simple_ptr<T> shared_from_this() {
+    return static_cast<T*>(this);
+  }
+};
+
+template<typename T, typename... Args>
+simple_ptr<T> make_simple(Args&&... args) {
+  return simple_ptr(new T(std::forward<Args>(args)...));
+}
+
+namespace std {
+template<typename T, typename U>
+simple_ptr<T> dynamic_pointer_cast(simple_ptr<U> v) {
+  return simple_ptr<T>(dynamic_cast<T*>(v.get()));
+}
+
+template<typename T, typename U>
+simple_ptr<T> static_pointer_cast(simple_ptr<U> v) {
+  return simple_ptr<T>(static_cast<T*>(v.get()));
+}
+
+template <typename T>
+struct hash<simple_ptr<T>> {
+  size_t operator()(const simple_ptr<T> &rhs) const noexcept {
+    return hash<T*>(rhs.get());
+  }
+};
+}
+
+using PtrVal = simple_ptr<Value>;
 inline PtrVal bv_extract(const PtrVal& v1, int hi, int lo);
 inline PtrVal make_IntV(IntData i, int bw=default_bw, bool toMSB=true);
 inline std::pair<bool, UIntData> get_sat_value(PC pc, PtrVal v);
 
 /* Value representations */
 
-struct Value : public std::enable_shared_from_this<Value>, public Printable {
+struct Value : public enable_simple_from_this<Value>, public Printable {
   virtual bool is_conc() const = 0;
   virtual int get_bw() const = 0;
   size_t get_byte_size() const { return (get_bw() + 7) / 8; }
   virtual bool compare(const Value* v) const = 0;
-  virtual std::shared_ptr<IntV> to_IntV() = 0;
+  virtual simple_ptr<IntV> to_IntV() = 0;
   inline bool operator==(const Value& rhs){ return compare(&rhs); }
 
   /* `to_bytes` produces the memory representation of this value
@@ -110,6 +164,13 @@ inline phmap::parallel_flat_hash_set<PtrVal,
     4,
     std::mutex> objpool;
 
+inline PtrVal hashconsing(const PtrVal &ret) {
+  // if (!use_hashcons) return ret;
+  auto [ret2, ins] = objpool.insert(ret);
+  if (!ins) delete ret.get();
+  return *ret2;
+}
+
 // Uninitialized value
 inline PtrVal make_UinitV() {
   static PtrVal UinitV = make_IntV(0, 8);
@@ -123,14 +184,14 @@ struct ShadowV : public Value {
   virtual bool is_conc() const { return true; };
   virtual int get_bw() const { return 0; }
   virtual bool compare(const Value* v) const { return false; }
-  virtual std::shared_ptr<IntV> to_IntV() { return nullptr; }
+  virtual simple_ptr<IntV> to_IntV() { return nullptr; }
   virtual std::string toString() const { return "❏"; }
   virtual List<PtrVal> to_bytes() { return List<PtrVal>{shared_from_this()}; }
   virtual List<PtrVal> to_bytes_shadow() { return to_bytes(); }
 };
 
 inline PtrVal make_ShadowV() {
-  static PtrVal singleton = std::make_shared<ShadowV>();
+  static PtrVal singleton = make_simple<ShadowV>();
   return singleton;
 }
 
@@ -138,14 +199,14 @@ inline PtrVal make_ShadowV(int8_t offset) {
   ASSERT(-16 < offset && offset < 0, "unexpected ShadowV's offset");
   static PtrVal shadow_vals[16] = {
     nullptr,
-    std::make_shared<ShadowV>(-1),   std::make_shared<ShadowV>(-2),
-    std::make_shared<ShadowV>(-3),   std::make_shared<ShadowV>(-4),
-    std::make_shared<ShadowV>(-5),   std::make_shared<ShadowV>(-6),
-    std::make_shared<ShadowV>(-7),   std::make_shared<ShadowV>(-8),
-    std::make_shared<ShadowV>(-9),   std::make_shared<ShadowV>(-10),
-    std::make_shared<ShadowV>(-11),  std::make_shared<ShadowV>(-12),
-    std::make_shared<ShadowV>(-13),  std::make_shared<ShadowV>(-14),
-    std::make_shared<ShadowV>(-15)
+    make_simple<ShadowV>(-1),   make_simple<ShadowV>(-2),
+    make_simple<ShadowV>(-3),   make_simple<ShadowV>(-4),
+    make_simple<ShadowV>(-5),   make_simple<ShadowV>(-6),
+    make_simple<ShadowV>(-7),   make_simple<ShadowV>(-8),
+    make_simple<ShadowV>(-9),   make_simple<ShadowV>(-10),
+    make_simple<ShadowV>(-11),  make_simple<ShadowV>(-12),
+    make_simple<ShadowV>(-13),  make_simple<ShadowV>(-14),
+    make_simple<ShadowV>(-15)
   };
   return shadow_vals[-offset];
 }
@@ -172,7 +233,7 @@ struct IntV : Value {
     ss << "IntV(" << as_signed() << ", " << bw << ")";
     return ss.str();
   }
-  virtual std::shared_ptr<IntV> to_IntV() override {
+  virtual simple_ptr<IntV> to_IntV() override {
     auto thisptr = shared_from_this();
     return std::static_pointer_cast<IntV>(thisptr);
   }
@@ -202,10 +263,8 @@ struct IntV : Value {
 };
 
 inline PtrVal make_IntV(IntData i, int bw, bool toMSB) {
-  auto ret = std::make_shared<IntV>(toMSB ? (i << (addr_bw - bw)) : i, bw);
-  if (!use_hashcons) return ret;
-  auto ins = objpool.insert(ret);
-  return *(ins.first);
+  auto ret = make_simple<IntV>(toMSB ? (i << (addr_bw - bw)) : i, bw);
+  return hashconsing(ret);
 }
 
 inline IntData proj_IntV(const PtrVal& v) {
@@ -230,7 +289,7 @@ struct FloatV : Value {
     return ss.str();
   }
   virtual bool is_conc() const override { return true; }
-  virtual std::shared_ptr<IntV> to_IntV() override { return nullptr; }
+  virtual simple_ptr<IntV> to_IntV() override { return nullptr; }
   virtual int get_bw() const override { return bw; }
 
   virtual bool compare(const Value* v) const override {
@@ -247,17 +306,13 @@ struct FloatV : Value {
 };
 
 inline PtrVal make_FloatV(long double f) {
-  auto ret = std::make_shared<FloatV>(f);
-  if (!use_hashcons) return ret;
-  auto ins = objpool.insert(ret);
-  return *(ins.first);
+  auto ret = make_simple<FloatV>(f);
+  return hashconsing(ret);
 }
 
 inline PtrVal make_FloatV(long double f, size_t bw) {
-  auto ret = std::make_shared<FloatV>(f, bw);
-  if (!use_hashcons) return ret;
-  auto ins = objpool.insert(ret);
-  return *(ins.first);
+  auto ret = make_simple<FloatV>(f, bw);
+  return hashconsing(ret);
 }
 
 inline PtrVal make_FloatV_fp80(std::array<unsigned char, 10> buf) {
@@ -324,10 +379,8 @@ struct LocV : IntV {
 };
 
 inline PtrVal make_LocV(Addr base, LocV::Kind k, size_t size, size_t off = 0) {
-  auto ret = std::make_shared<LocV>(base, k, size, off);
-  if (!use_hashcons) return ret;
-  auto ins = objpool.insert(ret);
-  return *(ins.first);
+  auto ret = make_simple<LocV>(base, k, size, off);
+  return hashconsing(ret);
 }
 
 inline unsigned int proj_LocV(const PtrVal& v) {
@@ -414,7 +467,7 @@ struct SymV : Value {
     return ss.str();
   }
   virtual bool is_conc() const override { return false; }
-  virtual std::shared_ptr<IntV> to_IntV() override { return nullptr; }
+  virtual simple_ptr<IntV> to_IntV() override { return nullptr; }
   virtual int get_bw() const override { return bw; }
 
   virtual bool compare(const Value* v) const override {
@@ -442,16 +495,16 @@ struct SymV : Value {
     auto arg0 = std::dynamic_pointer_cast<SymV>(rands[0]);
     if (rator == iOP::op_neg && arg0) {
       switch (arg0->rator) {
-        case iOP::op_neq: return std::make_shared<SymV>(iOP::op_eq, arg0->rands, bw);
-        case iOP::op_eq:  return std::make_shared<SymV>(iOP::op_neq, arg0->rands, bw);
-        case iOP::op_sle: return std::make_shared<SymV>(iOP::op_sgt, arg0->rands, bw);
-        case iOP::op_slt: return std::make_shared<SymV>(iOP::op_sge, arg0->rands, bw);
-        case iOP::op_sge: return std::make_shared<SymV>(iOP::op_slt, arg0->rands, bw);
-        case iOP::op_sgt: return std::make_shared<SymV>(iOP::op_sle, arg0->rands, bw);
-        case iOP::op_ule: return std::make_shared<SymV>(iOP::op_ugt, arg0->rands, bw);
-        case iOP::op_ult: return std::make_shared<SymV>(iOP::op_uge, arg0->rands, bw);
-        case iOP::op_uge: return std::make_shared<SymV>(iOP::op_ult, arg0->rands, bw);
-        case iOP::op_ugt: return std::make_shared<SymV>(iOP::op_ule, arg0->rands, bw);
+        case iOP::op_neq: return make_simple<SymV>(iOP::op_eq, arg0->rands, bw);
+        case iOP::op_eq:  return make_simple<SymV>(iOP::op_neq, arg0->rands, bw);
+        case iOP::op_sle: return make_simple<SymV>(iOP::op_sgt, arg0->rands, bw);
+        case iOP::op_slt: return make_simple<SymV>(iOP::op_sge, arg0->rands, bw);
+        case iOP::op_sge: return make_simple<SymV>(iOP::op_slt, arg0->rands, bw);
+        case iOP::op_sgt: return make_simple<SymV>(iOP::op_sle, arg0->rands, bw);
+        case iOP::op_ule: return make_simple<SymV>(iOP::op_ugt, arg0->rands, bw);
+        case iOP::op_ult: return make_simple<SymV>(iOP::op_uge, arg0->rands, bw);
+        case iOP::op_uge: return make_simple<SymV>(iOP::op_ult, arg0->rands, bw);
+        case iOP::op_ugt: return make_simple<SymV>(iOP::op_ule, arg0->rands, bw);
       }
     }
     auto end = steady_clock::now();
@@ -474,17 +527,13 @@ inline std::map<size_t, PtrVal> symv_cache;
 */
 
 inline PtrVal make_SymV(const String& n) {
-  auto ret = std::make_shared<SymV>(n, default_bw);
-  if (!use_hashcons) return ret;
-  auto ins = objpool.insert(ret);
-  return *(ins.first);
+  auto ret = make_simple<SymV>(n, default_bw);
+  return hashconsing(ret);
 }
 
 inline PtrVal make_SymV(String n, size_t bw) {
-  auto ret = std::make_shared<SymV>(n, bw);
-  if (!use_hashcons) return ret;
-  auto ins = objpool.insert(ret);
-  return *(ins.first);
+  auto ret = make_simple<SymV>(n, bw);
+  return hashconsing(ret);
 }
 
 inline PtrVal make_SymV(iOP rator, List<PtrVal> rands, size_t bw) {
@@ -492,10 +541,8 @@ inline PtrVal make_SymV(iOP rator, List<PtrVal> rands, size_t bw) {
   // if (s) {
   //   return s;
   // }
-  auto ret = std::make_shared<SymV>(rator, std::move(rands), bw);
-  if (!use_hashcons) return ret;
-  auto ins = objpool.insert(ret);
-  return *(ins.first);
+  auto ret = make_simple<SymV>(rator, std::move(rands), bw);
+  return hashconsing(ret);
 }
 
 inline List<PtrVal> make_SymV_seq(unsigned length, const std::string& prefix, size_t bw) {
@@ -528,7 +575,7 @@ struct StructV : Value {
   virtual bool is_conc() const override {
     ABORT("is_conc: unexpected value StructV.");
   }
-  virtual std::shared_ptr<IntV> to_IntV() override { return nullptr; }
+  virtual simple_ptr<IntV> to_IntV() override { return nullptr; }
   virtual int get_bw() const override { ABORT("get_bw: unexpected value StructV."); }
 
   virtual bool compare(const Value* v) const override {
