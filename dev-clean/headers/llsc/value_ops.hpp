@@ -56,7 +56,7 @@ simple_ptr<T> static_pointer_cast(simple_ptr<U> v) {
 template <typename T>
 struct hash<simple_ptr<T>> {
   size_t operator()(const simple_ptr<T> &rhs) const noexcept {
-    return hash<T*>(rhs.get());
+    return hash<T*>{}(rhs.get());
   }
 };
 }
@@ -130,15 +130,13 @@ struct Value : public enable_simple_from_this<Value>, public Printable {
 
 };
 
-template<>
-struct std::hash<PtrVal> {
+struct hash_PtrVal {
   size_t operator()(PtrVal const& v) const noexcept {
     return v ? v->hash() : std::hash<nullptr_t>{}(nullptr);
   }
 };
 
-template<>
-struct std::equal_to<PtrVal> {
+struct equal_to_PtrVal {
   bool operator()(PtrVal const& a, PtrVal const& b) const {
     if (!a || !b) return a == b;
     if (std::type_index(typeid(*a)) != std::type_index(typeid(*b)))
@@ -147,19 +145,19 @@ struct std::equal_to<PtrVal> {
   }
 };
 
-template<>
-struct std::equal_to<immer::flex_vector<PtrVal>> {
-  bool operator()(immer::flex_vector<PtrVal> const& a, immer::flex_vector<PtrVal> const& b) const {
-    if (a.size() != b.size()) return false;
-    for (int i = 0; i < a.size(); i++)
-      if (a.at(i).get() != b.at(i).get()) return false;
-    return true;
-  }
-};
+// template<>
+// struct std::equal_to<immer::flex_vector<PtrVal>> {
+//   bool operator()(immer::flex_vector<PtrVal> const& a, immer::flex_vector<PtrVal> const& b) const {
+//     if (a.size() != b.size()) return false;
+//     for (int i = 0; i < a.size(); i++)
+//       if (a.at(i).get() != b.at(i).get()) return false;
+//     return true;
+//   }
+// };
 
 inline phmap::parallel_flat_hash_set<PtrVal,
-    std::hash<PtrVal>,
-    std::equal_to<PtrVal>,
+    hash_PtrVal,
+    equal_to_PtrVal,
     std::allocator<PtrVal>,
     4,
     std::mutex> objpool;
