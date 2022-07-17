@@ -439,23 +439,21 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
 
     def ptrOff(off: Rep[Value]): Rep[Value] =
       (v, off) match {
-        // Add case for IntV non-const
+        // Todo: Add case for IntV non-const
         case (LocV(a, k, s, o), IntV(n, _)) => LocV(a, k, s, o + n)
         case _ => "ptroff".reflectWith[Value](v, off)
       }
 
-    def add_withbw(rhs: Rep[Value], bw: Int): Rep[Value] =
+    def addOff(rhs: Rep[Value]): Rep[Value] =
       (v, rhs) match {
-        case (IntV(n1, _), IntV(n2, _)) => IntV(n1 + n2, bw)
-        // Mind the bit-width
-        case (IntV(_, _) | SymV(_, _) | IntOp2(_, _, _), IntV(_, _) | SymV(_, _) | IntOp2(_, _, _)) => IntOp2("add", v, rhs)
-        case _ => ???
+        case (IntV(n1, bw1), IntV(n2, bw2)) => if (bw1 == bw2) IntV(n1 + n2, bw1) else ???
+        case _ => IntOp2("add", v, rhs)
       }
 
-    def mul_withbw(rhs: Long, bw: Int): Rep[Value] =
-      v match {
-        case IntV(n, _) => IntV(n*rhs, bw)
-        case _ => IntOp2("mul", v, IntV(rhs, bw))
+    def mulOff(rhs: Rep[Value]): Rep[Value] =
+      (v, rhs) match {
+        case (IntV(n1, bw1), IntV(n2, bw2)) => if (bw1 == bw2) IntV(n1 * n2, bw1) else ???
+        case _ => IntOp2("mul", v, rhs)
       }
 
     def toBytes: Rep[List[Value]] = v match {

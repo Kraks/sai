@@ -848,12 +848,6 @@ inline PtrVal operator+ (const PtrVal& lhs, const int& rhs) {
   if (auto i = std::dynamic_pointer_cast<IntV>(lhs)) {
     return make_IntV(i->i + rhs, i->bw);
   }
-  if (auto symloc = std::dynamic_pointer_cast<SymLocV>(lhs)) {
-    auto off = std::dynamic_pointer_cast<SymV>(symloc->off);
-    ASSERT(off && (off->get_bw() == addr_index_bw), "Invalid offset index");
-    auto new_off = int_op_2(iOP::op_add, off, SymLocV_index(rhs));
-    return make_SymLocV(symloc->base, symloc->k, symloc->size, new_off);
-  }
   ABORT("Unknown application of operator+");
 }
 
@@ -870,9 +864,6 @@ inline PtrVal operator+ (const PtrVal& lhs, const PtrVal& rhs) {
       auto new_off = int_op_2(iOP::op_add, sym_rhs, SymLocV_index(loc->l - loc->base));
       return make_SymLocV(loc->base, loc->k, loc->size, new_off);
     }
-  }
-  if (auto i = std::dynamic_pointer_cast<IntV>(lhs)) {
-    return int_op_2(iOP::op_add, lhs, rhs);
   }
   if (auto symloc = std::dynamic_pointer_cast<SymLocV>(lhs)) {
     auto off = std::dynamic_pointer_cast<SymV>(symloc->off);

@@ -320,9 +320,9 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
   def calculateOffset(ty: LLVMType, index: List[Rep[Value]]): Rep[Value] = {
     if (index.isEmpty) IntV(0.toLong, DEFAULT_INDEX_BW) else ty match {
       case PtrType(ety, addrSpace) =>
-        index.head.sExt(DEFAULT_INDEX_BW).mul_withbw(getTySize(ety), DEFAULT_INDEX_BW).add_withbw(calculateOffset(ety, index.tail), DEFAULT_INDEX_BW)
+        (index.head.sExt(DEFAULT_INDEX_BW) mulOff IntV(getTySize(ety), DEFAULT_INDEX_BW)) addOff calculateOffset(ety, index.tail)
       case ArrayType(size, ety) =>
-        index.head.sExt(DEFAULT_INDEX_BW).mul_withbw(getTySize(ety), DEFAULT_INDEX_BW).add_withbw(calculateOffset(ety, index.tail), DEFAULT_INDEX_BW)
+        (index.head.sExt(DEFAULT_INDEX_BW) mulOff IntV(getTySize(ety), DEFAULT_INDEX_BW)) addOff calculateOffset(ety, index.tail)
       case NamedType(id) =>
         calculateOffset(typeDefMap(id), index)
       case Struct(types) =>
