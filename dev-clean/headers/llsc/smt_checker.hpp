@@ -52,11 +52,11 @@ class CachedChecker : public Checker {
   }
 
 public:
-  using VarMap = std::map<simple_ptr<SymV>, Expr>;
+  using VarMap = std::unordered_map<simple_ptr<SymV>, Expr>;
   using ExprDetail = std::tuple<Expr, std::shared_ptr<VarMap>>;
-  std::map<PtrVal, ExprDetail> objcache;
+  std::unordered_map<PtrVal, ExprDetail> objcache;
 
-  using Model = std::map<simple_ptr<SymV>, IntData>;
+  using Model = std::unordered_map<simple_ptr<SymV>, IntData>;
   using CheckResult = std::tuple<solver_result, std::shared_ptr<Model>>;
   std::map<std::set<PtrVal>, CheckResult> cexcache;
 
@@ -84,7 +84,7 @@ public:
 
     push();
     // translation
-    std::map<PtrVal, ExprDetail> exprmap;
+    std::unordered_map<PtrVal, ExprDetail> exprmap;
     bool query_include = false;
     for (auto &v: conds) {
       if (v == query_expr) query_include = true;
@@ -97,11 +97,11 @@ public:
     // constraint independence resolving
     std::set<PtrVal> condset;
     if (use_cons_indep && exprmap.size() > 1) {
-      std::map<simple_ptr<SymV>, std::set<PtrVal>> v2q;
+      std::unordered_multimap<simple_ptr<SymV>, PtrVal> v2q;
       for (auto& [q, ev]: exprmap) {
         auto& [e, vm] = ev;
         for (auto& [v, v2]: *vm) {
-          v2q[v].insert(q);
+          v2q.emplace(v, q);
         }
       }
       std::queue<PtrVal> queue;
@@ -112,10 +112,12 @@ public:
           condset.insert(q);
           auto& [e, vm] = exprmap.at(q);
           for (auto& [v, v2]: *vm) {
-            for (auto& q2: v2q[v])
-              if (q2 != q)
-                queue.push(q2);
-            v2q[v].clear();
+            auto [bg, ed] = v2q.equal_range(v);
+            for (auto it = bg; it != ed; ++it) {
+              auto& [v3, q2] = *it;
+              if (q2 != q) queue.push(q2);
+            }
+            v2q.erase(v);
           }
         }
       }
@@ -153,7 +155,7 @@ public:
       }
     }
     if (use_cexcache) {
-      cexcache.emplace(condset, std::make_tuple(result, model));
+      cexcache.emplace(std::move(condset), std::make_tuple(result, model));
     }
     if (result == sat && query_expr) {  // !require_model
       model = std::make_shared<Model>();
