@@ -52,8 +52,8 @@ class CachedChecker : public Checker {
   }
 
 public:
-  using VarSet = std::set<simple_ptr<SymV>>;
-  using ExprDetail = std::tuple<Expr, VarSet>;
+  using VarMap = std::map<simple_ptr<SymV>, Expr>;
+  using ExprDetail = std::tuple<Expr, VarMap>;
   std::unordered_map<PtrVal, ExprDetail> objcache;
 
   using Model = std::unordered_map<simple_ptr<SymV>, IntData>;
@@ -68,7 +68,7 @@ public:
   const ExprDetail& construct_expr(PtrVal e) {
     if (auto it = objcache.find(e); it != objcache.end())
       return it->second;
-    VarSet tmp;
+    VarMap tmp;
     auto expr = self()->construct_expr_internal(e, tmp);
     auto [it, ins] = objcache.emplace(e, std::make_tuple(expr, std::move(tmp)));
     return it->second;
@@ -121,13 +121,13 @@ public:
           auto& nset = std::get<1>(next->second);
           auto cit = cset.begin(); auto nit = nset.begin();
           if (cit != cset.end() && nit != nset.end()) {
-            do if (*nit == *cit) {
+            do if (nit->first == cit->first) {
               condset.insert(next->first);
               queue.push_back(next);
               next = objcache.end();
               break;
             }
-            while (*nit < *cit ? ++nit != nset.end() : ++cit != cset.end());
+            while (nit->first < cit->first ? ++nit != nset.end() : ++cit != cset.end());
           }
         }
       }
@@ -146,19 +146,19 @@ public:
     }
 
     //assert and check
-    VarSet varset;
+    VarMap varmap;
     if (condvec.size()) {  // use local cache if possible
       for (auto& v: condvec) {
         auto& [e, vm] = v->second;
         self()->add_constraint_internal(e);
-        varset.insert(vm.begin(), vm.end());
+        varmap.insert(vm.begin(), vm.end());
       }
     }
     else {
       for (auto& v: condset) {
         auto& [e, vm] = objcache.at(v);
         self()->add_constraint_internal(e);
-        varset.insert(vm.begin(), vm.end());
+        varmap.insert(vm.begin(), vm.end());
       }
     }
     solver_result result = check_model();
@@ -167,8 +167,7 @@ public:
     std::shared_ptr<Model> model;
     if (result == sat && (use_cexcache || require_model)) {
       model = std::make_shared<Model>();
-      for (auto& v: varset) {
-        auto& e = std::get<0>(objcache.at(v));
+      for (auto& [v, e]: varmap) {
         model->emplace(v, self()->get_value_internal(e));
       }
     }
