@@ -582,7 +582,7 @@ struct SymLocV : SymV {
   size_t base, size;
 
   SymLocV(Addr base, LocV::Kind k, int size, PtrVal off) :
-    SymV(iOP::op_add, List<PtrVal>({ bv_sext(off, addr_bw), make_IntV((LocV::MemOffset[k] + base), addr_bw) }), addr_bw), off(addr_index_ext(off)), k(k), base(base), size(size) {
+    SymV(iOP::op_add, { bv_sext(off, addr_bw), make_IntV((LocV::MemOffset[k] + base), addr_bw) }, addr_bw), off(addr_index_ext(off)), k(k), base(base), size(size) {
     hash_combine(hash(), std::string("symlocv"));
     hash_combine(hash(), std::hash<PtrVal>{}(off));
     hash_combine(hash(), k);
@@ -608,10 +608,8 @@ struct SymLocV : SymV {
 };
 
 inline PtrVal make_SymLocV(Addr base, LocV::Kind k, size_t size, PtrVal off) {
-  auto ret = std::make_shared<SymLocV>(base, k, size, off);
-  if (!use_hashcons) return ret;
-  auto ins = objpool.insert(ret);
-  return *(ins.first);
+  auto ret = make_simple<SymLocV>(base, k, size, off);
+  return hashconsing(ret);
 }
 
 struct StructV : Value {
@@ -783,7 +781,7 @@ inline PtrVal ite(const PtrVal& cond, const PtrVal& v_t, const PtrVal& v_e) {
     return cond_i->i ? v_t : v_e;
   }
   ASSERT(std::dynamic_pointer_cast<SymV>(cond), "Invalid condition");
-  return make_SymV(iOP::op_ite, List<PtrVal>({ cond, v_t, v_e }), v_t->get_bw());
+  return make_SymV(iOP::op_ite, { cond, v_t, v_e }, v_t->get_bw());
 }
 
 /* TODO: implement those two <2022-03-10, David Deng> */
