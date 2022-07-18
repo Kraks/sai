@@ -90,34 +90,49 @@ public:
     if (query_expr)
       construct_expr(query_expr);
 
-    // constraint independence resolving
+    // local storage
+    using objiter_t = typename decltype(objcache)::iterator;
+    std::vector<objiter_t> condvec;
     std::set<PtrVal> condset;
-    if (use_cons_indep && conds.size() > 1) {
-      std::queue<PtrVal> queue;
-      if (query_expr) {
-        queue.push(query_expr);
+
+    // constraint independence resolving
+    if (use_cons_indep && conds.size() > (query_expr ? 0 : 1)) {
+      std::vector<objiter_t> queue;
+      objiter_t cur;
+      int idx;
+
+      for (auto& v: conds) {
+        condvec.push_back(objcache.find(v));
+      }
+      if (!query_expr) {
+        cur = condvec.back(); condvec.pop_back();
+        idx = 1;
+        queue.push_back(cur);
+        condset.insert(cur->first);
       }
       else {
-        auto& start = conds[conds.size() - 1];
-        queue.push(start);
-        condset.insert(start);
+        cur = objcache.find(query_expr);
+        idx = 0;
       }
-      while (!queue.empty()) {
-        auto q = queue.front(); queue.pop();
-        auto& qset = std::get<1>(objcache.at(q));
-        for (auto& v: conds) if (condset.find(v) == condset.end()) {
-          auto& vset = std::get<1>(objcache.at(v));
-          auto qit = qset.begin(); auto vit = vset.begin();
-          if (qit != qset.end() && vit != vset.end()) {
-            do if (*vit == *qit) {
-              condset.insert(v);
-              queue.push(v);
+
+      do {
+        auto& cset = std::get<1>(cur->second);
+        for (auto& next: condvec) if (next != objcache.end()) {
+          auto& nset = std::get<1>(next->second);
+          auto cit = cset.begin(); auto nit = nset.begin();
+          if (cit != cset.end() && nit != nset.end()) {
+            do if (*nit == *cit) {
+              condset.insert(next->first);
+              queue.push_back(next);
+              next = objcache.end();
               break;
             }
-            while (*vit < *qit ? ++vit != vset.end() : ++qit != qset.end());
+            while (*nit < *cit ? ++nit != nset.end() : ++cit != cset.end());
           }
         }
       }
+      while (idx < queue.size() && (cur = queue[idx++], true));
+      condvec = std::move(queue);
     } else {
       condset.insert(conds.begin(), conds.end());
     }
@@ -132,10 +147,19 @@ public:
 
     //assert and check
     VarSet varset;
-    for (auto& v: condset) {
-      auto& [e, vm] = objcache.at(v);
-      self()->add_constraint_internal(e);
-      varset.insert(vm.begin(), vm.end());
+    if (condvec.size()) {  // use local cache if possible
+      for (auto& v: condvec) {
+        auto& [e, vm] = v->second;
+        self()->add_constraint_internal(e);
+        varset.insert(vm.begin(), vm.end());
+      }
+    }
+    else {
+      for (auto& v: condset) {
+        auto& [e, vm] = objcache.at(v);
+        self()->add_constraint_internal(e);
+        varset.insert(vm.begin(), vm.end());
+      }
     }
     solver_result result = check_model();
 
