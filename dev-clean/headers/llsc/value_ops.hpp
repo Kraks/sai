@@ -148,16 +148,6 @@ struct equal_to_PtrVal {
   }
 };
 
-// template<>
-// struct std::equal_to<immer::flex_vector<PtrVal>> {
-//   bool operator()(immer::flex_vector<PtrVal> const& a, immer::flex_vector<PtrVal> const& b) const {
-//     if (a.size() != b.size()) return false;
-//     for (int i = 0; i < a.size(); i++)
-//       if (a.at(i).get() != b.at(i).get()) return false;
-//     return true;
-//   }
-// };
-
 inline phmap::parallel_flat_hash_set<PtrVal,
     hash_PtrVal,
     equal_to_PtrVal,
@@ -479,7 +469,7 @@ struct SymV : Value {
     if (this->bw != that->bw) return false;
     if (this->name != that->name) return false;
     if (this->rator != that->rator) return false;
-    return std::equal_to<decltype(rands)>{}(this->rands, that->rands);
+    return this->rands == that->rands;
   }
   virtual List<PtrVal> to_bytes() {
     if (bw <= 8) return List<PtrVal>{shared_from_this()};
@@ -600,7 +590,7 @@ struct SymLocV : SymV {
 
   virtual bool compare(const Value* v) const override {
     auto that = static_cast<decltype(this)>(v);
-    if (!std::equal_to<PtrVal>{}(this->off, that->off)) return false;
+    if (this->off != that->off) return false;
     if (this->k != that->k) return false;
     if (this->base != that->base) return false;
     return this->size == that->size;
@@ -635,7 +625,7 @@ struct StructV : Value {
 
   virtual bool compare(const Value* v) const override {
     auto that = static_cast<decltype(this)>(v);
-    return std::equal_to<decltype(fs)>{}(this->fs, that->fs);
+    return this->fs == that->fs;
   }
 
   virtual List<PtrVal> to_bytes() { ABORT("???"); }
