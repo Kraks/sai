@@ -230,6 +230,8 @@ public:
   }
 
   Checker& get_checker() {
+    // Todo: weird fix for the thread-local solver degrading, figure out the real cause later
+    static std::unique_ptr<Checker> wtf(solver_kind == SolverKind::stp ? static_cast<Checker*>(new CheckerSTP) : static_cast<Checker*>(new CheckerZ3));
     return *(checker_map[std::this_thread::get_id()]);
   }
 };
