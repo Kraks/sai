@@ -305,18 +305,10 @@ class ShadowMemEntry {
     ASSERT(std::dynamic_pointer_cast<LocV>(addr) != nullptr, "Non-location value");
     memset(buf, 0, size+1);
   }
-  ~ShadowMemEntry() {
-    free(buf);
-  }
-  void writeback(SS& state) {
-    copy_native2state(state, mem_addr, buf, size);
-  }
-  void readbuf(SS& state) {
-    copy_state2native(state, mem_addr, buf, size);
-  }
-  char* getbuf() {
-    return buf;
-  }
+  ~ShadowMemEntry() { delete buf; }
+  void writeback(SS& state) { copy_native2state(state, mem_addr, buf, size); }
+  void readbuf(SS& state) { copy_state2native(state, mem_addr, buf, size); }
+  char* getbuf() { return buf; }
 };
 
 template<typename T>
