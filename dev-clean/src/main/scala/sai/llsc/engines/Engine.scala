@@ -229,12 +229,8 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
       case FCmpInst(pred, ty, lhs, rhs) => evalFloatOp2(pred.op, lhs, rhs, ty)
       case ICmpInst(pred, ty, lhs, rhs) => evalIntOp2(pred.op, lhs, rhs, ty)
       case CallInst(ty, f, args) =>
-        val argValues: List[LLVMValue] = args.map {
-          case TypedArg(ty, attrs, value) => value
-        }
-        val argTypes: List[LLVMType] = args.map {
-          case TypedArg(ty, attrs, value) => ty
-        }
+        val argValues: List[LLVMValue] = extractValues(args)
+        val argTypes: List[LLVMType] = extractTypes(args)
         for {
           fv <- eval(f, VoidType, Some(argTypes))
           vs <- mapM2Tup(argValues)(argTypes)(eval(_, _, None))
@@ -410,12 +406,8 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           _ <- updateMem(v2, v1, getTySize(ty1))
         } yield ()
       case CallInst(ty, f, args) =>
-        val argValues: List[LLVMValue] = args.map {
-          case TypedArg(ty, attrs, value) => value
-        }
-        val argTypes: List[LLVMType] = args.map {
-          case TypedArg(ty, attrs, value) => ty
-        }
+        val argValues: List[LLVMValue] = extractValues(args)
+        val argTypes: List[LLVMType] = extractTypes(args)
         for {
           fv <- eval(f, VoidType, Some(argTypes))
           vs <- mapM2Tup(argValues)(argTypes)(eval(_, _, None))

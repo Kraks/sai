@@ -200,12 +200,8 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
       case FCmpInst(pred, ty, lhs, rhs) => k(ss, evalFloatOp2(pred.op, lhs, rhs, ty, ss))
       case ICmpInst(pred, ty, lhs, rhs) => k(ss, evalIntOp2(pred.op, lhs, rhs, ty, ss))
       case CallInst(ty, f, args) =>
-        val argValues: List[LLVMValue] = args.map {
-          case TypedArg(ty, attrs, value) => value
-        }
-        val argTypes: List[LLVMType] = args.map {
-          case TypedArg(ty, attrs, value) => ty
-        }
+        val argValues: List[LLVMValue] = extractValues(args)
+        val argTypes: List[LLVMType] = extractTypes(args)
         val fv = eval(f, VoidType, ss, Some(argTypes))
         val vs = argValues.zip(argTypes).map {
           case (v, t) => eval(v, t, ss)
@@ -314,12 +310,8 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
         val v2 = eval(val2, ty2, ss)
         k(ss.update(v2, v1, getTySize(ty1)))
       case CallInst(ty, f, args) =>
-        val argValues: List[LLVMValue] = args.map {
-          case TypedArg(ty, attrs, value) => value
-        }
-        val argTypes: List[LLVMType] = args.map {
-          case TypedArg(ty, attrs, value) => ty
-        }
+        val argValues: List[LLVMValue] = extractValues(args)
+        val argTypes: List[LLVMType] = extractTypes(args)
         val fv = eval(f, VoidType, ss, Some(argTypes))
         val vs = argValues.zip(argTypes).map {
           case (v, t) => eval(v, t, ss)

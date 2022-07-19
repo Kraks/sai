@@ -5,6 +5,13 @@ import sai.lang.llvm.IR._
 import sai.lang.llvm.parser.Parser._
 
 object ASTUtils {
+  def extractValues(args: List[Arg]): List[LLVMValue] = args.map {
+    case TypedArg(ty, attrs, value) => value
+  }
+  def extractTypes(args: List[Arg]): List[LLVMType] = args.map {
+    case TypedArg(ty, attrs, value) => ty
+  }
+
   def flattenTypedList(xs: List[TypedConst]) = xs.map(c => flattenAS(c.const)).flatten
 
   def flattenAS(cst: Constant): List[Constant] = cst match {
