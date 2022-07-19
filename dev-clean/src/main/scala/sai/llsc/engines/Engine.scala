@@ -66,11 +66,10 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
         ret(FunV[Id](FunFuns(id)))
       case GlobalId(id) if funDeclMap.contains(id) =>
         val t = funDeclMap(id).header.returnType
-        val fv_option = ExternalFun.get(id, Some(t), argTypes)
-        val fv = if (fv_option.isEmpty) {
+        val fv = ExternalFun.get(id, Some(t), argTypes).getOrElse {
           compile(funDeclMap(id), t, argTypes.get)
           FunV[Id](FunFuns(getMangledFunctionName(funDeclMap(id), argTypes.get)))
-        } else fv_option.get
+        }
         ret(fv)
       case GlobalId(id) if globalDefMap.contains(id) =>
         ret(heapEnv(id)())
