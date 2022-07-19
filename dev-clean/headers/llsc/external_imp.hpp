@@ -297,16 +297,13 @@ inline void writeback_pointer_arg(SS& state, PtrVal loc, void* buf) {
 
 class ShadowMemEntry {
   private:
-  char* buf = nullptr;
+  char* buf;
   public:
   size_t size;
   PtrVal mem_addr;
-  ShadowMemEntry(PtrVal addr, size_t size) {
+  ShadowMemEntry(PtrVal addr, size_t size) : buf(new char[size+1]), mem_addr(addr), size(size) {
     ASSERT(std::dynamic_pointer_cast<LocV>(addr) != nullptr, "Non-location value");
-    this->buf = (char*) malloc(size+1);
-    memset(this->buf, 0, size+1);
-    this->mem_addr = addr;
-    this->size = size;
+    memset(buf, 0, size+1);
   }
   ~ShadowMemEntry() {
     free(buf);
