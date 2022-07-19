@@ -46,11 +46,11 @@ jobs:
         cd ../../klee_fs_lib
         make
     - name: Generate models
-      run: sbt runMain sai.llsc.GenerateExternal
+      run: sbt 'runMain sai.llsc.GenerateExternal'
     - name: Test models
       run: |
-        sbt runMain sai.llsc.GenerateExternalTest
-        sbt testOnly sai.llsc.TestUnit
+        sbt 'runMain sai.llsc.GenerateExternalTest'
+        sbt 'testOnly sai.llsc.TestUnit'
     - name: Install Z3
       run: |
         cd ../third-party
