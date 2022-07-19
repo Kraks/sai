@@ -60,7 +60,7 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
         val t = funDeclMap(id).header.returnType
         val fv_option = ExternalFun.get(id, Some(t), argTypes)
         if (fv_option.isEmpty) {
-          compile_missing_external(funDeclMap(id), t, argTypes.get)
+          compile(funDeclMap(id), t, argTypes.get)
           FunV[Ref](FunFuns(getMangledFunctionName(funDeclMap(id), argTypes.get)))
         } else fv_option.get
       case GlobalId(id) if globalDefMap.contains(id) =>

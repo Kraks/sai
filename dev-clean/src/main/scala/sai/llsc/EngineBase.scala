@@ -106,8 +106,24 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
   }
   def compile(funs: List[FunctionDef]): Unit = funs.foreach(compile)
 
+  // `ret` and `argTypes` are the type information from the call-site
+  def compile(f: FunctionDecl, ret: LLVMType, argTypes: List[LLVMType]): Unit = {
+    val mangledName = getMangledFunctionName(f, argTypes);
+    if (FunFuns.contains(mangledName)) {
+      System.out.println(s"Warning: ignoring the re-generation of missing native external ${mangledName}")
+      return
+    }
+    val (fn, n) = repMissingExternalFun(f, ret, argTypes)
+    funNameMap(n) = "__LLSC_NATIVE_EXTERNAL_"+mangledName.tail
+    FunFuns(mangledName) = fn
+  }
+
   abstract class highfunc[T, F[_], G[_]] {
     def apply[A:Manifest](a: F[T]): G[A]
+  }
+
+  abstract class highfuncPoly[F[_], G[_]] {
+    def apply[T:Manifest, A:Manifest](a: F[T]): G[A]
   }
 
   def applyWithManifestRes[T,F[_],G[+_]](m: Manifest[_], f : highfunc[T, F, G])(arg : F[T]): G[Any] = {
@@ -125,10 +141,6 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     else ???
   }
 
-  abstract class highfuncPoly[F[_], G[_]] {
-    def apply[T:Manifest, A:Manifest](a: F[T]): G[A]
-  }
-
   def applyWithManifestRes[T:Manifest,F[_],G[+_]](m: Manifest[_], f : highfuncPoly[F, G])(arg : F[T]): G[Any] = {
     val f_arg = new highfunc[T, F, G] {
       def apply[A:Manifest](a: F[T]): G[A] = f[T, A](arg)
@@ -140,22 +152,11 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     def apply[T:Manifest, A:Manifest](arg: Rep[T]): Rep[A] = rep_cast[T, A](arg)
   }
 
-  // For function that has Variable Arguments, we need to generate different template for different argument types.
+  // For function that has Variable Arguments, we need to generate different template for different call-site and argument types.
   def getMangledFunctionName(f: FunctionDecl, argTypes: List[LLVMType]): String = {
-    val has_vararg = f.header.params.contains(Vararg)
-    val mangled_name = if (!has_vararg) f.id else f.id + argTypes.map("_"+getPrimitiveTypeName(_)).mkString("")
-    mangled_name.replaceAllLiterally(".","_")
-  }
-
-  def compile_missing_external(f: FunctionDecl, ret: LLVMType, argTypes: List[LLVMType]): Unit = {
-    val mangled_name = getMangledFunctionName(f, argTypes);
-    if (FunFuns.contains(mangled_name)) {
-      System.out.println(s"Warning: ignoring the re-generation of missing native external ${mangled_name}")
-      return
-    }
-    val (fn, n) = repMissingExternalFun(f, ret, argTypes)
-    funNameMap(n) = "__LLSC_NATIVE_EXTERNAL_"+mangled_name.tail
-    FunFuns(mangled_name) = fn
+    val hasVararg = f.header.params.contains(Vararg)
+    val mangledName = if (!hasVararg) f.id else f.id + argTypes.map("_"+getPrimitiveTypeName(_)).mkString("")
+    mangledName.replaceAllLiterally(".", "_")
   }
 
   val funMap: StaticMap[String, FunctionDef] = m.funcDefMap

@@ -72,7 +72,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
         val t = funDeclMap(id).header.returnType
         val fv_option = ExternalFun.get(id, Some(t), argTypes)
         val fv = if (fv_option.isEmpty) {
-          compile_missing_external(funDeclMap(id), t, argTypes.get)
+          compile(funDeclMap(id), t, argTypes.get)
           FunV[Id](FunFuns(getMangledFunctionName(funDeclMap(id), argTypes.get)))
         } else fv_option.get
         ret(fv)
