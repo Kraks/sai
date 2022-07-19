@@ -233,7 +233,8 @@ class Stack {
     PtrVal at(size_t idx) { return mem.at(idx); }
     PtrVal at(size_t idx, int size) { return mem.at(idx, size); }
     PtrVal at_struct(size_t idx, int size) {
-      return std::make_shared<StructV>(mem.slice(idx, size).get_mem());
+      auto ret = make_simple<StructV>(mem.slice(idx, size).get_mem());
+      return hashconsing(ret);
     }
     Stack&& update(size_t idx, PtrVal val) {
       mem.update(idx, val);
@@ -323,15 +324,63 @@ class SS {
     }
     PtrVal at(PtrVal addr, int size) {
       auto loc = std::dynamic_pointer_cast<LocV>(addr);
-      ASSERT(loc != nullptr, "Lookup an non-address value");
-      if (loc->k == LocV::kStack) return stack.at(loc->l, size);
-      return heap.at(loc->l, size);
+      if (loc != nullptr) {
+        if (loc->k == LocV::kStack) return stack.at(loc->l, size);
+        return heap.at(loc->l, size);
+      } else {
+        auto symloc = std::dynamic_pointer_cast<SymLocV>(addr);
+        ASSERT(symloc != nullptr && symloc->size >= size, "Lookup an non-address value");
+        std::vector<std::pair<PtrVal, int>> result;
+        auto offsym = std::dynamic_pointer_cast<SymV>(symloc->off);
+        ASSERT(offsym && (offsym->get_bw() == addr_index_bw), "Invalid sym offset");
+        if (SymLocStrategy::one == symloc_strategy || SymLocStrategy::feasible == symloc_strategy) {
+          int cnt_bound = -1;
+          int cnt = 0;
+          if (SymLocStrategy::one == symloc_strategy)
+            cnt_bound = 1;
+          auto low_cond = int_op_2(iOP::op_sge, offsym, make_IntV(0, addr_index_bw));
+          auto high_cond = int_op_2(iOP::op_sle, offsym, make_IntV(symloc->size - size, addr_index_bw));
+          auto pc2 = pc;
+          pc2.add(low_cond).add(high_cond);
+          auto res = get_sat_value(pc2, offsym);
+          while (res.first) {
+            cnt++;
+            int offset_val = res.second;
+            auto t_cond = int_op_2(iOP::op_eq, offsym, make_IntV(offset_val, offsym->get_bw()));
+            result.push_back(std::make_pair(t_cond, offset_val));
+            if (cnt_bound == cnt)
+              break;
+            pc2.add(SymV::neg(t_cond));
+            res = get_sat_value(pc2, offsym);
+          }
+          ASSERT(cnt > 0, "No satisfiable offset value");
+        } else {
+          ASSERT(SymLocStrategy::all == symloc_strategy, "Bad symloc strategy");
+          for (int offset_val=0; offset_val <= (symloc->size - size); offset_val++) {
+            auto t_cond = int_op_2(iOP::op_eq, offsym, make_IntV(offset_val, offsym->get_bw()));
+            result.push_back(std::make_pair(t_cond, offset_val));
+          }
+        }
+        PtrVal read_res = nullptr;
+        for(auto it = result.rbegin(); it != result.rend(); ++it) {
+          auto val = at(make_LocV(symloc->base, symloc->k, symloc->size, it->second), size);
+          if (result.rbegin() == it) {
+            read_res = val;
+          } else {
+            read_res = ite(it->first, val, read_res);
+          }
+        }
+        ASSERT(read_res, "Bad result");
+        // Todo: should we modify the pc to add the in-bound constraints
+        return read_res;
+      }
     }
     PtrVal at_struct(PtrVal addr, int size) {
       auto loc = std::dynamic_pointer_cast<LocV>(addr);
       ASSERT(loc != nullptr, "Lookup an non-address value");
       if (loc->k == LocV::kStack) return stack.at_struct(loc->l, size);
-      return std::make_shared<StructV>(heap.slice(loc->l, size).get_mem());
+      auto ret = make_simple<StructV>(heap.slice(loc->l, size).get_mem());
+      return hashconsing(ret);
     }
     List<PtrVal> at_seq(PtrVal addr, int count) {
       auto s = std::dynamic_pointer_cast<StructV>(at_struct(addr, count));
@@ -475,7 +524,8 @@ inline const List<SSVal> mt_path_result = List<SSVal>{};
 using func_t = List<SSVal> (*)(SS&, List<PtrVal>);
 
 inline PtrVal make_FunV(func_t f) {
-  return std::make_shared<FunV<func_t>>(f);
+  auto ret = make_simple<FunV<func_t>>(f);
+  return hashconsing(ret);
 }
 
 inline List<SSVal> direct_apply(PtrVal v, SS ss, List<PtrVal> args) {
@@ -487,7 +537,8 @@ inline List<SSVal> direct_apply(PtrVal v, SS ss, List<PtrVal> args) {
 using func_cps_t = std::monostate (*)(SS&, List<PtrVal>, std::function<std::monostate(SS&, PtrVal)>);
 
 inline PtrVal make_CPSFunV(func_cps_t f) {
-  return std::make_shared<FunV<func_cps_t>>(f);
+  auto ret = make_simple<FunV<func_cps_t>>(f);
+  return hashconsing(ret);
 }
 
 inline std::monostate cps_apply(PtrVal v, SS ss, List<PtrVal> args, std::function<std::monostate(SS&, PtrVal)> k) {

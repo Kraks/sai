@@ -39,9 +39,9 @@ public:
     std::vector<ExprHandle> expr_rands;
     int bw = sym_e->bw;
     for (auto e : sym_e->rands) {
-      auto [e2, vm] = construct_expr(e);
+      auto& [e2, vm] = construct_expr(e);
       expr_rands.push_back(e2);
-      vars.insert(vm->begin(), vm->end());
+      vars.insert(vm.begin(), vm.end());
     }
     switch (sym_e->rator) {
     case iOP::op_add:
@@ -136,6 +136,15 @@ public:
       return vc_bvExtract(vc, expr_rands.at(0).get(),
                               getBVInt(expr_rands.at(1).get()),
                               getBVInt(expr_rands.at(2).get()));
+    case iOP::op_ite: {
+      auto cond = expr_rands.at(0).get();
+      auto v_t = expr_rands.at(1).get();
+      auto v_e = expr_rands.at(2).get();
+      ASSERT(BOOLEAN_TYPE == getType(cond), "Non Boolean condition");
+      ASSERT(getType(v_t) == getType(v_e), "Operation between different type");
+      ASSERT(getBVLength(v_t) == getBVLength(v_e),"Operation between different bv_length");
+      return vc_iteExpr(vc, cond, v_t, v_e);
+    }
     default: break;
     }
     ABORT("unkown operator when constructing STP expr");

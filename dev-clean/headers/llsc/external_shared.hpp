@@ -39,7 +39,7 @@ inline std::monostate noop(SS state, List<PtrVal> args, Cont k) {
 /******************************************************************************/
 
 inline char proj_IntV_char(const PtrVal& v) {
-  std::shared_ptr<IntV> intV = v->to_IntV();
+  auto intV = v->to_IntV();
   ASSERT(intV->get_bw() == 8, "proj_IntV_char: Bitwidth mismatch");
   return static_cast<char>(proj_IntV(intV));
 }
@@ -324,6 +324,7 @@ inline std::monostate __errno_location(SS state, List<PtrVal> args, Cont k) {
   return ____errno_location<std::monostate>(state, args, [&k](auto s, auto v) { return k(s, v); });
 }
 
+// Todo: could use is_conc method of struct value
 template<typename T>
 inline T __llsc_is_symbolic(SS& state, List<PtrVal>& args, __Cont<T> k) {
   auto v = args.at(0);
