@@ -16,49 +16,6 @@ import lms.core.stub.{While => _, _}
 import sai.lmsx._
 import sai.lmsx.smt.SMTBool
 
-case class CFG(funMap: Map[String, FunctionDef]) {
-  import collection.mutable.HashMap
-  import sai.structure.lattices.Lattices._
-
-  type Fun = String
-  type Label = String
-  type Succs = Map[Label, Set[Label]]
-  type Preds = Map[Label, Set[Label]]
-  type Graph = (Succs, Preds)
-
-  val mtGraph: Graph = Lattice[Graph].bot
-
-  val funCFG: Map[Fun, Graph] = funMap.map({ case (f, d) => (f, construct(d.body.blocks)) }).toMap
-
-  def succ(fname: String, label: Label): Set[Label] = funCFG(fname)._1(label)
-  def pred(fname: String, label: Label): Set[Label] = funCFG(fname)._2(label)
-
-  def construct(blocks: List[BB]): Graph = blocks.foldLeft(mtGraph) { case (g, b) =>
-    val from: Label = b.label.get
-    val to: Set[Label] = b.term match {
-      case BrTerm(lab) => Set(lab)
-      case CondBrTerm(ty, cnd, thnLab, elsLab) => Set(thnLab, elsLab)
-      case SwitchTerm(cndTy, cndVal, default, table) => Set(default) ++ table.map(_.label).toSet
-      case _ => Set()
-    }
-    g ⊔ (Map(from → to), to.map(_ → Set(from)).toMap)
-  }
-
-  def prettyPrint: Unit =
-    funCFG.foreach { case (f, g) =>
-      println(s"$f\n  successors:")
-      g._1.foreach { case (from, to) =>
-        val toStr = to.mkString(",")
-        println(s"    $from → {$toStr}")
-      }
-      println("  predecessors:")
-      g._2.foreach { case (to, from) =>
-        val fromStr = from.mkString(",")
-        println(s"    $to → {$fromStr}")
-      }
-    }
-}
-
 trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
   import scala.collection.immutable.{List => StaticList, Map => StaticMap}
   import collection.mutable.{HashMap, HashSet}
@@ -155,7 +112,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
   // For function that has Variable Arguments, we need to generate different code for different call-sites and argument types.
   def getMangledFunctionName(f: FunctionDecl, argTypes: List[LLVMType]): String = {
     val hasVararg = f.header.params.contains(Vararg)
-    val mangledName = if (!hasVararg) f.id else f.id + argTypes.map("_"+getPrimitiveTypeName(_)).mkString("")
+    val mangledName = if (!hasVararg) f.id else f.id + argTypes.map("_"+_.prettyName).mkString("")
     mangledName.replaceAllLiterally(".", "_")
   }
 

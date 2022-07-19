@@ -98,20 +98,23 @@ trait Opaques { self: SAIOps with BasicDefs =>
   }
 
   object ExternalFun {
+    import scala.collection.immutable.{Set => ImmSet}
     private val warned = MutableSet[String]()
     private val used = MutableSet[String]()
-    private val modeled = MutableSet[String](
+    private val modeled = ImmSet[String](
       "sym_print", "print_string", "malloc", "realloc",
       "llsc_assert", "llsc_assert_eager", "__assert_fail", "sym_exit",
       "make_symbolic", "make_symbolic_whole",
       "stop", "syscall", "llsc_assume",
-      "__errno_location", "_exit", "exit", "abort", "calloc", "llsc_is_symbolic", "llsc_get_valuel", "getpagesize", "memalign", "reallocarray"
+      "__errno_location", "_exit", "exit", "abort", "calloc",
+      "llsc_is_symbolic", "llsc_get_valuel", "getpagesize", "memalign", "reallocarray"
     )
-    private val syscalls = MutableSet[String](
+    private val syscalls = ImmSet[String](
       "open", "close", "read", "write", "lseek", "stat", "mkdir", "rmdir", "creat", "unlink", "chmod", "chown"
     )
-    val rederict = scala.collection.immutable.Set[String]("@memcpy", "@memset", "@memmove")
-    val unsafeExternals = MutableSet[String]("fork", "exec", "error", "raise", "kill", "free", "vprintf")
+    val redirect = ImmSet[String]("@memcpy", "@memset", "@memmove")
+    private val unsafeExternals = ImmSet[String]("fork", "exec", "error", "raise", "kill", "free", "vprintf")
+
     def apply(f: String, ret: Option[LLVMType] = None): Rep[Value] = {
       if (!used.contains(f)) {
         System.out.println(s"Use external function $f.")
@@ -383,6 +386,7 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
 
     def deref: Rep[Any] = "ValPtr-deref".reflectUnsafeWith[Any](v)
 
+    // GW: better naming? and what is supposed to be in this list?
     val ext_simpl_op = StaticList[String]("make_SymV", "make_IntV", "bv_sext", "bv_zext")
 
     def sExt(bw: Int): Rep[Value] = Unwrap(v) match {
@@ -416,6 +420,7 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
         case _ => "ptroff".reflectWith[Value](v, off)
       }
 
+    // GW: what is addOff and mulOff?
     def addOff(rhs: Rep[Value]): Rep[Value] =
       (v, rhs) match {
         case (IntV(n1, bw1), IntV(n2, bw2)) => if (bw1 == bw2) IntV(n1 + n2, bw1) else ???

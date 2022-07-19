@@ -60,7 +60,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           v <- eval(symDefMap(id).const, ty)
         } yield v
       case GlobalId(id) if funMap.contains(id) => {
-        if (ExternalFun.rederict.contains(id)) {
+        if (ExternalFun.redirect.contains(id)) {
           val t = funMap(id).header.returnType
           ret(ExternalFun.get(id, Some(t), argTypes).get)
         } else {
@@ -490,9 +490,9 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
       info("running native function: " + f.id)
       val native_args: List[Rep[Any]] = argTypes.zipWithIndex.map { case (ty, id) => {
          ty match {
-          case PtrType(_, _) => applyWithManifestRes[CppAddr, Rep, Rep](getPrimitiveTypeManifest(ty), poly_rep_cast)(ss.getPointerArg(args(id))) // Rep[CppAddr] -> char *
-          case IntType(size: Int) => applyWithManifestRes[Long, Rep, Rep](getPrimitiveTypeManifest(ty), poly_rep_cast)(ss.getIntArg(args(id))) // Rep[Long] -> long
-          case FloatType(k: FloatKind) => applyWithManifestRes[Double, Rep, Rep](getPrimitiveTypeManifest(ty), poly_rep_cast)(ss.getFloatArg(args(id))) // Rep[Double] -> double
+          case PtrType(_, _) => applyWithManifestRes[CppAddr, Rep, Rep](ty.toManifest, poly_rep_cast)(ss.getPointerArg(args(id))) // Rep[CppAddr] -> char *
+          case IntType(size: Int) => applyWithManifestRes[Long, Rep, Rep](ty.toManifest, poly_rep_cast)(ss.getIntArg(args(id))) // Rep[Long] -> long
+          case FloatType(k: FloatKind) => applyWithManifestRes[Double, Rep, Rep](ty.toManifest, poly_rep_cast)(ss.getFloatArg(args(id))) // Rep[Double] -> double
           case _ => ???
         }
       }}
@@ -505,7 +505,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
 
       val fv = NativeExternalFun(f.id.tail, Some(ret_ty))
 
-      val ret_m = getPrimitiveTypeManifest(ret_ty)
+      val ret_m = ret_ty.toManifest
 
       val native_apply = new highfunc[Rep[Any], List, Rep] {
         def apply[A:Manifest](args: List[Rep[Any]]): Rep[A] = fv.applyNative[A](args)
