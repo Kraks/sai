@@ -321,7 +321,8 @@ class SS {
     size_t stack_size() { return stack.mem_size(); }
     size_t fresh_stack_addr() { return stack_size(); }
     size_t frame_depth() { return frame_depth(); }
-    [[deprecated]] PtrVal at(PtrVal addr) {
+    //[[deprecated]]
+    PtrVal at(PtrVal addr) {
       auto loc = std::dynamic_pointer_cast<LocV>(addr);
       ASSERT(loc != nullptr, "Lookup an non-address value");
       if (loc->k == LocV::kStack) return stack.at(loc->l);
@@ -410,7 +411,8 @@ class SS {
 #endif
       return std::move(*this);
     }
-    [[deprecated]] SS&& update(PtrVal addr, PtrVal val) {
+    //[[deprecated]]
+    SS&& update(PtrVal addr, PtrVal val) {
       auto loc = std::dynamic_pointer_cast<LocV>(addr);
       ASSERT(loc != nullptr, "Lookup an non-address value");
       if (loc->k == LocV::kStack)
