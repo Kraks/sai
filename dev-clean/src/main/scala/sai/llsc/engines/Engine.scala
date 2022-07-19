@@ -53,22 +53,18 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
         case true => ret(IntV(1, 1))
         case false => ret(IntV(0, 1))
       }
-      // case CharArrayConst(s) =>
       case GlobalId(id) if symDefMap.contains(id) =>
         System.out.println(s"Alias: $id => ${symDefMap(id).const}")
         for {
           v <- eval(symDefMap(id).const, ty)
         } yield v
-      case GlobalId(id) if funMap.contains(id) => {
-        if (ExternalFun.redirect.contains(id)) {
-          val t = funMap(id).header.returnType
-          ret(ExternalFun.get(id, Some(t), argTypes).get)
-        } else {
-          if (!FunFuns.contains(id)) compile(funMap(id))
-          ret(FunV[Id](FunFuns(id)))
-        }
-      }
-      case GlobalId(id) if funDeclMap.contains(id) => {
+      case GlobalId(id) if funMap.contains(id) && ExternalFun.shouldRedirect(id) =>
+        val t = funMap(id).header.returnType
+        ret(ExternalFun.get(id, Some(t), argTypes).get)
+      case GlobalId(id) if funMap.contains(id) =>
+        if (!FunFuns.contains(id)) compile(funMap(id))
+        ret(FunV[Id](FunFuns(id)))
+      case GlobalId(id) if funDeclMap.contains(id) =>
         val t = funDeclMap(id).header.returnType
         val fv_option = ExternalFun.get(id, Some(t), argTypes)
         val fv = if (fv_option.isEmpty) {
@@ -76,7 +72,6 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           FunV[Id](FunFuns(getMangledFunctionName(funDeclMap(id), argTypes.get)))
         } else fv_option.get
         ret(fv)
-      }
       case GlobalId(id) if globalDefMap.contains(id) =>
         ret(heapEnv(id)())
       case GlobalId(id) if globalDeclMap.contains(id) =>

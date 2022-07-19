@@ -58,19 +58,15 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
         case true => IntV(1, 1)
         case false => IntV(0, 1)
       }
-      // case CharArrayConst(s) =>
       case GlobalId(id) if symDefMap.contains(id) =>
         System.out.println(s"Alias: $id => ${symDefMap(id).const}")
         eval(symDefMap(id).const, ty, ss)
-      case GlobalId(id) if funMap.contains(id) => {
-        if (ExternalFun.redirect.contains(id)) {
-          val t = funMap(id).header.returnType
-          ExternalFun.get(id, Some(t), argTypes).get
-        } else {
-          if (!FunFuns.contains(id)) compile(funMap(id))
-          CPSFunV[Id](FunFuns(id))
-        }
-      }
+      case GlobalId(id) if funMap.contains(id) && ExternalFun.shouldRedirect(id) =>
+        val t = funMap(id).header.returnType
+        ExternalFun.get(id, Some(t), argTypes).get
+      case GlobalId(id) if funMap.contains(id) =>
+        if (!FunFuns.contains(id)) compile(funMap(id))
+        CPSFunV[Id](FunFuns(id))
       case GlobalId(id) if funDeclMap.contains(id) =>
         val t = funDeclMap(id).header.returnType
         val fv_option = ExternalFun.get(id, Some(t), argTypes)
