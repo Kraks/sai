@@ -31,7 +31,6 @@ trait PrimitiveOpsOpt extends PrimitiveOps { self: Base =>
   }
   implicit def longToBoolean(x: Long): Boolean = if (x) true else false
   implicit def repLongToRepBoolean(x: Rep[Long])(implicit __pos: SourceContext): Rep[Boolean] = cast_helper[Long, Boolean](x)
-
 }
 
 abstract class SAISnippet[A: Manifest, B: Manifest] extends SAIOps {
@@ -61,6 +60,8 @@ trait SAIOps extends Base
   implicit class RepOps[A: Manifest](a: Rep[A]) {
     def asRepOf[B: Manifest]: Rep[B] = Wrap[B](Unwrap(a))
     def reflectOp[B: Manifest](op: String): Rep[B] = Wrap[B](Adapter.g.reflect(op, Unwrap(a)))
+    def castTo[B:Manifest]: Rep[B] =
+      Wrap[B](Adapter.g.reflect("cast", Unwrap(a), Backend.Const(manifest[B])))
   }
 
   implicit class StringOps(op: String) {
@@ -217,6 +218,4 @@ trait SAIOps extends Base
 
     k(closefun, m)
   }
-
-  def rep_cast[X:Manifest,Y:Manifest](x: Rep[X])(implicit __pos: SourceContext) : Rep[Y] =  Wrap[Y](Adapter.g.reflect("cast", Unwrap(x), Backend.Const(manifest[Y])))
 }

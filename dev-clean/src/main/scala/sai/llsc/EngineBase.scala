@@ -72,9 +72,9 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
 
   def repBlockFun(funName: String, b: BB): (BFTy, Int)
   def repFunFun(f: FunctionDef): (FFTy, Int)
-
   // Todo: should we increase block coverage here?
-  def repMissingExternalFun(f: FunctionDecl, ret: LLVMType, argTypes: List[LLVMType]): (FFTy, Int)
+  def repExternFun(f: FunctionDecl, ret: LLVMType, argTypes: List[LLVMType]): (FFTy, Int)
+
   def wrapFunV(f: FFTy): Rep[Value]
   def getRealFunctionName(funName: String): String = {
     val new_fname = if (funName != "@main") "__LLSC_USER_"+funName.tail else "llsc_main"
@@ -113,7 +113,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
       System.out.println(s"Warning: ignoring the re-generation of missing native external ${mangledName}")
       return
     }
-    val (fn, n) = repMissingExternalFun(f, ret, argTypes)
+    val (fn, n) = repExternFun(f, ret, argTypes)
     funNameMap(n) = "__LLSC_NATIVE_EXTERNAL_"+mangledName.tail
     FunFuns(mangledName) = fn
   }
@@ -149,10 +149,10 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
   }
 
   val poly_rep_cast = new highfuncPoly[Rep, Rep] {
-    def apply[T:Manifest, A:Manifest](arg: Rep[T]): Rep[A] = rep_cast[T, A](arg)
+    def apply[T:Manifest, A:Manifest](arg: Rep[T]): Rep[A] = arg.castTo[A]
   }
 
-  // For function that has Variable Arguments, we need to generate different template for different call-site and argument types.
+  // For function that has Variable Arguments, we need to generate different code for different call-sites and argument types.
   def getMangledFunctionName(f: FunctionDecl, argTypes: List[LLVMType]): String = {
     val hasVararg = f.header.params.contains(Vararg)
     val mangledName = if (!hasVararg) f.id else f.id + argTypes.map("_"+getPrimitiveTypeName(_)).mkString("")

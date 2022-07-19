@@ -375,7 +375,7 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
     (fn, n)
   }
 
-  override def repMissingExternalFun(f: FunctionDecl, ret_ty: LLVMType, argTypes: List[LLVMType]): (FFTy, Int) = {
+  override def repExternFun(f: FunctionDecl, ret_ty: LLVMType, argTypes: List[LLVMType]): (FFTy, Int) = {
     def generateNativeCall(ss: Rep[SS], args: Rep[List[Value]], k: Rep[Cont]): Rep[Unit] = {
       info("running native function: " + f.id)
       val native_args: List[Rep[Any]] = argTypes.zipWithIndex.map { case (ty, id) => {
