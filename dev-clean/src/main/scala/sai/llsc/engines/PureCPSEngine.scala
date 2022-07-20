@@ -85,10 +85,7 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
         // typedConst are not all int, could be local id
         val vs = typedConsts.map(tv => eval(tv.const, tv.ty, ss))
         val offset = calculateOffset(ptrType, vs)
-        (const match {
-          case GlobalId(id) => heapEnv(id)()
-          case _ => eval(const, ptrType, ss)
-        }).asRepOf[LocV] + offset
+        eval(const, ptrType, ss).asRepOf[LocV] + offset
       case IntToPtrExpr(from, value, to) => eval(value, from, ss)
       case PtrToIntExpr(from, value, IntType(toSize)) =>
         import Constants.ARCH_WORD_SIZE
@@ -130,10 +127,7 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
       case GetElemPtrInst(_, baseType, ptrType, ptrValue, typedValues) =>
         val vs = typedValues.map(tv => eval(tv.value, tv.ty, ss))
         val offset = calculateOffset(ptrType, vs)
-        val v = (ptrValue match {
-          case GlobalId(id) => heapEnv(id)()
-          case _ => eval(ptrValue, ptrType, ss)
-        }).asRepOf[LocV] + offset
+        val v = eval(ptrValue, ptrType, ss).asRepOf[LocV] + offset
         k(ss, v)
       // Arith Binary Operations
       case AddInst(ty, lhs, rhs, _) => k(ss, evalIntOp2("add", lhs, rhs, ty, ss))

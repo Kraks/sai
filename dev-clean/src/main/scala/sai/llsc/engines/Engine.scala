@@ -83,14 +83,8 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
         // typedConst are not all int, could be local id
         for {
           vs <- mapM(typedConsts)(tv => eval(tv.const, tv.ty))
-          lV <- eval(const, ptrType)
-        } yield {
-          val offset = calculateOffset(ptrType, vs)
-          (const match {
-            case GlobalId(id) => heapEnv(id)()
-            case _ => lV
-          }).asRepOf[LocV] + offset
-        }
+          lv <- eval(const, ptrType)
+        } yield lv.asRepOf[LocV] + calculateOffset(ptrType, vs)
       case IntToPtrExpr(from, value, to) =>
         for { v <- eval(value, from) } yield v
       case PtrToIntExpr(from, value, IntType(toSize)) =>
@@ -141,14 +135,8 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
       case GetElemPtrInst(_, baseType, ptrType, ptrValue, typedValues) =>
         for {
           vs <- mapM(typedValues)(tv => eval(tv.value, tv.ty))
-          lV <- eval(ptrValue, ptrType)
-        } yield {
-          val offset = calculateOffset(ptrType, vs)
-          (ptrValue match {
-            case GlobalId(id) => heapEnv(id)()
-            case _ => lV
-          }).asRepOf[LocV] + offset
-        }
+          lv <- eval(ptrValue, ptrType)
+        } yield lv.asRepOf[LocV] + calculateOffset(ptrType, vs)
       // Arith Binary Operations
       case AddInst(ty, lhs, rhs, _) => evalIntOp2("add", lhs, rhs, ty)
       case SubInst(ty, lhs, rhs, _) => evalIntOp2("sub", lhs, rhs, ty)
