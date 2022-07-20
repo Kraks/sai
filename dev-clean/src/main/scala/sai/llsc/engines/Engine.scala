@@ -4,6 +4,7 @@ import sai.lang.llvm._
 import sai.lang.llvm.IR._
 import sai.lang.llvm.parser.Parser._
 import sai.llsc.ASTUtils._
+import sai.llsc.Constants._
 
 import scala.collection.JavaConverters._
 
@@ -88,11 +89,9 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
       case IntToPtrExpr(from, value, to) =>
         for { v <- eval(value, from) } yield v
       case PtrToIntExpr(from, value, IntType(toSize)) =>
-        import Constants.ARCH_WORD_SIZE
-        for { p <- eval(value, from) } yield {
-          val v = p
-          if (ARCH_WORD_SIZE == toSize) v else v.trunc(ARCH_WORD_SIZE, toSize)
-        }
+        for { p <- eval(value, from) } yield
+          if (ARCH_WORD_SIZE == toSize) p
+          else p.trunc(ARCH_WORD_SIZE, toSize)
       case FCmpExpr(pred, ty1, ty2, lhs, rhs) if ty1 == ty2 => evalFloatOp2(pred.op, lhs, rhs, ty1)
       case ICmpExpr(pred, ty1, ty2, lhs, rhs) if ty1 == ty2 => evalIntOp2(pred.op, lhs, rhs, ty1)
       case InlineASM() => ret(NullPtr[Value])
@@ -179,12 +178,9 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
       case SiToFPInst(from, value, to) =>
         for { v <- eval(value, from) } yield v.fromSIntToFloat
       case PtrToIntInst(from, value, to) =>
-        import Constants._
         for { v <- eval(value, from) } yield
-          if (ARCH_WORD_SIZE == to.asInstanceOf[IntType].size)
-            v
-          else
-            v.trunc(ARCH_WORD_SIZE, to.asInstanceOf[IntType].size)
+          if (ARCH_WORD_SIZE == to.asInstanceOf[IntType].size) v
+          else v.trunc(ARCH_WORD_SIZE, to.asInstanceOf[IntType].size)
       case IntToPtrInst(from, value, to) =>
         for { v <- eval(value, from) } yield v
       case BitCastInst(from, value, to) => eval(value, to)

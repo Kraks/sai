@@ -4,6 +4,7 @@ import sai.lang.llvm._
 import sai.lang.llvm.IR._
 import sai.lang.llvm.parser.Parser._
 import sai.llsc.ASTUtils._
+import sai.llsc.Constants._
 
 import scala.collection.JavaConverters._
 
@@ -88,7 +89,6 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
         eval(const, ptrType, ss).asRepOf[LocV] + offset
       case IntToPtrExpr(from, value, to) => eval(value, from, ss)
       case PtrToIntExpr(from, value, IntType(toSize)) =>
-        import Constants.ARCH_WORD_SIZE
         val v = eval(value, from, ss)
         if (ARCH_WORD_SIZE == toSize) v else v.trunc(ARCH_WORD_SIZE, toSize)
       case FCmpExpr(pred, ty1, ty2, lhs, rhs) if ty1 == ty2 => evalFloatOp2(pred.op, lhs, rhs, ty1, ss)
@@ -172,7 +172,6 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
       case SiToFPInst(from, value, to) =>
         k(ss, eval(value, from, ss).fromSIntToFloat)
       case PtrToIntInst(from, value, IntType(toSize)) =>
-        import Constants._
         val v = eval(value, from, ss)
         k(ss, if (ARCH_WORD_SIZE == toSize) v else v.trunc(ARCH_WORD_SIZE, toSize))
       case IntToPtrInst(from, value, to) =>
