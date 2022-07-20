@@ -23,12 +23,15 @@ import scala.collection.immutable.{List => StaticList, Map => StaticMap, Set => 
 import scala.collection.mutable.{Map => MutableMap, Set => MutableSet}
 
 trait BasicDefs { self: SAIOps =>
-  trait Mem
+  trait Mem; trait Stack
+  trait SS;  trait PC; trait FS
   trait Value
-  trait Stack
-  trait SS
-  trait PC
-  trait FS
+  /*
+  trait IntV extends Value
+  trait LocV extends Value
+  trait SymV extends Value
+  trait SymLocV extends SymV
+   */
 
   type IntData = Long
   type BlockLabel = Int
@@ -168,6 +171,7 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
       case _ => None
     }
   }
+
   object FloatV {
     def apply(f: Rep[Double]): Rep[Value] = apply(f, 32)
     def apply(f: Rep[Double], bw: Int): Rep[Value] = "make_FloatV".reflectWriteWith[Value](f, bw)(Adapter.CTRL)
@@ -181,6 +185,7 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
       case _ => None
     }
   }
+
   object LocV {
     trait Kind
     def kStack: Rep[Kind] = "kStack".reflectMutableWith[Kind]()

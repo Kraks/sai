@@ -47,10 +47,6 @@ trait SAIOps extends Base
     // with SMTStagedOps {
   import scala.collection.mutable.HashMap
 
-  type Typ[T] = Manifest[T]
-  def typ[T: Typ] = manifest[T]
-  def manifestTyp[T: Typ] = manifest[T]
-
   val funNameMap: HashMap[Int, String] = new HashMap()
 
   // Override the LMS Wrap which treats Unit value as void/Const(());

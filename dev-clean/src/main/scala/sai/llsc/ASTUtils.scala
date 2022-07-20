@@ -12,6 +12,13 @@ object ASTUtils {
     case TypedArg(ty, attrs, value) => ty
   }
 
+  // For function that has Variable Arguments, we need to generate different code for different call-sites and argument types.
+  def getMangledFunctionName(f: FunctionDecl, argTypes: List[LLVMType]): String = {
+    val hasVararg = f.header.params.contains(Vararg)
+    val mangledName = if (!hasVararg) f.id else f.id + argTypes.map("_"+_.prettyName).mkString("")
+    mangledName.replaceAllLiterally(".", "_")
+  }
+
   def flattenTypedList(xs: List[TypedConst]) = xs.map(c => flattenAS(c.const)).flatten
 
   def flattenAS(cst: Constant): List[Constant] = cst match {
@@ -46,6 +53,7 @@ object ASTUtils {
       case PtrType(IntType(64), addrSpace) => manifest[Array[Long]]
       case _ => ???
     }
+
     def prettyName: String = t match {
       case IntType(1) => "bool"
       case IntType(8) => "char"

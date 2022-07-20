@@ -109,13 +109,6 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     def apply[T:Manifest, A:Manifest](arg: Rep[T]): Rep[A] = arg.castTo[A]
   }
 
-  // For function that has Variable Arguments, we need to generate different code for different call-sites and argument types.
-  def getMangledFunctionName(f: FunctionDecl, argTypes: List[LLVMType]): String = {
-    val hasVararg = f.header.params.contains(Vararg)
-    val mangledName = if (!hasVararg) f.id else f.id + argTypes.map("_"+_.prettyName).mkString("")
-    mangledName.replaceAllLiterally(".", "_")
-  }
-
   val funMap: StaticMap[String, FunctionDef] = m.funcDefMap
   val funDeclMap: StaticMap[String, FunctionDecl] = m.funcDeclMap
   val globalDefMap: StaticMap[String, GlobalDef] = m.globalDefMap
@@ -337,7 +330,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
 
   def evalHeapComplexConst(v: Constant, real_ty: LLVMType): (List[Rep[Value]], Int) = {
     v match {
-      case StructConst(cs) => {
+      case StructConst(cs) =>
         real_ty match {
           case Struct(types) =>
             StructCalc.concat(cs) { c => evalHeapConstWithAlign(c.const, c.ty) }
@@ -345,7 +338,6 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
             PackedStructCalc.concat(cs) { c => evalHeapConstWithAlign(c.const, c.ty) }
           case _ => ???
         }
-      }
       case ArrayConst(cs) =>
         (cs.map(c => evalHeapConstWithAlign(c.const, c.ty)._1).flatten, getTySizeAlign(real_ty)._2)
       case CharArrayConst(s) =>
