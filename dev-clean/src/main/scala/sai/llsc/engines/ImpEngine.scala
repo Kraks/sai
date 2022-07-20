@@ -73,7 +73,7 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
         (const match {
           case GlobalId(id) => heapEnv(id)()
           case _ => eval(const, ptrType, ss)
-        }) ptrOff offset
+        }).asRepOf[LocV] + offset
       case IntToPtrExpr(from, value, to) => eval(value, from, ss)
       case PtrToIntExpr(from, value, IntType(toSize)) =>
         import sai.llsc.Constants.ARCH_WORD_SIZE
@@ -116,7 +116,7 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
         val v = (ptrValue match {
           case GlobalId(id) => heapEnv(id)()
           case _ => eval(ptrValue, ptrType, ss)
-        }) ptrOff offset
+        }).asRepOf[LocV] + offset
         k(ss, v)
       // Arith Binary Operations
       case AddInst(ty, lhs, rhs, _) => k(ss, evalIntOp2("add", lhs, rhs, ty, ss))

@@ -26,12 +26,13 @@ trait BasicDefs { self: SAIOps =>
   trait Mem; trait Stack
   trait SS;  trait PC; trait FS
   trait Value
-  /*
   trait IntV extends Value
-  trait LocV extends Value
+  trait FloatV extends Value
+  trait LocV extends IntV
   trait SymV extends Value
   trait SymLocV extends SymV
-   */
+  trait FunV extends Value
+  trait CPSFunV extends Value
 
   type IntData = Long
   type BlockLabel = Int
@@ -43,6 +44,7 @@ trait BasicDefs { self: SAIOps =>
   lazy val gNode = Adapter.g.Def
   type bExp = Backend.Exp
 
+  // GW: this looks weird
   type CppAddr = Array[Char]
 
   def initState: Rep[SS] = "init-ss".reflectWriteWith[SS]()(Adapter.CTRL)
@@ -160,10 +162,10 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
   implicit def intToLong(i: Int): Long = i.toLong
 
   object IntV {
-    def apply(i: Long): Rep[Value] = IntV(unit(i), DEFAULT_INT_BW)
-    def apply(i: Long, bw: Int): Rep[Value] = IntV(unit(i), bw)
-    def apply(i: Rep[Long]): Rep[Value] = IntV(i, DEFAULT_INT_BW)
-    def apply(i: Rep[Long], bw: Int): Rep[Value] = "make_IntV".reflectMutableWith[Value](i, bw)
+    def apply(i: Long): Rep[IntV] = IntV(unit(i), DEFAULT_INT_BW)
+    def apply(i: Long, bw: Int): Rep[IntV] = IntV(unit(i), bw)
+    def apply(i: Rep[Long]): Rep[IntV] = IntV(i, DEFAULT_INT_BW)
+    def apply(i: Rep[Long], bw: Int): Rep[IntV] = "make_IntV".reflectMutableWith[IntV](i, bw)
     def unapply(v: Rep[Value]): Option[(Int, Int)] = Unwrap(v) match {
       // Todo: add bSym rhs case
       case gNode("make_IntV", bConst(v: Long)::bConst(bw: Int)::_) =>
@@ -173,11 +175,11 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
   }
 
   object FloatV {
-    def apply(f: Rep[Double]): Rep[Value] = apply(f, 32)
-    def apply(f: Rep[Double], bw: Int): Rep[Value] = "make_FloatV".reflectWriteWith[Value](f, bw)(Adapter.CTRL)
-    def apply(v: String, bw: Int): Rep[Value] = {
+    def apply(f: Rep[Double]): Rep[FloatV] = apply(f, 32)
+    def apply(f: Rep[Double], bw: Int): Rep[FloatV] = "make_FloatV".reflectWriteWith[FloatV](f, bw)(Adapter.CTRL)
+    def apply(v: String, bw: Int): Rep[FloatV] = {
       require(bw == 80)
-      "make_FloatV".reflectWriteWith[Value](v, bw)(Adapter.CTRL)
+      "make_FloatV".reflectWriteWith[FloatV](v, bw)(Adapter.CTRL)
     }
     def unapply(v: Rep[Value]): Option[(Either[Double, String], Int)] = Unwrap(v) match {
       case gNode("make_FloatV", bConst(f: Double)::bConst(bw: Int)::_) => Some((Left(f), bw))
@@ -190,8 +192,8 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
     trait Kind
     def kStack: Rep[Kind] = "kStack".reflectMutableWith[Kind]()
     def kHeap: Rep[Kind] = "kHeap".reflectMutableWith[Kind]()
-    def apply(l: Rep[Addr], kind: Rep[Kind], size: Rep[Long], off: Rep[Long] = 0L): Rep[Value] =
-      "make_LocV".reflectMutableWith[Value](l, kind, size, off)
+    def apply(l: Rep[Addr], kind: Rep[Kind], size: Rep[Long], off: Rep[Long] = 0L): Rep[LocV] =
+      "make_LocV".reflectMutableWith[LocV](l, kind, size, off)
     def unapply(v: Rep[Value]): Option[(Rep[Addr], Rep[Kind], Rep[Long], Rep[Long])] = Unwrap(v) match {
       case gNode("make_LocV", (a: bExp)::(k: bExp)::(size: bExp)::(off: bExp)::_) =>
         Some((Wrap[Addr](a), Wrap[Kind](k), Wrap[Long](size), Wrap[Long](off)))
@@ -200,8 +202,8 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
   }
 
   object SymLocV {
-    def apply(l: Rep[Addr], kind: Rep[LocV.Kind], size: Rep[Long], off: Rep[Value]): Rep[Value] =
-      "make_SymLocV".reflectMutableWith[Value](l, kind, size, off)
+    def apply(l: Rep[Addr], kind: Rep[LocV.Kind], size: Rep[Long], off: Rep[Value]): Rep[SymLocV] =
+      "make_SymLocV".reflectMutableWith[SymLocV](l, kind, size, off)
     def unapply(v: Rep[Value]): Option[(Rep[Addr], Rep[LocV.Kind], Rep[Long], Rep[Value])] = Unwrap(v) match {
       case gNode("make_SymLocV", (a: bExp)::(k: bExp)::(size: bExp)::(off: bSym)::_) =>
         Some((Wrap[Addr](a), Wrap[LocV.Kind](k), Wrap[Long](size), Wrap[Value](off)))
@@ -210,9 +212,8 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
   }
 
   object FunV {
-    def apply[W[_]](f: Rep[(W[SS], List[Value]) => List[(SS, Value)]])(implicit m: Manifest[W[SS]]): Rep[Value] = {
-      "make_FunV".reflectMutableWith[Value](f)
-    }
+    def apply[W[_]](f: Rep[(W[SS], List[Value]) => List[(SS, Value)]])(implicit m: Manifest[W[SS]]): Rep[FunV] =
+      "make_FunV".reflectMutableWith[FunV](f)
     def unapply[W[_]](v: Rep[Value])(implicit m: Manifest[W[SS]]): Option[Rep[(W[SS], List[Value]) => List[(SS, Value)]]] =
       Unwrap(v) match {
         case gNode("make_FunV", (f: bExp)::Nil) =>
@@ -222,9 +223,8 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
   }
 
   object CPSFunV {
-    def apply[W[_]](f: Rep[(W[SS], List[Value], PCont[W]) => Unit])(implicit m: Manifest[W[SS]]): Rep[Value] = {
-      "make_CPSFunV".reflectMutableWith[Value](f)
-    }
+    def apply[W[_]](f: Rep[(W[SS], List[Value], PCont[W]) => Unit])(implicit m: Manifest[W[SS]]): Rep[CPSFunV] =
+      "make_CPSFunV".reflectMutableWith[CPSFunV](f)
     def unapply[W[_]](v: Rep[Value])(implicit m: Manifest[W[SS]]): Option[Rep[(W[SS], List[Value], PCont[W]) => Unit]] =
       Unwrap(v) match {
         case gNode("make_CPSFunV", (f: bExp)::Nil) =>
@@ -234,11 +234,11 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
   }
 
   object SymV {
-    def apply(s: String): Rep[Value] = apply(s, DEFAULT_INT_BW)
-    def apply(s: String, bw: Int): Rep[Value] =
-      "make_SymV".reflectWriteWith[Value](unit(s), bw)(Adapter.CTRL)  //XXX: reflectMutable?
+    def apply(s: String): Rep[SymV] = apply(s, DEFAULT_INT_BW)
+    def apply(s: String, bw: Int): Rep[SymV] =
+      "make_SymV".reflectWriteWith[SymV](unit(s), bw)(Adapter.CTRL)  //XXX: reflectMutable?
     def makeSymVList(i: Int): Rep[List[Value]] =
-      List[Value](Range(0, i).map(x => apply("x" + x.toString)):_*)
+      List[SymV](Range(0, i).map(x => apply("x" + x.toString)):_*)
     def unapply(v: Rep[Value]): Option[(String, Int)] = Unwrap(v) match {
       case gNode("make_SymV", bConst(x: String)::bConst(bw: Int)::_) => Some((x, bw))
       case _ => None
@@ -349,7 +349,8 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
     }
     def float: Rep[Float] = "proj_FloatV".reflectWith[Float](v)
     def structAt(i: Rep[Long]) = "structV_at".reflectWith[Value](v, i)
-    def apply[W[_]](s: Rep[W[SS]], args: Rep[List[Value]])(implicit m: Manifest[W[SS]]): Rep[List[(SS, Value)]] = {
+
+    def apply[W[_]](s: Rep[W[SS]], args: Rep[List[Value]])(implicit m: Manifest[W[SS]]): Rep[List[(SS, Value)]] =
       v match {
         case ExternalFun(f, ty) =>
           if (f == "noop" && Config.opt) {
@@ -363,7 +364,7 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
         case FunV(f) => f(s, args)
         case _ => "direct_apply".reflectWith[List[(SS, Value)]](v, s, args)
       }
-    }
+
     // The CPS version
     // W[_] is parameterized over pass-by-value (Id) or pass-by-ref (Ref) of SS
     def apply[W[_]](s: Rep[W[SS]], args: Rep[List[Value]], k: Rep[PCont[W]])(implicit m: Manifest[W[SS]]): Rep[Unit] =
@@ -418,13 +419,6 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
     def fromSIntToFloat: Rep[Value] = "si_tofp".reflectWith[Value](v)
     def trunc(from: Int, to: Int): Rep[Value] = "trunc".reflectWith[Value](v, from, to)
 
-    def ptrOff(off: Rep[Value]): Rep[Value] =
-      (v, off) match {
-        // Todo: Add case for IntV non-const
-        case (LocV(a, k, s, o), IntV(n, _)) => LocV(a, k, s, o + n)
-        case _ => "ptroff".reflectWith[Value](v, off)
-      }
-
     // GW: what is addOff and mulOff?
     def addOff(rhs: Rep[Value]): Rep[Value] =
       (v, rhs) match {
@@ -456,6 +450,14 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
       case NullLoc() => List[Value](v::ShadowV.indexSeq((ARCH_WORD_SIZE+BYTE_SIZE-1)/BYTE_SIZE - 1):_*)
       case _ => "to-bytes-shadow".reflectWith[List[Value]](v)
     }
-
   }
+
+  implicit class LocVOps(v: Rep[LocV]) {
+    def +(off: Rep[Value]): Rep[Value] = (v, off) match {
+      // Todo: Add case for IntV non-const
+      case (LocV(a, k, s, o), IntV(n, _)) => LocV(a, k, s, o + n)
+      case _ => "ptroff".reflectWith[Value](v, off)
+    }
+  }
+
 }

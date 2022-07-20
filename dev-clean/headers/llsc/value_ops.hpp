@@ -263,8 +263,6 @@ inline IntData proj_IntV(const PtrVal& v) {
   return std::dynamic_pointer_cast<IntV>(v)->as_signed();
 }
 
-
-
 struct FloatV : Value {
   long double f;
   size_t bw;

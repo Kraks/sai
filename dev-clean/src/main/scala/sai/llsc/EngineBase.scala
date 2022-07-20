@@ -323,8 +323,8 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     case GetElemPtrExpr(inBounds, baseType, ptrType, const, typedConsts) =>
       val indexLLVMValue = typedConsts.map(tv => tv.const.asInstanceOf[IntConst].n)
       val offset = calculateOffsetStatic(ptrType, indexLLVMValue)
-      val base = evalHeapAtomicConst(const, getRealType(ptrType))
-      base ptrOff IntV(offset, DEFAULT_INDEX_BW)
+      val base = evalHeapAtomicConst(const, getRealType(ptrType)).asRepOf[LocV]
+      base + IntV(offset, DEFAULT_INDEX_BW)
     case _ => throw new Exception("Not atomic heap constant " + v)
   }
 

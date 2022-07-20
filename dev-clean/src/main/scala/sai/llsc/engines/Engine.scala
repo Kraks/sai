@@ -89,7 +89,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           (const match {
             case GlobalId(id) => heapEnv(id)()
             case _ => lV
-          }) ptrOff offset
+          }).asRepOf[LocV] + offset
         }
       case IntToPtrExpr(from, value, to) =>
         for { v <- eval(value, from) } yield v
@@ -147,7 +147,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           (ptrValue match {
             case GlobalId(id) => heapEnv(id)()
             case _ => lV
-          }) ptrOff offset
+          }).asRepOf[LocV] + offset
         }
       // Arith Binary Operations
       case AddInst(ty, lhs, rhs, _) => evalIntOp2("add", lhs, rhs, ty)
