@@ -365,35 +365,29 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
     (fn, n)
   }
 
-  override def repExternFun(f: FunctionDecl, ret_ty: LLVMType, argTypes: List[LLVMType]): (FFTy, Int) = {
+  override def repExternFun(f: FunctionDecl, retTy: LLVMType, argTypes: List[LLVMType]): (FFTy, Int) = {
     def generateNativeCall(ss: Rep[Ref[SS]], args: Rep[List[Value]], k: Rep[Cont]): Rep[Unit] = {
       info("running native function: " + f.id)
-      val native_args: List[Rep[Any]] = argTypes.zipWithIndex.map { case (ty, id) => {
-        ty match {
-          case PtrType(_, _) => ss.getPointerArg(args(id)).castToM(ty.toManifest)
-          case IntType(size: Int) => ss.getIntArg(args(id)).castToM(ty.toManifest)
-          case FloatType(k: FloatKind) => ss.getFloatArg(args(id)).castToM(ty.toManifest)
-          case _ => ???
-        }
-      }}
-      val pointer_ids: List[Int] = argTypes.zipWithIndex.filter {
-        case (arg, id) => argTypes(id) match {
-          case PtrType(_, _) => true
-          case _ => false
-        }
-      }.map(_._2)
-      val fv = NativeExternalFun(f.id.tail, Some(ret_ty))
-      val native_apply = new highfunc[Rep[Any], List, Rep] {
-        def apply[A:Manifest](args: List[Rep[Any]]): Rep[A] = fv.applyNative[A](args)
-      }
-      val native_res: Rep[Any] = applyWithManifestRes[Rep[Any], List, Rep](ret_ty.toManifest, native_apply)(native_args)
-      pointer_ids.foreach(id => ss.writebackPointerArg(native_res, args(id), native_args(id).asInstanceOf[Rep[CppAddr]]))
-      val ret_val = ret_ty match {
-        case IntType(size: Int) => IntV(native_res.asInstanceOf[Rep[Long]], size)
-        case f@FloatType(_) => FloatV(native_res.asInstanceOf[Rep[Double]], f.size)
+      val nativeArgs: List[Rep[Any]] = argTypes.zipWithIndex.map {
+        case (ty@PtrType(_, _), id) => ss.getPointerArg(args(id)).castToM(ty.toManifest)
+        case (ty@IntType(size), id) => ss.getIntArg(args(id)).castToM(ty.toManifest)
+        case (ty@FloatType(k), id)  => ss.getFloatArg(args(id)).castToM(ty.toManifest)
         case _ => ???
       }
-      k(ss, ret_val)
+      val ptrArgIndices: List[Int] = argTypes.zipWithIndex.filter {
+        case (ty, id) => ty.isInstanceOf[PtrType]
+      }.map(_._2)
+      val fv = NativeExternalFun(f.id.tail, Some(retTy))
+      val nativeRet: Rep[Any] = fv.applyNative[Any](nativeArgs).castToM(retTy.toManifest)
+      ptrArgIndices.foreach { id =>
+        ss.writebackPointerArg(nativeRet, args(id), nativeArgs(id).asInstanceOf[Rep[CppAddr]])
+      }
+      val retVal = retTy match {
+        case IntType(size) => IntV(nativeRet.asInstanceOf[Rep[Long]], size)
+        case f@FloatType(_) => FloatV(nativeRet.asInstanceOf[Rep[Double]], f.size)
+        case _ => ???
+      }
+      k(ss, retVal)
     }
 
     val fn: FFTy = topFun(generateNativeCall(_, _, _))
