@@ -291,17 +291,15 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
   }
 
   object IntOp2 {
-    def apply_noopt(op: String, o1: Rep[Value], o2: Rep[Value]): Rep[Value] =
+    def applyNoOpt(op: String, o1: Rep[Value], o2: Rep[Value]): Rep[Value] =
       "int_op_2".reflectWith[Value](op, o1, o2)
     def apply(op: String, o1: Rep[Value], o2: Rep[Value]): Rep[Value] =
-      if (!Config.opt) {
-        apply_noopt(op, o1, o2)
-      } else {
-        op match {
-          case "neq" => neq(o1, o2)
-          case "eq" => eq(o1, o2)
-          case _ => apply_noopt(op, o1, o2)
-        }
+      if (!Config.opt) applyNoOpt(op, o1, o2)
+      else op match {
+        case "neq" => neq(o1, o2)
+        case "eq" => eq(o1, o2)
+        case "add" => add(o1, o2)
+        case _ => applyNoOpt(op, o1, o2)
       }
 
     def unapply(v: Rep[Value]): Option[(String, Rep[Value], Rep[Value])] = Unwrap(v) match {
@@ -310,23 +308,33 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
       case _ => None
     }
 
+    def add(v1: Rep[Value], v2: Rep[Value]): Rep[Value] = (v1, v2) match {
+      case (IntV(n1, bw1), IntV(n2, bw2)) if (bw1 == bw2) => IntV(n1 + n2, bw1)
+      case _ => IntOp2("add", v1, v2)
+    }
+
+    def mul(v1: Rep[Value], v2: Rep[Value]): Rep[Value] = (v1, v2) match {
+      case (IntV(n1, bw1), IntV(n2, bw2)) if (bw1 == bw2) => IntV(n1 * n2, bw1)
+      case _ => IntOp2("mult", v1, v2)
+    }
+
     def neq(o1: Rep[Value], o2: Rep[Value]): Rep[Value] = (Unwrap(o1), Unwrap(o2)) match {
       case (gNode("bv_sext", (e1: bExp)::bConst(bw1: Int)::_),
             gNode("bv_sext", (e2: bExp)::bConst(bw2: Int)::_)) if bw1 == bw2 =>
         val v1 = Wrap[Value](e1)
         val v2 = Wrap[Value](e2)
-        if (v1.bw == v2.bw) apply_noopt("neq", v1, v2)
-        else apply_noopt("neq", o1, o2)
-      case _ => apply_noopt("neq", o1, o2)
+        if (v1.bw == v2.bw) applyNoOpt("neq", v1, v2)
+        else applyNoOpt("neq", o1, o2)
+      case _ => applyNoOpt("neq", o1, o2)
     }
     def eq(o1: Rep[Value], o2: Rep[Value]): Rep[Value] = (Unwrap(o1), Unwrap(o2)) match {
       case (gNode("bv_sext", (e1: bExp)::bConst(bw1: Int)::_),
             gNode("bv_sext", (e2: bExp)::bConst(bw2: Int)::_)) if bw1 == bw2 =>
         val v1 = Wrap[Value](e1)
         val v2 = Wrap[Value](e2)
-        if (v1.bw == v2.bw) apply_noopt("eq", v1, v2)
-        else apply_noopt("eq", o1, o2)
-      case _ => apply_noopt("eq", o1, o2)
+        if (v1.bw == v2.bw) applyNoOpt("eq", v1, v2)
+        else applyNoOpt("eq", o1, o2)
+      case _ => applyNoOpt("eq", o1, o2)
     }
   }
 
@@ -413,18 +421,8 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
     def fromSIntToFloat: Rep[Value] = "si_tofp".reflectWith[Value](v)
     def trunc(from: Int, to: Int): Rep[Value] = "trunc".reflectWith[Value](v, from, to)
 
-    // GW: what is addOff and mulOff?
-    def addOff(rhs: Rep[Value]): Rep[Value] =
-      (v, rhs) match {
-        case (IntV(n1, bw1), IntV(n2, bw2)) => if (bw1 == bw2) IntV(n1 + n2, bw1) else ???
-        case _ => IntOp2("add", v, rhs)
-      }
-
-    def mulOff(rhs: Rep[Value]): Rep[Value] =
-      (v, rhs) match {
-        case (IntV(n1, bw1), IntV(n2, bw2)) => if (bw1 == bw2) IntV(n1 * n2, bw1) else ???
-        case _ => IntOp2("mul", v, rhs)
-      }
+    def +(rhs: Rep[Value]): Rep[Value] = IntOp2.add(v, rhs)
+    def *(rhs: Rep[Value]): Rep[Value] = IntOp2.mul(v, rhs)
 
     def toBytes: Rep[List[Value]] = v match {
       case ShadowV() => List[Value](v)

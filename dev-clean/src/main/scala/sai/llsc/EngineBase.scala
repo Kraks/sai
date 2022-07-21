@@ -75,40 +75,6 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     FunFuns(mangledName) = fn
   }
 
-  abstract class highfunc[T, F[_], G[_]] {
-    def apply[A:Manifest](a: F[T]): G[A]
-  }
-
-  abstract class highfuncPoly[F[_], G[_]] {
-    def apply[T:Manifest, A:Manifest](a: F[T]): G[A]
-  }
-
-  def applyWithManifestRes[T,F[_],G[+_]](m: Manifest[_], f : highfunc[T, F, G])(arg : F[T]): G[Any] = {
-    if (m == manifest[Boolean]) f[Boolean](arg)
-    else if (m == manifest[Char]) f[Char](arg)
-    else if (m == manifest[Int]) f[Int](arg)
-    else if (m == manifest[Long]) f[Long](arg)
-    else if (m == manifest[Float]) f[Float](arg)
-    else if (m == manifest[Double]) f[Double](arg)
-    else if (m == manifest[Array[Boolean]]) f[Array[Boolean]](arg)
-    else if (m == manifest[Array[Char]]) f[Array[Char]](arg)
-    else if (m == manifest[Array[Short]]) f[Array[Short]](arg)
-    else if (m == manifest[Array[Int]]) f[Array[Int]](arg)
-    else if (m == manifest[Array[Long]]) f[Array[Long]](arg)
-    else ???
-  }
-
-  def applyWithManifestRes[T:Manifest,F[_],G[+_]](m: Manifest[_], f : highfuncPoly[F, G])(arg : F[T]): G[Any] = {
-    val f_arg = new highfunc[T, F, G] {
-      def apply[A:Manifest](a: F[T]): G[A] = f[T, A](arg)
-    }
-    applyWithManifestRes[T, F, G](m, f_arg)(arg)
-  }
-
-  val poly_rep_cast = new highfuncPoly[Rep, Rep] {
-    def apply[T:Manifest, A:Manifest](arg: Rep[T]): Rep[A] = arg.castTo[A]
-  }
-
   val funMap: StaticMap[String, FunctionDef] = m.funcDefMap
   val funDeclMap: StaticMap[String, FunctionDecl] = m.funcDeclMap
   val globalDefMap: StaticMap[String, GlobalDef] = m.globalDefMap
@@ -259,9 +225,9 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
   def calculateOffset(ty: LLVMType, index: List[Rep[Value]]): Rep[Value] = {
     if (index.isEmpty) IntV(0.toLong, DEFAULT_INDEX_BW) else ty match {
       case PtrType(ety, addrSpace) =>
-        (index.head.sExt(DEFAULT_INDEX_BW) mulOff IntV(getTySize(ety), DEFAULT_INDEX_BW)) addOff calculateOffset(ety, index.tail)
+        index.head.sExt(DEFAULT_INDEX_BW) * IntV(getTySize(ety), DEFAULT_INDEX_BW) + calculateOffset(ety, index.tail)
       case ArrayType(size, ety) =>
-        (index.head.sExt(DEFAULT_INDEX_BW) mulOff IntV(getTySize(ety), DEFAULT_INDEX_BW)) addOff calculateOffset(ety, index.tail)
+        index.head.sExt(DEFAULT_INDEX_BW) * IntV(getTySize(ety), DEFAULT_INDEX_BW) + calculateOffset(ety, index.tail)
       case NamedType(id) =>
         calculateOffset(typeDefMap(id), index)
       case Struct(types) =>
