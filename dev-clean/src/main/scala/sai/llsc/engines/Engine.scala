@@ -243,16 +243,16 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
               if (cnd.int == 1) reify(s)(eval(thnVal, thnTy))
               else reify(s)(eval(elsVal, elsTy))
             } else {
-              reify(s) {choice(
-                for {
+              reify(s) {
+                (for {
                   _ <- updatePC(cnd.toSym)
                   v <- eval(thnVal, thnTy)
-                } yield v,
-                for {
+                } yield v) ⊕
+                (for {
                   _ <- updatePC(cnd.toSymNeg)
                   v <- eval(elsVal, elsTy)
-                } yield v
-              )}
+                } yield v)
+              }
             }
           }
         } yield v
@@ -305,7 +305,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
                   val asyncb1: Rep[Future[List[(SS, Value)]]] = ThreadPool.async { _ => reify(ss) { b1 } }
                   val rb2 = reify(ss) { b2 } // must reify b2 before get the async, order matters here
                   ThreadPool.get(asyncb1) ++ rb2
-                } else reify(ss) { choice(b1, b2) }
+                } else reify(ss) { b1 ⊕ b2 }
               } else if (tpcSat) {
                 reify(ss) { b1 }
               } else if (fpcSat) {
@@ -318,40 +318,35 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           }
         } yield u
       case SwitchTerm(cndTy, cndVal, default, table) =>
-        def switch(v: Rep[Long], s: Rep[SS], table: List[LLVMCase]): Rep[List[(SS, Value)]] = {
+        def switch(v: Rep[Long], s: Rep[SS], table: List[LLVMCase]): Rep[List[(SS, Value)]] =
           if (table.isEmpty) execBlock(funName, default, s)
           else {
             if (v == table.head.n) execBlock(funName, table.head.label, s)
             else switch(v, s, table.tail)
           }
-        }
 
-        def switchSym(v: Rep[Value], s: Rep[SS], table: List[LLVMCase], pc: Rep[List[SymV]] = List[SymV]()): Rep[List[(SS, Value)]] = {
+        val counter: Var[Int] = var_new(0)
+
+        def switchSym(v: Rep[Value], s: Rep[SS], table: List[LLVMCase]): Rep[List[(SS, Value)]] =
           if (table.isEmpty)
-            reify(s)(for {
-              _ <- updatePCSet(pc)
-              u <- execBlock(funName, default)
-            } yield u)
+            if (checkPC(s.pc)) {
+              counter += 1
+              reify(s) { execBlock(funName, default) }
+            } else List[(SS, Value)]()
           else {
             val headPC = IntOp2("eq", v, IntV(table.head.n))
-            val t_sat = checkPC(s.pc.addPC(headPC.toSym))
-            val f_sat = checkPC(s.pc.addPC(headPC.toSymNeg))
-            if (t_sat && f_sat) Coverage.incPath(1)
             val m = reflect {
-              if (t_sat) {
+              if (checkPC(s.pc.addPC(headPC.toSym))) {
+                counter += 1
                 reify(s)(for {
                   _ <- updatePC(headPC.toSym)
                   u <- execBlock(funName, table.head.label)
                 } yield u)
               } else List[(SS, Value)]()
             }
-            val next = reflect {
-              if (f_sat) switchSym(v, s.addPC(headPC.toSymNeg), table.tail, pc ++ List[SymV](headPC.toSymNeg))
-              else List[(SS, Value)]()
-            }
-            reify(s)(choice(m, next))
+            val next = reflect { switchSym(v, s.addPC(headPC.toSymNeg), table.tail) }
+            reify(s) { m ⊕ next }
           }
-        }
 
         for {
           _ <- updateIncomingBlock(incomingBlock)
@@ -359,7 +354,11 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           s <- getState
           r <- reflect {
             if (v.isConc) switch(v.int, s, table)
-            else switchSym(v, s, table)
+            else {
+              val r = switchSym(v, s, table)
+              if (counter > 0) Coverage.incPath(counter-1)
+              r
+            }
           }
         } yield r
     }

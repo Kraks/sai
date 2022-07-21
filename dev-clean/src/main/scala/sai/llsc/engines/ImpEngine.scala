@@ -249,32 +249,34 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
           }
         }
 
-        def switchSym(v: Rep[Value], s: Rep[SS], table: List[LLVMCase], pc: Rep[List[SymV]] = List[SymV]()): Rep[List[(SS, Value)]] =
+        val counter: Var[Int] = var_new(0)
+        def switchSym(v: Rep[Value], s: Rep[SS], table: List[LLVMCase]): Rep[List[(SS, Value)]] =
           if (table.isEmpty) {
-            s.addPCSet(pc)
-            execBlock(funName, default, s)
+            if (checkPC(s.pc)) {
+              counter += 1
+              execBlock(funName, default, s)
+            } else List[(SS, Value)]()
           } else {
             val st = s.copy
             val headPC = IntOp2("eq", v, IntV(table.head.n))
-            st.addPC(headPC.toSym)
-            val t_sat = checkPC(st.pc)
-            s.addPC(headPC.toSymNeg)
-            val f_sat = checkPC(s.pc)
-
-            if (t_sat && f_sat) Coverage.incPath(1)
-            val lt =
-              if (t_sat) execBlock(funName, table.head.label, st)
-              else List[(SS, Value)]()
-            val lf =
-              if (f_sat) switchSym(v, s, table.tail, pc ++ List[SymV](headPC.toSymNeg))
-              else List[(SS, Value)]()
+            s.addPC(headPC.toSym)
+            val lt = if (checkPC(s.pc)) {
+              counter += 1
+              execBlock(funName, table.head.label, s)
+            } else List[(SS, Value)]()
+            st.addPC(headPC.toSymNeg)
+            val lf = switchSym(v, st, table.tail)
             lt ++ lf
           }
 
         ss.addIncomingBlock(incomingBlock)
         val v = eval(cndVal, cndTy, ss)
         if (v.isConc) switch(v.int, ss, table)
-        else switchSym(v, ss, table)
+        else {
+          val r = switchSym(v, ss, table)
+          if (counter > 0) Coverage.incPath(counter-1)
+          r
+        }
     }
   }
 

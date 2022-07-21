@@ -252,30 +252,37 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
           symExecBr(ss1, cndVal.toSym, cndVal.toSymNeg, thnLab, elsLab, funName, k)
         }
       case SwitchTerm(cndTy, cndVal, default, table) =>
-        def switch(v: Rep[Long], s: Rep[SS], table: List[LLVMCase]): Rep[Unit] = {
+        def switch(v: Rep[Long], s: Rep[SS], table: List[LLVMCase]): Rep[Unit] =
           if (table.isEmpty) execBlock(funName, default, s, k)
           else {
             if (v == table.head.n) execBlock(funName, table.head.label, s, k)
             else switch(v, s, table.tail)
           }
-        }
 
-        def switchSym(v: Rep[Value], s: Rep[SS], table: List[LLVMCase], pc: Rep[List[SymV]] = List[SymV]()): Rep[Unit] =
+        val counter: Var[Int] = var_new(0)
+        def switchSym(v: Rep[Value], s: Rep[SS], table: List[LLVMCase]): Rep[Unit] =
           if (table.isEmpty) {
-            execBlock(funName, default, s.addPCSet(pc), k)
+            if (checkPC(s.pc)) {
+              counter += 1
+              execBlock(funName, default, s, k)
+            }
           } else {
             val headPC = IntOp2("eq", v, IntV(table.head.n))
-            val t_sat = checkPC(s.pc.addPC(headPC.toSym))
-            val f_sat = checkPC(s.pc.addPC(headPC.toSymNeg))
-            if (t_sat && f_sat) Coverage.incPath(1)
-            if (t_sat) execBlock(funName, table.head.label, s.addPC(headPC.toSym), k)
-            if (f_sat) switchSym(v, s.addPC(headPC.toSymNeg), table.tail, pc ++ List[SymV](headPC.toSymNeg))
+            if (checkPC(s.pc.addPC(headPC.toSym))) {
+              counter += 1
+              execBlock(funName, table.head.label, s.addPC(headPC.toSym), k)
+            }
+            switchSym(v, s.addPC(headPC.toSymNeg), table.tail)
           }
 
         val ss1 = addIncomingBlockOpt(ss, incomingBlock, default::table.map(_.label))
         val v = eval(cndVal, cndTy, ss1)
         if (v.isConc) switch(v.int, ss1, table)
-        else switchSym(v, ss1, table)
+        else {
+          switchSym(v, ss1, table)
+          if (counter > 0) Coverage.incPath(counter-1)
+          ()
+        }
     }
   }
 
