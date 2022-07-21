@@ -17,7 +17,6 @@ import lms.macros.SourceContext
 import lms.core.stub.{While => _, _}
 
 import sai.lmsx._
-import sai.lmsx.smt.SMTBool
 
 import scala.collection.immutable.{List => StaticList, Map => StaticMap, Set => StaticSet}
 import scala.collection.mutable.{Map => MutableMap, Set => MutableSet}
@@ -70,7 +69,7 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
   }
 
   implicit class PCOps(pc: Rep[PC]) {
-    def addPC(e: Rep[SMTBool]): Rep[PC] = "add-pc".reflectWith[PC](pc, e)
+    def addPC(e: Rep[SymV]): Rep[PC] = "add-pc".reflectWith[PC](pc, e)
   }
 
   class SSOps(ss: Rep[SS]) {
@@ -105,8 +104,8 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
 
     def push: Rep[SS] = "ss-push".reflectWith[SS](ss)
     def pop(keep: Rep[Int]): Rep[SS] = "ss-pop".reflectWith[SS](ss, keep)
-    def addPC(e: Rep[SMTBool]): Rep[SS] = "ss-addpc".reflectWith[SS](ss, e)
-    def addPCSet(es: Rep[List[SMTBool]]): Rep[SS] = "ss-addpcset".reflectWith[SS](ss, es)
+    def addPC(e: Rep[SymV]): Rep[SS] = "ss-addpc".reflectWith[SS](ss, e)
+    def addPCSet(es: Rep[List[SymV]]): Rep[SS] = "ss-addpcset".reflectWith[SS](ss, es)
     def pc: Rep[PC] = "get-pc".reflectWith[PC](ss)
     def updateArg: Rep[SS] = "ss-arg".reflectWith[SS](ss)
     def updateErrorLoc: Rep[SS] = "ss-error-loc".reflectWith[SS](ss)
@@ -171,8 +170,8 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
   def pushFrame: Comp[E, Rep[Unit]] = updateState(_.push)
   def popFrame(keep: Rep[Int]): Comp[E, Rep[Unit]] = updateState(_.pop(keep))
   def updateMem(k: Rep[Value], v: Rep[Value], sz: Int): Comp[E, Rep[Unit]] = updateState(_.update(k, v, sz))
-  def updatePCSet(x: Rep[List[SMTBool]]): Comp[E, Rep[Unit]] = updateState(_.addPCSet(x))
-  def updatePC(x: Rep[SMTBool]): Comp[E, Rep[Unit]] = updateState(_.addPC(x))
+  def updatePCSet(x: Rep[List[SymV]]): Comp[E, Rep[Unit]] = updateState(_.addPCSet(x))
+  def updatePC(x: Rep[SymV]): Comp[E, Rep[Unit]] = updateState(_.addPC(x))
   def updateIncomingBlock(x: String): Comp[E, Rep[Unit]] = updateState(_.addIncomingBlock(x))
   def initializeArg: Comp[E, Rep[Unit]] = updateState(_.updateArg)
   def initializeErrorLoc: Comp[E, Rep[Unit]] = updateState(_.updateErrorLoc)

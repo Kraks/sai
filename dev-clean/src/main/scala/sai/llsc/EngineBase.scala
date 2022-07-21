@@ -14,7 +14,6 @@ import lms.macros.SourceContext
 import lms.core.stub.{While => _, _}
 
 import sai.lmsx._
-import sai.lmsx.smt.SMTBool
 
 trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
   import scala.collection.immutable.{List => StaticList, Map => StaticMap}

@@ -23,7 +23,6 @@ import lms.core.stub.{While => _, _}
 
 import sai.lmsx._
 import scala.collection.immutable.{List => StaticList, Map => StaticMap}
-import sai.lmsx.smt.SMTBool
 
 @virtualize
 trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
@@ -32,7 +31,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
 
   def getRealBlockFunName(bf: BFTy): String = blockNameMap(getBackendSym(Unwrap(bf)))
 
-  def symExecBr(ss: Rep[SS], tCond: Rep[SMTBool], fCond: Rep[SMTBool],
+  def symExecBr(ss: Rep[SS], tCond: Rep[SymV], fCond: Rep[SymV],
     tBlockLab: String, fBlockLab: String, funName: String): Rep[List[(SS, Value)]] = {
     val tBrFunName = getRealBlockFunName(getBBFun(funName, tBlockLab))
     val fBrFunName = getRealBlockFunName(getBBFun(funName, fBlockLab))
@@ -246,11 +245,11 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
             } else {
               reify(s) {choice(
                 for {
-                  _ <- updatePC(cnd.toSMTBool)
+                  _ <- updatePC(cnd.toSym)
                   v <- eval(thnVal, thnTy)
                 } yield v,
                 for {
-                  _ <- updatePC(cnd.toSMTBoolNeg)
+                  _ <- updatePC(cnd.toSymNeg)
                   v <- eval(elsVal, elsTy)
                 } yield v
               )}
@@ -288,7 +287,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
               if (cndVal.int == 1) reify(ss)(execBlock(funName, thnLab))
               else reify(ss)(execBlock(funName, elsLab))
             } else {
-              symExecBr(ss, cndVal.toSMTBool, cndVal.toSMTBoolNeg, thnLab, elsLab, funName)
+              symExecBr(ss, cndVal.toSym, cndVal.toSymNeg, thnLab, elsLab, funName)
               /*
               val tpcSat = checkPC(ss.pc + cndVal.toSMTBool)
               val fpcSat = checkPC(ss.pc + cndVal.toSMTBoolNeg)
@@ -327,7 +326,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           }
         }
 
-        def switchSym(v: Rep[Value], s: Rep[SS], table: List[LLVMCase], pc: Rep[List[SMTBool]] = List[SMTBool]()): Rep[List[(SS, Value)]] = {
+        def switchSym(v: Rep[Value], s: Rep[SS], table: List[LLVMCase], pc: Rep[List[SymV]] = List[SymV]()): Rep[List[(SS, Value)]] = {
           if (table.isEmpty)
             reify(s)(for {
               _ <- updatePCSet(pc)
@@ -335,15 +334,15 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
             } yield u)
           else {
             val headPC = IntOp2("eq", v, IntV(table.head.n))
-            val t_sat = checkPC(s.pc.addPC(headPC.toSMTBool))
-            val f_sat = checkPC(s.pc.addPC(headPC.toSMTBoolNeg))
+            val t_sat = checkPC(s.pc.addPC(headPC.toSym))
+            val f_sat = checkPC(s.pc.addPC(headPC.toSymNeg))
             if (t_sat && f_sat) {
               Coverage.incPath(1)
             }
             val m = reflect {
               if (t_sat) {
                 reify(s)(for {
-                  _ <- updatePC(headPC.toSMTBool)
+                  _ <- updatePC(headPC.toSym)
                   u <- execBlock(funName, table.head.label)
                 } yield u)
               } else {
@@ -352,7 +351,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
             }
             val next = reflect {
               if (f_sat) {
-                switchSym(v, s.addPC(headPC.toSMTBoolNeg), table.tail, pc ++ List[SMTBool](headPC.toSMTBoolNeg))
+                switchSym(v, s.addPC(headPC.toSymNeg), table.tail, pc ++ List[SymV](headPC.toSymNeg))
               } else {
                 List[(SS, Value)]()
               }

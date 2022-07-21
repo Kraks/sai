@@ -17,7 +17,6 @@ import lms.core.stub.{While => _, _}
 
 import sai.lmsx._
 import scala.collection.immutable.{List => StaticList, Map => StaticMap}
-import sai.lmsx.smt.SMTBool
 
 @virtualize
 trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
@@ -26,7 +25,7 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
 
   def getRealBlockFunName(bf: BFTy): String = blockNameMap(getBackendSym(Unwrap(bf)))
 
-  def symExecBr(ss: Rep[SS], tCond: Rep[SMTBool], fCond: Rep[SMTBool],
+  def symExecBr(ss: Rep[SS], tCond: Rep[SymV], fCond: Rep[SymV],
     tBlockLab: String, fBlockLab: String, funName: String, k: Rep[Cont]): Rep[Unit] = {
     val tBrFunName = getRealBlockFunName(getBBFun(funName, tBlockLab))
     val fBrFunName = getRealBlockFunName(getBBFun(funName, fBlockLab))
@@ -213,9 +212,9 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
         } else {
           // TODO: check cond via solver
           val s1 = ss.copy
-          ss.addPC(cnd.toSMTBool)
+          ss.addPC(cnd.toSym)
           val v1 = eval(thnVal, thnTy, ss)
-          s1.addPC(cnd.toSMTBoolNeg)
+          s1.addPC(cnd.toSymNeg)
           val v2 = eval(elsVal, elsTy, s1)
           repK(ss, v1)
           repK(s1, v2)
@@ -245,7 +244,7 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
           if (cndVal.int == 1) execBlock(funName, thnLab, ss, k)
           else execBlock(funName, elsLab, ss, k)
         } else {
-          symExecBr(ss, cndVal.toSMTBool, cndVal.toSMTBoolNeg, thnLab, elsLab, funName, k)
+          symExecBr(ss, cndVal.toSym, cndVal.toSymNeg, thnLab, elsLab, funName, k)
         }
       case SwitchTerm(cndTy, cndVal, default, table) =>
         def switch(v: Rep[Long], s: Rep[SS], table: List[LLVMCase]): Rep[Unit] = {
@@ -256,16 +255,16 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
           }
         }
 
-        def switchSym(v: Rep[Value], s: Rep[SS], table: List[LLVMCase], pc: Rep[List[SMTBool]] = List[SMTBool]()): Rep[Unit] =
+        def switchSym(v: Rep[Value], s: Rep[SS], table: List[LLVMCase], pc: Rep[List[SymV]] = List[SymV]()): Rep[Unit] =
           if (table.isEmpty) {
             s.addPCSet(pc)
             execBlock(funName, default, s, k)
           } else {
             val st = s.copy
             val headPC = IntOp2("eq", v, IntV(table.head.n))
-            st.addPC(headPC.toSMTBool)
+            st.addPC(headPC.toSym)
             val t_sat = checkPC(st.pc)
-            s.addPC(headPC.toSMTBoolNeg)
+            s.addPC(headPC.toSymNeg)
             val f_sat = checkPC(s.pc)
             if (t_sat && f_sat) {
               Coverage.incPath(1)
@@ -276,7 +275,7 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
             }
 
             if (f_sat) {
-              switchSym(v, s, table.tail, pc ++ List[SMTBool](headPC.toSMTBoolNeg))
+              switchSym(v, s, table.tail, pc ++ List[SymV](headPC.toSymNeg))
             }
           }
 

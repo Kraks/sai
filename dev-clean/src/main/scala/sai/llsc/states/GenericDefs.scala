@@ -310,12 +310,12 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
 
     def add(v1: Rep[Value], v2: Rep[Value]): Rep[Value] = (v1, v2) match {
       case (IntV(n1, bw1), IntV(n2, bw2)) if (bw1 == bw2) => IntV(n1 + n2, bw1)
-      case _ => IntOp2("add", v1, v2)
+      case _ => applyNoOpt("add", v1, v2)
     }
 
     def mul(v1: Rep[Value], v2: Rep[Value]): Rep[Value] = (v1, v2) match {
       case (IntV(n1, bw1), IntV(n2, bw2)) if (bw1 == bw2) => IntV(n1 * n2, bw1)
-      case _ => IntOp2("mult", v1, v2)
+      case _ => applyNoOpt("mul", v1, v2)
     }
 
     def neq(o1: Rep[Value], o2: Rep[Value]): Rep[Value] = (Unwrap(o1), Unwrap(o2)) match {
@@ -411,8 +411,8 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
       case IntV(_, _) if Config.opt => unit(true)
       case _ => "is-conc".reflectWith[Boolean](v)
     }
-    def toSMTBool: Rep[SMTBool] = v.asRepOf[SMTBool]
-    def toSMTBoolNeg: Rep[SMTBool] = "to-SMTNeg".reflectWith[SMTBool](v)
+    def toSym: Rep[SymV] = v.asRepOf[SymV]
+    def toSymNeg: Rep[SymV] = "to-SMTNeg".reflectWith[SymV](v)
 
     def notNull: Rep[Boolean] = "not-null".reflectWith[Boolean](v)
     def fromFloatToUInt(toSize: Int): Rep[Value] = "fp_toui".reflectWith[Value](v, toSize)
