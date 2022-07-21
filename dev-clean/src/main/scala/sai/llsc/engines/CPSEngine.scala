@@ -253,7 +253,10 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
           }
         def switchSym(v: Rep[Value], s: Rep[SS], table: List[LLVMCase]): Rep[Unit] =
           if (table.isEmpty) {
-            if (checkPC(s.pc)) execBlock(funName, default, s, k)
+            if (checkPC(s.pc)) {
+              counter += 1
+              execBlock(funName, default, s, k)
+            }
           } else {
             val st = s.copy
             val headPC = IntOp2("eq", v, IntV(table.head.n))
