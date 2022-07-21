@@ -160,7 +160,6 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
       case TruncInst(from@IntType(fromSz), value, IntType(toSz)) =>
         k(ss, eval(value, from, ss).trunc(fromSz, toSz))
       case FpExtInst(from, value, to) =>
-        // XXX: is it the right semantics?
         k(ss, eval(value, from, ss))
       case FpToUIInst(from, value, IntType(size)) =>
         k(ss, eval(value, from, ss).fromFloatToUInt(size))
@@ -266,28 +265,17 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
             execBlock(funName, default, s.addPCSet(pc), k)
           } else {
             val headPC = IntOp2("eq", v, IntV(table.head.n))
-
             val t_sat = checkPC(s.pc.addPC(headPC.toSym))
             val f_sat = checkPC(s.pc.addPC(headPC.toSymNeg))
-
-            if (t_sat && f_sat) {
-              Coverage.incPath(1)
-            }
-
-            if (t_sat) {
-              execBlock(funName, table.head.label, s.addPC(headPC.toSym), k)
-            }
-            if (f_sat) {
-              switchSym(v, s.addPC(headPC.toSymNeg), table.tail, pc ++ List[SymV](headPC.toSymNeg))
-            }
+            if (t_sat && f_sat) Coverage.incPath(1)
+            if (t_sat) execBlock(funName, table.head.label, s.addPC(headPC.toSym), k)
+            if (f_sat) switchSym(v, s.addPC(headPC.toSymNeg), table.tail, pc ++ List[SymV](headPC.toSymNeg))
           }
 
         val ss1 = addIncomingBlockOpt(ss, incomingBlock, default::table.map(_.label))
         val v = eval(cndVal, cndTy, ss1)
         if (v.isConc) switch(v.int, ss1, table)
-        else {
-          switchSym(v, ss1, table)
-        }
+        else switchSym(v, ss1, table)
     }
   }
 

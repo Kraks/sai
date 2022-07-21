@@ -149,7 +149,6 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
       case TruncInst(from@IntType(fromSz), value, IntType(toSz)) =>
         k(ss, eval(value, from, ss).trunc(fromSz, toSz))
       case FpExtInst(from, value, to) =>
-        // XXX: is it the right semantics?
         k(ss, eval(value, from, ss))
       case FpToUIInst(from, value, IntType(size)) =>
         k(ss, eval(value, from, ss).fromFloatToUInt(size))
@@ -183,14 +182,12 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
         val argValues: List[LLVMValue] = extractValues(args)
         val argTypes: List[LLVMType] = extractTypes(args)
         val fv = eval(f, VoidType, ss, Some(argTypes))
-        val vs = argValues.zip(argTypes).map {
-          case (v, t) => eval(v, t, ss)
-        }
+        val vs = argValues.zip(argTypes).map { case (v, t) => eval(v, t, ss) }
         ss.push
         val stackSize = ss.stackSize
         val fK: Rep[Cont] = fun { case sv =>
           val s: Rep[Ref[SS]] = sv._1
-          s.pop(stackSize) // XXX: double check here
+          s.pop(stackSize) 
           k(s, sv._2)
         }
         fv[Ref](ss, List(vs: _*), fK)
@@ -247,36 +244,26 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
           symExecBr(ss, cndVal.toSym, cndVal.toSymNeg, thnLab, elsLab, funName, k)
         }
       case SwitchTerm(cndTy, cndVal, default, table) =>
-        def switch(v: Rep[Long], s: Rep[SS], table: List[LLVMCase]): Rep[Unit] = {
+        val counter: Var[Int] = var_new(0)
+        def switch(v: Rep[Long], s: Rep[SS], table: List[LLVMCase]): Rep[Unit] =
           if (table.isEmpty) execBlock(funName, default, s, k)
           else {
             if (v == table.head.n) execBlock(funName, table.head.label, s, k)
             else switch(v, s, table.tail)
           }
-        }
-
-        def switchSym(v: Rep[Value], s: Rep[SS], table: List[LLVMCase], pc: Rep[List[SymV]] = List[SymV]()): Rep[Unit] =
+        def switchSym(v: Rep[Value], s: Rep[SS], table: List[LLVMCase]): Rep[Unit] =
           if (table.isEmpty) {
-            s.addPCSet(pc)
-            execBlock(funName, default, s, k)
+            if (checkPC(s.pc)) execBlock(funName, default, s, k)
           } else {
             val st = s.copy
             val headPC = IntOp2("eq", v, IntV(table.head.n))
-            st.addPC(headPC.toSym)
-            val t_sat = checkPC(st.pc)
-            s.addPC(headPC.toSymNeg)
-            val f_sat = checkPC(s.pc)
-            if (t_sat && f_sat) {
-              Coverage.incPath(1)
+            s.addPC(headPC.toSym)
+            if (checkPC(s.pc)) {
+              counter += 1
+              execBlock(funName, table.head.label, s, k)
             }
-
-            if (t_sat) {
-              execBlock(funName, table.head.label, st, k)
-            }
-
-            if (f_sat) {
-              switchSym(v, s, table.tail, pc ++ List[SymV](headPC.toSymNeg))
-            }
+            st.addPC(headPC.toSymNeg)
+            switchSym(v, st, table.tail)
           }
 
         ss.addIncomingBlock(incomingBlock)
@@ -284,6 +271,8 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
         if (v.isConc) switch(v.int, ss, table)
         else {
           switchSym(v, ss, table)
+          if (counter > 0) Coverage.incPath(counter-1)
+          ()
         }
     }
   }
@@ -312,7 +301,7 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
         val stackSize = ss.stackSize
         val fK: Rep[Cont] = fun { case sv =>
           val s: Rep[Ref[SS]] = sv._1
-          s.pop(stackSize) // XXX: double check here
+          s.pop(stackSize)
           k(s)
         }
         fv[Ref](ss, List(vs: _*), fK)

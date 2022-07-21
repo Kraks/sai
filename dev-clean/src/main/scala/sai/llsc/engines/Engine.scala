@@ -336,25 +336,18 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
             val headPC = IntOp2("eq", v, IntV(table.head.n))
             val t_sat = checkPC(s.pc.addPC(headPC.toSym))
             val f_sat = checkPC(s.pc.addPC(headPC.toSymNeg))
-            if (t_sat && f_sat) {
-              Coverage.incPath(1)
-            }
+            if (t_sat && f_sat) Coverage.incPath(1)
             val m = reflect {
               if (t_sat) {
                 reify(s)(for {
                   _ <- updatePC(headPC.toSym)
                   u <- execBlock(funName, table.head.label)
                 } yield u)
-              } else {
-                List[(SS, Value)]()
-              }
+              } else List[(SS, Value)]()
             }
             val next = reflect {
-              if (f_sat) {
-                switchSym(v, s.addPC(headPC.toSymNeg), table.tail, pc ++ List[SymV](headPC.toSymNeg))
-              } else {
-                List[(SS, Value)]()
-              }
+              if (f_sat) switchSym(v, s.addPC(headPC.toSymNeg), table.tail, pc ++ List[SymV](headPC.toSymNeg))
+              else List[(SS, Value)]()
             }
             reify(s)(choice(m, next))
           }
@@ -366,9 +359,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           s <- getState
           r <- reflect {
             if (v.isConc) switch(v.int, s, table)
-            else {
-              switchSym(v, s, table)
-            }
+            else switchSym(v, s, table)
           }
         } yield r
     }

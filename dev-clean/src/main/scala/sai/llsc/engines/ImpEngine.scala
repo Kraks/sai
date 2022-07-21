@@ -143,7 +143,6 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
       case TruncInst(from@IntType(fromSz), value, IntType(toSz)) =>
         k(ss, eval(value, from, ss).trunc(fromSz, toSz))
       case FpExtInst(from, value, to) =>
-        // XXX: is it the right semantics?
         k(ss, eval(value, from, ss))
       case FpToUIInst(from, value, IntType(size)) =>
         k(ss, eval(value, from, ss).fromFloatToUInt(size))
@@ -185,7 +184,7 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
         val res = fv[Ref](ss, List(vs: _*))
         res.flatMap { case sv =>
           val s: Rep[Ref[SS]] = sv._1
-          s.pop(stackSize) // XXX: double check here
+          s.pop(stackSize)
           k(s, sv._2)
         }
       case PhiInst(ty, incs) =>
@@ -262,31 +261,20 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
             s.addPC(headPC.toSymNeg)
             val f_sat = checkPC(s.pc)
 
-            if (t_sat && f_sat) {
-              Coverage.incPath(1)
-            }
-
-            val lt = if (t_sat) {
-              execBlock(funName, table.head.label, st)
-            } else {
-              List[(SS, Value)]()
-            }
-
-            val lf = if (f_sat) {
-              switchSym(v, s, table.tail, pc ++ List[SymV](headPC.toSymNeg))
-            } else {
-              List[(SS, Value)]()
-            }
-
+            if (t_sat && f_sat) Coverage.incPath(1)
+            val lt =
+              if (t_sat) execBlock(funName, table.head.label, st)
+              else List[(SS, Value)]()
+            val lf =
+              if (f_sat) switchSym(v, s, table.tail, pc ++ List[SymV](headPC.toSymNeg))
+              else List[(SS, Value)]()
             lt ++ lf
           }
 
         ss.addIncomingBlock(incomingBlock)
         val v = eval(cndVal, cndTy, ss)
         if (v.isConc) switch(v.int, ss, table)
-        else {
-          switchSym(v, ss, table)
-        }
+        else switchSym(v, ss, table)
     }
   }
 

@@ -255,7 +255,6 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     case _ => false
   }
 
-  // Float Type
   def evalHeapAtomicConst(v: Constant, ty: LLVMType): Rep[Value] = v match {
     case BoolConst(b) => IntV(if (b) 1 else 0, 1)
     case IntConst(n) => IntV(n, ty.asInstanceOf[IntType].size)
@@ -264,10 +263,8 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     case NullConst => NullLoc()
     case PtrToIntExpr(from, const, to) =>
       val v = evalHeapAtomicConst(const, from)
-      if (ARCH_WORD_SIZE == to.asInstanceOf[IntType].size)
-        v
-      else
-        v.trunc(ARCH_WORD_SIZE, to.asInstanceOf[IntType].size)
+      if (ARCH_WORD_SIZE == to.asInstanceOf[IntType].size) v
+      else v.trunc(ARCH_WORD_SIZE, to.asInstanceOf[IntType].size)
     case GlobalId(id) if funMap.contains(id) =>
       if (!FunFuns.contains(id)) compile(funMap(id))
       wrapFunV(FunFuns(id))
