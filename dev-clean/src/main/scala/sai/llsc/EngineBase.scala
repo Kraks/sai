@@ -210,16 +210,6 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     }
   }
 
-  def getFloatSize(ft: FloatType) = ft.k match {
-    case FK_Half => 16
-    case FK_BFloat => 16
-    case FK_Float => 32
-    case FK_Double => 64
-    case FK_X86_FP80 => 80
-    case FK_FP128 => 128
-    case FK_PPC_FP128 => 128
-  }
-
   def getTySizeAlign(vt: LLVMType): (Int, Int) = vt match {
     case ArrayType(num, ety) =>
       val (size, align) = getTySizeAlign(ety)
@@ -234,10 +224,9 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     case PtrType(ty, addrSpace) =>
       val elemSize = ARCH_WORD_SIZE / BYTE_SIZE
       (elemSize, elemSize)
-    case FloatType(fk) =>
-      val bw = getFloatSize(vt.asInstanceOf[FloatType])
+    case ft@FloatType(fk) =>
       import scala.math.{log, ceil, pow}
-      val elemSize = (bw + BYTE_SIZE - 1) / BYTE_SIZE
+      val elemSize = (ft.size + BYTE_SIZE - 1) / BYTE_SIZE
       val align = pow(2, ceil(log(elemSize)/log(2)))
       (elemSize, align)
     case PackedStruct(types) =>
@@ -305,7 +294,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
   def evalHeapAtomicConst(v: Constant, ty: LLVMType): Rep[Value] = v match {
     case BoolConst(b) => IntV(if (b) 1 else 0, 1)
     case IntConst(n) => IntV(n, ty.asInstanceOf[IntType].size)
-    case FloatConst(f) => FloatV(f, getFloatSize(ty.asInstanceOf[FloatType]))
+    case FloatConst(f) => FloatV(f, ty.asInstanceOf[FloatType].size)
     case FloatLitConst(l) => FloatV(l, 80)
     case NullConst => NullLoc()
     case PtrToIntExpr(from, const, to) =>
