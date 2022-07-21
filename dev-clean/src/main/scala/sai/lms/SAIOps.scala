@@ -58,6 +58,20 @@ trait SAIOps extends Base
     def reflectOp[B: Manifest](op: String): Rep[B] = Wrap[B](Adapter.g.reflect(op, Unwrap(a)))
     def castTo[B:Manifest]: Rep[B] =
       Wrap[B](Adapter.g.reflect("cast", Unwrap(a), Backend.Const(manifest[B])))
+    def castToM(m: Manifest[_]): Rep[Any] = {
+      if (m == manifest[Boolean]) a.castTo[Boolean]
+      else if (m == manifest[Char]) a.castTo[Char]
+      else if (m == manifest[Int]) a.castTo[Int]
+      else if (m == manifest[Long]) a.castTo[Long]
+      else if (m == manifest[Float]) a.castTo[Float]
+      else if (m == manifest[Double]) a.castTo[Double]
+      else if (m == manifest[Array[Boolean]]) a.castTo[Array[Boolean]]
+      else if (m == manifest[Array[Char]]) a.castTo[Array[Char]]
+      else if (m == manifest[Array[Short]]) a.castTo[Array[Short]]
+      else if (m == manifest[Array[Int]]) a.castTo[Array[Int]]
+      else if (m == manifest[Array[Long]]) a.castTo[Array[Long]]
+      else ???
+    }
   }
 
   implicit class StringOps(op: String) {
