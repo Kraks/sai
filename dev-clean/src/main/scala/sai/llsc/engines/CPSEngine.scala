@@ -372,20 +372,20 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
         case (ty@PtrType(_, _), id) => ss.getPointerArg(args(id)).castToM(ty.toManifest)
         case (ty@IntType(size), id) => ss.getIntArg(args(id)).castToM(ty.toManifest)
         case (ty@FloatType(k), id)  => ss.getFloatArg(args(id)).castToM(ty.toManifest)
-        case _ => ???
+        case _ => throw new Exception("Unknown native argument type")
       }
       val ptrArgIndices: List[Int] = argTypes.zipWithIndex.filter {
         case (ty, id) => ty.isInstanceOf[PtrType]
       }.map(_._2)
       val fv = NativeExternalFun(f.id.tail, Some(retTy))
-      val nativeRet: Rep[Any] = fv.applyNative[Any](nativeArgs).castToM(retTy.toManifest)
+      val nativeRet = fv(nativeArgs).castToM(retTy.toManifest)
       ptrArgIndices.foreach { id =>
         ss.writebackPointerArg(nativeRet, args(id), nativeArgs(id).asInstanceOf[Rep[CppAddr]])
       }
       val retVal = retTy match {
         case IntType(size) => IntV(nativeRet.asInstanceOf[Rep[Long]], size)
         case f@FloatType(_) => FloatV(nativeRet.asInstanceOf[Rep[Double]], f.size)
-        case _ => ???
+        case _ => throw new Exception("Unknown native return type")
       }
       k(ss, retVal)
     }
