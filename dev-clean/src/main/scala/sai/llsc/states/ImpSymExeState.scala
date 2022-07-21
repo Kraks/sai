@@ -127,10 +127,12 @@ trait ImpSymExeDefs extends SAIOps with BasicDefs with ValueDefs with Opaques wi
 
     def copy: Rep[SS] = reflectRead[SS]("ss-copy", ss)(ss)
 
+    // Note: getIntArg/getFloatArg/getPointerArg may potentially call solver
     def getIntArg(x : Rep[Value]): Rep[Long] = reflectRead[Long]("ss-get-int-arg", ss, x)(ss)
     def getFloatArg(x : Rep[Value]): Rep[Double] = reflectRead[Double]("ss-get-float-arg", ss, x)(ss)
     def getPointerArg(x : Rep[Value]): Rep[CppAddr] = reflectRead[CppAddr]("ss-get-pointer-arg", ss, x)(ss)
-    def writebackPointerArg(res: Rep[Any], addr:Rep[Value], x: Rep[CppAddr]): Rep[Unit] = reflectWrite[Unit]("ss-writeback-pointer-arg", ss, res, addr, x)(ss)
+    def writebackPointerArg(res: Rep[Any], addr:Rep[Value], x: Rep[CppAddr]): Rep[Unit] =
+      reflectWrite[Unit]("ss-writeback-pointer-arg", ss, res, addr, x)(ss)
   }
 
   implicit class RefSSOps(ss: Rep[Ref[SS]]) extends SSOps(ss.asRepOf[SS])

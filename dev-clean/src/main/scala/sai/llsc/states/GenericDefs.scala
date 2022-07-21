@@ -350,17 +350,17 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
     def float: Rep[Float] = "proj_FloatV".reflectWith[Float](v)
     def structAt(i: Rep[Long]) = "structV_at".reflectWith[Value](v, i)
 
+    def defaultRetVal(ty: Option[LLVMType]): Rep[Value] = ty match {
+      case Some(IntType(size)) => IntV(0, size)
+      case Some(PtrType(_, _)) => IntV(0, ARCH_WORD_SIZE)
+      case _ => IntV(0, 32)
+    }
+
     def apply[W[_]](s: Rep[W[SS]], args: Rep[List[Value]])(implicit m: Manifest[W[SS]]): Rep[List[(SS, Value)]] =
       v match {
         case ExternalFun(f, ty) =>
-          if (f == "noop" && Config.opt) {
-            val retval = ty match {
-              case Some(IntType(size)) => IntV(0, size)
-              case Some(PtrType(_, _)) => IntV(0, 64)
-              case _ => IntV(0)
-            }
-            List((s.asRepOf[SS], retval))
-          } else f.reflectWith[List[(SS, Value)]](s, args)
+          if (f == "noop" && Config.opt) List((s.asRepOf[SS], defaultRetVal(ty)))
+          else f.reflectWith[List[(SS, Value)]](s, args)
         case FunV(f) => f(s, args)
         case _ => "direct_apply".reflectWith[List[(SS, Value)]](v, s, args)
       }
@@ -370,24 +370,15 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
     def apply[W[_]](s: Rep[W[SS]], args: Rep[List[Value]], k: Rep[PCont[W]])(implicit m: Manifest[W[SS]]): Rep[Unit] =
       v match {
         case ExternalFun(f, ty) =>
-          if (f == "noop" && Config.opt) {
-            val retval = ty match {
-              case Some(IntType(size)) => IntV(0, size)
-              case Some(PtrType(_, _)) => IntV(0, 64)
-              case _ => IntV(0)
-            }
-            k(s, retval)
-          } else f.reflectWith[Unit](s, args, k)
+          if (f == "noop" && Config.opt) k(s, defaultRetVal(ty))
+          else f.reflectWith[Unit](s, args, k)
         case CPSFunV(f) => f(s, args, k)                       // direct call
         case _ => "cps_apply".reflectWith[Unit](v, s, args, k) // indirect call
       }
 
-    def applyNative[A:Manifest](args: List[Rep[Any]]): Rep[A] = {
-      v match {
-        case NativeExternalFun(f, ty) =>
-          f.reflectWriteWith[A](args:_*)(Adapter.CTRL)
-        case _ => ???
-      }
+    def applyNative[A: Manifest](args: List[Rep[Any]]): Rep[A] = v match {
+      case NativeExternalFun(f, ty) => f.reflectWriteWith[A](args:_*)(Adapter.CTRL)
+      case _ => throw new Exception("Not a native function")
     }
 
     def deref: Rep[Any] = "ValPtr-deref".reflectUnsafeWith[Any](v)

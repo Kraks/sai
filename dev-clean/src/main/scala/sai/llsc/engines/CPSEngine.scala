@@ -370,9 +370,13 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
       info("running native function: " + f.id)
       val native_args: List[Rep[Any]] = argTypes.zipWithIndex.map { case (ty, id) => {
         ty match {
-          case PtrType(_, _) => applyWithManifestRes[CppAddr, Rep, Rep](ty.toManifest, poly_rep_cast)(ss.getPointerArg(args(id))) // Rep[CppAddr] -> char *
-          case IntType(size: Int) => applyWithManifestRes[Long, Rep, Rep](ty.toManifest, poly_rep_cast)(ss.getIntArg(args(id))) // Rep[Long] -> long
-          case FloatType(k: FloatKind) => applyWithManifestRes[Double, Rep, Rep](ty.toManifest, poly_rep_cast)(ss.getFloatArg(args(id))) // Rep[Double] -> double
+          case PtrType(_, _) =>
+            applyWithManifestRes[CppAddr, Rep, Rep](ty.toManifest, poly_rep_cast)(ss.getPointerArg(args(id))) // Rep[CppAddr] -> char *
+          case IntType(size: Int) =>
+            //ss.getIntArg(args(id)).castTo[Long]
+            applyWithManifestRes[Long, Rep, Rep](ty.toManifest, poly_rep_cast)(ss.getIntArg(args(id))) // Rep[Long] -> long
+          case FloatType(k: FloatKind) =>
+            applyWithManifestRes[Double, Rep, Rep](ty.toManifest, poly_rep_cast)(ss.getFloatArg(args(id))) // Rep[Double] -> double
           case _ => ???
         }
       }}
@@ -382,18 +386,12 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
           case _ => false
         }
       }.map(_._2)
-
       val fv = NativeExternalFun(f.id.tail, Some(ret_ty))
-
-      val ret_m = ret_ty.toManifest
-
       val native_apply = new highfunc[Rep[Any], List, Rep] {
         def apply[A:Manifest](args: List[Rep[Any]]): Rep[A] = fv.applyNative[A](args)
       }
-
-      val native_res = applyWithManifestRes[Rep[Any], List, Rep](ret_m, native_apply)(native_args)
+      val native_res: Rep[Any] = applyWithManifestRes[Rep[Any], List, Rep](ret_ty.toManifest, native_apply)(native_args)
       pointer_ids.foreach(id => ss.writebackPointerArg(native_res, args(id), native_args(id).asInstanceOf[Rep[CppAddr]]))
-
       val ret_val = ret_ty match {
         case IntType(size: Int) => IntV(native_res.asInstanceOf[Rep[Long]], size)
         case f : FloatType => FloatV(native_res.asInstanceOf[Rep[Double]], getFloatSize(f))

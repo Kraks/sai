@@ -234,13 +234,12 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     case PtrType(ty, addrSpace) =>
       val elemSize = ARCH_WORD_SIZE / BYTE_SIZE
       (elemSize, elemSize)
-    case FloatType(fk) => {
+    case FloatType(fk) =>
       val bw = getFloatSize(vt.asInstanceOf[FloatType])
       import scala.math.{log, ceil, pow}
       val elemSize = (bw + BYTE_SIZE - 1) / BYTE_SIZE
       val align = pow(2, ceil(log(elemSize)/log(2)))
       (elemSize, align)
-    }
     case PackedStruct(types) =>
       PackedStructCalc.getSizeAlign(types)
     case _ =>
