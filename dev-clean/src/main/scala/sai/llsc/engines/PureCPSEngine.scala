@@ -207,6 +207,8 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
         val incsLabels: List[BlockLabel] = incs.map(_.label.hashCode)
         val vs = incsValues.map(v => () => eval(v, ty, ss))
         k(ss, selectValue(ss.incomingBlock, vs, incsLabels))
+      case SelectInst(cndTy, cndVal, thnTy, thnVal, elsTy, elsVal) if Config.iteSelect =>
+        k(ss, ITE(eval(cndVal, cndTy, ss), eval(thnVal, thnTy, ss), eval(elsVal, elsTy, ss)))
       case SelectInst(cndTy, cndVal, thnTy, thnVal, elsTy, elsVal) =>
         val cnd = eval(cndVal, cndTy, ss)
         val repK = fun(k)
@@ -215,6 +217,7 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
           else repK(ss, eval(elsVal, elsTy, ss))
         } else {
           // TODO: check cond via solver
+          Coverage.incPath(1)
           repK(ss, eval(thnVal, thnTy, ss.addPC(cnd.toSym)))
           repK(ss, eval(elsVal, elsTy, ss.addPC(cnd.toSymNeg)))
         }

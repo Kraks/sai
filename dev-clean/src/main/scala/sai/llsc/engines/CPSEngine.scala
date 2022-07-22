@@ -6,6 +6,7 @@ import sai.lang.llvm.parser.Parser._
 import sai.llsc.EngineBase
 import sai.llsc.ASTUtils._
 import sai.llsc.Constants._
+import sai.llsc.Config
 
 import scala.collection.JavaConverters._
 
@@ -200,6 +201,8 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
         val incsLabels: List[BlockLabel] = incs.map(_.label.hashCode)
         val vs = incsValues.map(v => () => eval(v, ty, ss))
         k(ss, selectValue(ss.incomingBlock, vs, incsLabels))
+      case SelectInst(cndTy, cndVal, thnTy, thnVal, elsTy, elsVal) if Config.iteSelect =>
+        k(ss, ITE(eval(cndVal, cndTy, ss), eval(thnVal, thnTy, ss), eval(elsVal, elsTy, ss)))
       case SelectInst(cndTy, cndVal, thnTy, thnVal, elsTy, elsVal) =>
         val cnd = eval(cndVal, cndTy, ss)
         val repK = fun(k)
@@ -210,11 +213,10 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
           // TODO: check cond via solver
           val s1 = ss.copy
           ss.addPC(cnd.toSym)
-          val v1 = eval(thnVal, thnTy, ss)
+          repK(ss, eval(thnVal, thnTy, ss))
           s1.addPC(cnd.toSymNeg)
-          val v2 = eval(elsVal, elsTy, s1)
-          repK(ss, v1)
-          repK(s1, v2)
+          Coverage.incPath(1)
+          repK(s1, eval(elsVal, elsTy, s1))
         }
     }
   }

@@ -233,6 +233,12 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           vs <- mapM(incsValues)(eval(_, ty))
           s <- getState
         } yield selectValue(s.incomingBlock, vs, incsLabels)
+      case SelectInst(cndTy, cndVal, thnTy, thnVal, elsTy, elsVal) if Config.iteSelect =>
+        for {
+          cnd <- eval(cndVal, cndTy)
+          tv  <- eval(thnVal, thnTy)
+          ev  <- eval(elsVal, elsTy)
+        } yield ITE(cnd, tv, ev)
       case SelectInst(cndTy, cndVal, thnTy, thnVal, elsTy, elsVal) =>
         // TODO: check cond via solver
         for {
@@ -243,6 +249,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
               if (cnd.int == 1) reify(s)(eval(thnVal, thnTy))
               else reify(s)(eval(elsVal, elsTy))
             } else {
+              Coverage.incPath(1)
               reify(s) {
                 (for {
                   _ <- updatePC(cnd.toSym)

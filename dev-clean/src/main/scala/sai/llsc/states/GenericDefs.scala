@@ -169,6 +169,10 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
   def mainArgs: Rep[List[Value]] = List[Value](unchecked[Value]("g_argc"), unchecked[Value]("g_argv"))
   implicit def intToLong(i: Int): Long = i.toLong
 
+  // TODO: name crash, refactor/remove dependencies of SMTBaseOps in SAIOps
+  def ITE(cnd: Rep[Value], thn: Rep[Value], els: Rep[Value]): Rep[Value] =
+    "ite".reflectWith[Value](cnd, thn, els)
+
   object IntV {
     def apply(i: Long): Rep[IntV] = IntV(unit(i), DEFAULT_INT_BW)
     def apply(i: Long, bw: Int): Rep[IntV] = IntV(unit(i), bw)
