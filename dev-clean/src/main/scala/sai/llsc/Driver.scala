@@ -81,6 +81,7 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest]
     val includes = codegen.includePaths.map(s"-I $curDir/" + _).mkString(" ")
     val libraryPaths = codegen.libraryPaths.map(p => s"-L $curDir/$p -Wl,-rpath $curDir/$p").mkString(" ")
     val mainFileOpt = if (config.test_coreutil) "NOOPT" else "OPT"
+    val dashG = if (config.test_coreutil) "-g" else ""
 
     out.println(s"""|BUILD_DIR = build
     |TARGET = $appName
@@ -90,7 +91,7 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest]
     |OPT = -O3
     |NOOPT = -O0
     |CC = g++ -std=c++17 -Wno-format-security
-    |PERFFLAGS = -fno-omit-frame-pointer #-g
+    |PERFFLAGS = -fno-omit-frame-pointer $dashG
     |CXXFLAGS = $includes $extraFlags $$(PERFFLAGS)
     |LDFLAGS = $libraryPaths
     |LDLIBS = $libraries -lpthread
@@ -300,6 +301,7 @@ trait LLSC {
   def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit]
   def runLLSC(m: Module, name: String, fname: String, config: Config = Config(0, true, false)): GenericLLSCDriver[Int, Unit] = {
     BlockCounter.reset
+    val config = Config.testcoreutil
     val (code, t) = time {
       val code = newInstance(m, name, fname, config)
       code.extraFlags = extraFlags
@@ -396,7 +398,7 @@ object RunLLSC {
       val appName = args(1)
       val fun = args(2)
       val nSym = if (args.isDefinedAt(3)) args(3).toInt else 0
-      val llsc = new PureLLSC
+      val llsc = new ImpCPSLLSC
       // TODO: create Config value according to command-line arguments, pass to runLLSC/newInstance
       llsc.runLLSC(parseFile(filepath), appName, fun, Config(nSym, true, false))
     }

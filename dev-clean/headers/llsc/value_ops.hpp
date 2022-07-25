@@ -389,6 +389,8 @@ inline int proj_LocV_size(const PtrVal& v) {
 
 inline PtrVal make_LocV_null() {
   static const PtrVal loc0 = make_IntV(0, 64);
+  /* // use LocV */
+  /* static const PtrVal loc0 = make_LocV(0, LocV::kStack, 8); */
   return loc0;
 }
 
@@ -904,6 +906,18 @@ inline PtrVal operator+ (const PtrVal& lhs, const PtrVal& rhs) {
     ASSERT(rhs->get_bw() == addr_index_bw, "Invalid index bitwidth");
     auto new_off = int_op_2(iOP::op_add, off, rhs);
     return make_SymLocV(symloc->base, symloc->k, symloc->size, new_off);
+  }
+  if (auto nullloc = std::dynamic_pointer_cast<IntV>(lhs)) {
+    // const char *slash;
+    // slash = strrchr (argv0, '/');
+    // base = (slash != NULL ? slash + 1 : argv0);
+    //
+    // where (slash + 1) corresponds to
+    //
+    // %add.ptr = getelementptr inbounds i8, i8* %4, i64 1
+    // $4 can be a nullptr
+    ASSERT(is_LocV_null(nullloc), "Performing pointer arithmetic on nullptr");
+    return nullloc; // do nothing
   }
   ABORT("Unknown application of operator+");
 }
