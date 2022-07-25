@@ -169,7 +169,7 @@ trait Opaques { self: SAIOps with BasicDefs =>
           warned.add(id)
         }
         Some(ExternalFun("noop", ret))
-      } else None // Will be executed natively
+      } else Some(ExternalFun("noop", ret))
   }
 }
 
