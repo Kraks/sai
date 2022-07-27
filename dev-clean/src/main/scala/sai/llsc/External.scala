@@ -42,10 +42,10 @@ trait GenExternal extends SymExeDefs {
   def getStringAt(ptr: Rep[Value], s: Rep[SS]): Rep[String] = "get_string_at".reflectWith[String](ptr, s)
 
   def open[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
-    val ptr = args(0)
-    val name: Rep[String] = getStringAt(ptr, ss)
+    val name: Rep[String] = getStringAt(args(0), ss)
     val flags = args(1)
     /* TODO: handle different mode <2021-10-12, David Deng> */
+    val mode = args(2)
     if (!fs.hasFile(name)) k(ss, fs, IntV(-1, 32))
     else {
       val fd: Rep[Fd] = fs.getFreshFd()
