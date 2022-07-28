@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <stdarg.h>
 #include <stdbool.h>
 
 // TODO: support assigning names for symbolic values
@@ -23,7 +24,7 @@ void llsc_assert(bool);
 void llsc_assert_eager(bool);
 
 void llsc_assume(bool);
-void sym_print(int);
+void sym_print(int, ...);
 void print_string(const char *message);
 
 /* llsc_range - Construct a symbolic value in the signed interval
