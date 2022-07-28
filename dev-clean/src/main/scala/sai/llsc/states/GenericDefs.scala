@@ -169,7 +169,10 @@ trait Opaques { self: SAIOps with BasicDefs =>
           warned.add(id)
         }
         Some(ExternalFun("noop", ret))
-      } else Some(ExternalFun("noop", ret))
+      } else {
+        System.out.println(s"Missing Implementation for ${id}, treated as a noop")
+        Some(ExternalFun("noop", ret))
+      }
   }
 }
 
