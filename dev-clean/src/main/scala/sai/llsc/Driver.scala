@@ -303,7 +303,6 @@ trait LLSC {
   def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit]
   def runLLSC(m: Module, name: String, fname: String, config: Config = Config(0, true, false)): GenericLLSCDriver[Int, Unit] = {
     BlockCounter.reset
-    val config = Config.testcoreutil
     val (code, t) = time {
       val code = newInstance(m, name, fname, config)
       code.extraFlags = extraFlags
