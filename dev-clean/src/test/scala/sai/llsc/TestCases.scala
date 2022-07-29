@@ -96,6 +96,7 @@ object TestCases {
     TestPrg(branch2, "branch2", "@f", symArg(2), noOpt, nPath(4)),
     TestPrg(branch3, "branch3", "@f", symArg(2), noOpt, nPath(4)),
     TestPrg(switchTestSym, "switchSymTest", "@main", noArg, noOpt, nPath(5)),
+    TestPrg(selectTestSym, "selectTest", "@main", noArg, noOpt, nPath(1)),
     TestPrg(i1Bool, "i1Bool", "@main", noArg, noOpt, nPath(5)++status(0)),
   )
 
@@ -114,8 +115,8 @@ object TestCases {
   )
 
   val symbolicLarge: List[TestPrg] = List(
-    TestPrg(mp65536, "mp65kTest", "@f", symArg(16), "--disable-solver", nPath(65536)),
-    TestPrg(mp1048576, "mp1mTest", "@f", symArg(20), "--disable-solver", nPath(1048576)),
+    TestPrg(mp65536, "mp65kTest", "@f", symArg(16), "--solver=disable", nPath(65536)),
+    TestPrg(mp1048576, "mp1mTest", "@f", symArg(20), "--solver=disable", nPath(1048576)),
   )
 
   val external: List[TestPrg] = List(

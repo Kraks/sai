@@ -54,19 +54,24 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
   }
 
   override def remap(m: Manifest[_]): String = {
-    if (m.toString == "java.lang.String") "String"
-    else if (m.toString.endsWith("$Value")) "PtrVal"
-    else if (m.toString.endsWith("$Addr")) "Addr"
-    else if (m.toString.endsWith("$BlockLabel")) "BlockLabel"
-    else if (m.toString.endsWith("$Mem")) "Mem"
-    else if (m.toString.endsWith("$SS")) "SS"
-    else if (m.toString.endsWith("$PC")) "PC"
-    else if (m.toString.endsWith("$FS")) "FS"
-    else if (m.toString.endsWith("$File")) "Ptr<File>"
-    else if (m.toString.endsWith("$Stream")) "Ptr<Stream>"
-    else if (m.toString.endsWith("$Kind")) "LocV::Kind"
-    else if (m.toString.endsWith("SMTExpr")) "PtrVal"
-    else if (m.toString.endsWith("SMTBool")) "PtrVal"
+    def isValueType(s: String): Boolean =
+      s.endsWith("$Value") || s.endsWith("$IntV") ||
+      s.endsWith("$FloatV") || s.endsWith("$LocV") ||
+      s.endsWith("$SymV") || s.endsWith("$SymLocV") ||
+      s.endsWith("$FunV") || s.endsWith("$CPSFunV")
+
+    val s = m.toString
+    if (s == "java.lang.String") "String"
+    else if (isValueType(s)) "PtrVal"
+    else if (s.endsWith("$Addr")) "Addr"
+    else if (s.endsWith("$BlockLabel")) "BlockLabel"
+    else if (s.endsWith("$Mem")) "Mem"
+    else if (s.endsWith("$SS")) "SS"
+    else if (s.endsWith("$PC")) "PC"
+    else if (s.endsWith("$FS")) "FS"
+    else if (s.endsWith("$File")) "Ptr<File>"
+    else if (s.endsWith("$Stream")) "Ptr<Stream>"
+    else if (s.endsWith("$Kind")) "LocV::Kind"
     else if (m.runtimeClass.getName.endsWith("Future"))
       s"std::future<${remap(m.typeArguments(0))}>"
     else super.remap(m)
@@ -137,7 +142,8 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     case Node(s, "ss-get-int-arg", List(ss, x), _) => es"get_int_arg($ss, $x)"
     case Node(s, "ss-get-float-arg", List(ss, x), _) => es"get_float_arg($ss, $x)"
     case Node(s, "ss-get-pointer-arg", List(ss, x), _) => es"get_pointer_arg($ss, $x)"
-    case Node(s, "ss-writeback-pointer-arg", List(ss, res, addr, x), _) => es"writeback_pointer_arg($ss, $addr, $x)"
+    case Node(s, "ss-writeback-pointer-arg", List(ss, res, addr, x), _) =>
+      es"writeback_pointer_arg($ss, $addr, $x)"
 
     case Node(s, "is-conc", List(v), _) => es"$v->is_conc()"
     case Node(s, "to-SMTNeg", List(v), _) => es"SymV::neg($v)"
@@ -172,6 +178,21 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     case Node(s, "async_exec_block", List(b: Block), _) =>
       es"async_exec_block("
       quoteTypedBlock(b, false, true, capture = "=")
+      es")"
+
+    case Node(s, "File::create", args, _) =>
+      es"std::make_shared<File>("
+      if (!args.isEmpty) {
+        shallow(args.head)
+        args.tail.map { x => es", $x" }
+      }
+      es")"
+    case Node(s, "Stream::create", args, _) =>
+      es"std::make_shared<Stream>("
+      if (!args.isEmpty) {
+        shallow(args.head)
+        args.tail.map { x => es", $x" }
+      }
       es")"
 
     case _ => super.shallow(n)
