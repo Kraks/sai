@@ -120,7 +120,7 @@ public:
     auto part = first.intersect({nullptr, idx, size_t(size)});
     auto cur = part.val;
     // part.size is unsigned, size will be casted to unsigned
-    if (size <= 0 || part.size < size) {
+    if (size >= 0 && part.size < size) {
       auto next = at(idx + part.size, size - part.size);
       possible_partial_undef(cur);
       possible_partial_undef(next);
