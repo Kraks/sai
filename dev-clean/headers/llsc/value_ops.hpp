@@ -905,17 +905,9 @@ inline PtrVal operator+ (const PtrVal& lhs, const PtrVal& rhs) {
     auto new_off = int_op_2(iOP::op_add, off, rhs);
     return make_SymLocV(symloc->base, symloc->k, symloc->size, new_off);
   }
-  if (auto nullloc = std::dynamic_pointer_cast<IntV>(lhs)) {
-    // const char *slash;
-    // slash = strrchr (argv0, '/');
-    // base = (slash != NULL ? slash + 1 : argv0);
-    //
-    // where (slash + 1) corresponds to
-    //
-    // %add.ptr = getelementptr inbounds i8, i8* %4, i64 1
-    // $4 can be a nullptr
-    ASSERT(is_LocV_null(nullloc), "Performing pointer arithmetic on nullptr");
-    return nullloc; // do nothing
+  if (auto intloc = std::dynamic_pointer_cast<IntV>(lhs)) {
+    INFO("Performing gep on an integer: " << intloc->toString() << " + " << rhs->toString());
+    return int_op_2(iOP::op_add, intloc, rhs);
   }
   ABORT("Unknown application of operator+");
 }
