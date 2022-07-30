@@ -1,23 +1,112 @@
 #!/bin/bash
-# Usage: test_benchmark.sh <benchmark.ll>
+# Usage: test_benchmark.sh <benchmark.ll> <head> <options>
 # Effect: will use RunLLSC to compile and run make subsequently in the llsc_gen folder, finally execute the executable.
-# Requires: bloop cli (https://scalacenter.github.io/bloop/docs/cli/tutorial)
 
-# /some/path/to/xyz.ll
+# Default values
+
+SCALA_COMPILE=true
+CPP_COMPILE=true
+RUNTIME=true
+
+CPP_NJOBS=2
+RUNTIME_TIMEOUT=300
+
+function usage {
+	echo "Usage: test_benchmark [-h] [--{njobs=,timeout=,no-scala,no-cpp,no-runtime,help}] <benchmark.ll> <head> <options>"
+	exit 1
+}
+
+function run_runtime {
+	if [ $# -eq 0 ]; then
+		echo "run_runtime arguments required: run_runtime EXE OPTS"
+		return
+	else
+		EXE="$1"
+		shift
+	fi
+
+	if [ $# -eq 0 ]; then
+		OPTS=("")
+	else
+		if [ -f ./scripts/braces_expand.py ]; then
+			OLDIFS=$IFS
+			IFS=$'\n'
+			OPTS=($(echo -n "$@" | ./scripts/braces_expand.py ))
+			IFS=$OLDIFS
+			echo [run_runtime] running $EXE with ${#OPTS[@]} expanded arguments.
+		else
+			OPTS=("$@")
+			echo [run_runtime] no script found at ./scripts/braces_expand.py, taking options literally
+		fi
+	fi
+
+	for OPT in "${OPTS[@]}"; do
+		cmd="$EXE $OPT"
+		echo [run_runtime] cmd: $cmd
+		echo -n "[run_runtime] result: "
+		eval "$cmd | tail -n 1"
+	done
+}
+export -f run_runtime
+
+GETOPT=$(getopt -o h --long "njobs:,timeout:,no-scala,no-cpp,no-runtime,help" -n 'test_benchmark' -- "$@")
+
+if [ $? != 0 ] ; then echo "invalid arguments..." >2 ; exit 1 ; fi
+
+eval set -- "$GETOPT"
+
+while true; do
+    case "$1" in
+        --njobs)
+            CPP_NJOBS=$2; shift 2 ;;
+		--timeout)
+			RUNTIME_TIMEOUT=$2; shift 2 ;;
+		--no-scala)
+			SCALA_COMPILE=false; shift ;;
+		--no-cpp)
+			CPP_COMPILE=false; shift ;;
+		--no-runtime)
+			RUNTIME=false; shift ;;
+        -h|--help)
+            usage ;;
+		--) shift; break ;;
+        *) break ;;
+    esac
+done
+
+
+if [ $# -lt 2 ]; then usage; fi
+
 LL=$1
+HEAD=$2
 shift
-OPT="$@"
-echo -e "input:\t\t$LL"
-echo -e "options:\t$OPT"
+shift
+OPTS="$@"
+echo -n "[test_benchmark] "
+date
+echo -e "[test_benchmark] input:\t\t$LL"
+echo -e "[test_benchmark] head:\t\t$HEAD"
+echo -e "[test_benchmark] options:\t$OPTS"
+echo -e "[test_benchmark] scala compile:\t\t$SCALA_COMPILE"
+echo -e "[test_benchmark] cpp compile:\t\t$CPP_COMPILE"
+echo -e "[test_benchmark] run runtime:\t\t$RUNTIME"
+echo -e "[test_benchmark] cpp njobs:\t\t$CPP_NJOBS"
+echo -e "[test_benchmark] runtime timeout:\t\t$RUNTIME_TIMEOUT"
 
-# Xyz
-HEAD=$LL
-HEAD=${HEAD##*/}
-HEAD=${HEAD%.ll}
-HEAD=${HEAD^}
+if [ "$SCALA_COMPILE" = "true" ]; then
+	export SBT_OPTS="-Xms4G -Xmx32G -Xss1024M -XX:MaxMetaspaceSize=8G -XX:ReservedCodeCacheSize=2048M"
+	/usr/bin/time --format "[test_benchmark] scala compilation time => real: %e,\tuser: %U,\tsys: %S" \
+		sbt "runMain sai.llsc.RunLLSC ${LL} ${HEAD} @main 0"
+fi
 
-bloop run sai -m sai.llsc.RunLLSC -- -J-Xms4g -J-Xmx8g -J-Xss1024M -J-XX:MaxMetaspaceSize=8G -J-XX:ReservedCodeCacheSize=2048M ${LL} ${HEAD} @main 0 &&
-	{ cd llsc_gen/${HEAD};
-		# make clean;
-		make -j2; } &&
-		./${HEAD} "${OPT}";
+if [ $? -eq 0 ] && [ "$CPP_COMPILE" = "true" ]; then
+	( cd llsc_gen/${HEAD};
+	echo -n "[test_benchmark] "
+	pwd
+	/usr/bin/time --format "[test_benchmark] c++ compilation time => real: %e,\tuser: %U,\tsys: %S" \
+		make -j${CPP_NJOBS} )
+fi
+
+if [ $? -eq 0 ] && [ "$RUNTIME" = "true" ]; then
+	timeout $RUNTIME_TIMEOUT bash -c "run_runtime ./llsc_gen/${HEAD}/${HEAD} ${OPTS}";
+fi
