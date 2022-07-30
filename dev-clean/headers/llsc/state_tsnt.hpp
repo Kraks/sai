@@ -395,7 +395,7 @@ class SS {
       ASSERT(s, "failed to read struct");
       return s->fs;
     }
-    PtrVal heap_lookup(size_t addr) { return heap.at(addr, -1); }
+    PtrVal heap_lookup(size_t addr) { return heap.at(addr); }
     BlockLabel incoming_block() { return bb; }
     SS&& alloc_stack(size_t size) {
 #ifdef LAZYALLOC
