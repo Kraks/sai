@@ -296,6 +296,9 @@ trait GenExternal extends SymExeDefs {
     f
   }
 
+  def _errno_location[T: Manifest](ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = 
+    k(ss, ss.getErrorLoc)
+
   // TODO: rename? <2022-05-28, David Deng> //
   def _has_file_type(f: Rep[File], mask: Rep[Int]): Rep[Boolean] = {
     val stat = f.readStatField("st_mode")
@@ -424,6 +427,8 @@ class ExternalLLSCDriver(folder: String = "./headers/llsc") extends SAISnippet[I
     hardTopFun(_set_file(_,_,_), "set_file", "inline")
     hardTopFun(_set_file_type(_,_), "set_file_type", "inline")
     hardTopFun(_has_file_type(_,_), "has_file_type", "inline")
+    hardTopFun(gen_p(_errno_location), "__errno_location", "inline")
+    hardTopFun(gen_k(_errno_location), "__errno_location", "inline")
     // hardTopFun(gen_p(openat), "openat", "inline")
     // hardTopFun(gen_k(openat), "openat", "inline")
     ()

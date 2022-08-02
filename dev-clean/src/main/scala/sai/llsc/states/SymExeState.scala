@@ -107,7 +107,8 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
     def addPCSet(es: Rep[List[SymV]]): Rep[SS] = "ss-addpcset".reflectWith[SS](ss, es)
     def pc: Rep[PC] = "get-pc".reflectWith[PC](ss)
     def updateArg: Rep[SS] = "ss-arg".reflectWith[SS](ss)
-    def updateErrorLoc: Rep[SS] = "ss-error-loc".reflectWith[SS](ss)
+    def initErrorLoc: Rep[SS] = "ss-init-error-loc".reflectWith[SS](ss)
+    def getErrorLoc: Rep[Value] = "ss-get-error-loc".reflectWith[Value](ss)
 
     def addIncomingBlock(x: String): Rep[SS] = "ss-add-incoming-block".reflectWith[SS](ss, x.hashCode)
     def incomingBlock: Rep[BlockLabel] = "ss-incoming-block".reflectWith[BlockLabel](ss)
@@ -173,7 +174,7 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
   def updatePC(x: Rep[SymV]): Comp[E, Rep[Unit]] = updateState(_.addPC(x))
   def updateIncomingBlock(x: String): Comp[E, Rep[Unit]] = updateState(_.addIncomingBlock(x))
   def initializeArg: Comp[E, Rep[Unit]] = updateState(_.updateArg)
-  def initializeErrorLoc: Comp[E, Rep[Unit]] = updateState(_.updateErrorLoc)
+  def initializeErrorLoc: Comp[E, Rep[Unit]] = updateState(_.initErrorLoc)
 
   def writebackPointerArg(res: Rep[Any], addr: Rep[Value], x: Rep[Ptr[Char]]): Comp[E, Rep[Unit]] = updateState(_.writebackPointerArg(res, addr, x))
 }
