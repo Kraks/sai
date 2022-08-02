@@ -15,40 +15,6 @@ function usage {
 	echo "Usage: test_benchmark [-h] [--{njobs=,timeout=,no-scala,no-cpp,no-runtime,help}] <benchmark.ll> <head> <options>"
 	exit 1
 }
-
-function run_runtime {
-	if [ $# -eq 0 ]; then
-		echo "run_runtime arguments required: run_runtime EXE OPTS"
-		return
-	else
-		EXE="$1"
-		shift
-	fi
-
-	if [ $# -eq 0 ]; then
-		OPTS=("")
-	else
-		if [ -f ./scripts/braces_expand.py ]; then
-			OLDIFS=$IFS
-			IFS=$'\n'
-			OPTS=($(echo -n "$@" | ./scripts/braces_expand.py ))
-			IFS=$OLDIFS
-			echo [run_runtime] running $EXE with ${#OPTS[@]} expanded arguments.
-		else
-			OPTS=("$@")
-			echo [run_runtime] no script found at ./scripts/braces_expand.py, taking options literally
-		fi
-	fi
-
-	for OPT in "${OPTS[@]}"; do
-		cmd="$EXE $OPT"
-		echo [run_runtime] cmd: $cmd
-		echo -n "[run_runtime] result: "
-		eval "$cmd | tail -n 1"
-	done
-}
-export -f run_runtime
-
 GETOPT=$(getopt -o h --long "njobs:,timeout:,no-scala,no-cpp,no-runtime,help" -n 'test_benchmark' -- "$@")
 
 if [ $? != 0 ] ; then echo "invalid arguments..." >2 ; exit 1 ; fi
@@ -73,7 +39,6 @@ while true; do
         *) break ;;
     esac
 done
-
 
 if [ $# -lt 2 ]; then usage; fi
 
@@ -108,5 +73,24 @@ if [ $? -eq 0 ] && [ "$CPP_COMPILE" = "true" ]; then
 fi
 
 if [ $? -eq 0 ] && [ "$RUNTIME" = "true" ]; then
-	timeout $RUNTIME_TIMEOUT bash -c "run_runtime ./llsc_gen/${HEAD}/${HEAD} ${OPTS}";
+	EXE="./llsc_gen/${HEAD}/${HEAD}"
+	if [ -f ./scripts/braces_expand.py ]; then
+		OLDIFS=$IFS
+		IFS=$'\n'
+		OPTS=($(echo -n "$OPTS" | ./scripts/braces_expand.py ))
+		IFS=$OLDIFS
+		echo [run_runtime] running $EXE with ${#OPTS[@]} expanded arguments.
+	else
+		echo [run_runtime] no script found at ./scripts/braces_expand.py, taking options literally
+	fi
+
+	for OPT in "${OPTS[@]}"; do
+		cmd="$EXE $OPT | tail -n 1"
+		if [ "$RUNTIME_TIMEOUT" -gt 0 ]; then
+			cmd="timeout $RUNTIME_TIMEOUT $cmd"
+		fi
+		eval "$cmd"
+		echo [run_runtime] cmd: $cmd
+		echo -n "[run_runtime] result: "
+	done
 fi
