@@ -47,8 +47,13 @@ trait GenExternal extends SymExeDefs {
   def open[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
     val name: Rep[String] = getStringAt(args(0), ss)
     val flags = args(1)
-    /* TODO: handle different mode <2021-10-12, David Deng> */
-    if (!fs.hasFile(name)) k(ss, fs, IntV(-1, 32))
+    /* TODO: handle different mode 
+     * O_CREAT
+     * <2021-10-12, David Deng> */
+    if (!fs.hasFile(name)) {
+      val ss1 = ss.setErrorLoc(flag("EACCES", 32))
+      k(ss1, fs, IntV(-1, 32))
+    }
     else {
       val fd: Rep[Fd] = fs.getFreshFd()
       val file = fs.getFile(name)
@@ -256,7 +261,7 @@ trait GenExternal extends SymExeDefs {
   ////////////////////////
   //  helper functions  //
   ////////////////////////
-  def flag(f: String, bw: Int): Rep[Value] = IntV(unchecked[Long](f), bw)
+  def flag(f: String, bw: Int): Rep[IntV] = IntV(unchecked[Long](f), bw)
 
   def S_IFMT: Rep[Value] = flag("S_IFMT", 32)
   def NEG_S_IFMT: Rep[Value] = flag("~S_IFMT", 32)
