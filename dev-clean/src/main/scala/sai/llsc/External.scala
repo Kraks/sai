@@ -51,10 +51,12 @@ trait GenExternal extends SymExeDefs {
      * O_CREAT
      * <2021-10-12, David Deng> */
     if (!fs.hasFile(name)) {
-      val ss1 = ss.setErrorLoc(flag("EACCES", 32))
+      val ss1 = ss.setErrorLoc(flag("EACCES"))
       k(ss1, fs, IntV(-1, 32))
-    }
-    else {
+    } else if ((flags.int & flag("O_CREAT").int: Rep[Boolean]) && (flags.int & flag("O_EXCL").int)) {
+      val ss1 = ss.setErrorLoc(flag("EEXIST"))
+      k(ss1, fs, IntV(-1, 32))
+    } else {
       val fd: Rep[Fd] = fs.getFreshFd()
       val file = fs.getFile(name)
       fs.setStream(fd, Stream(file))
@@ -261,10 +263,7 @@ trait GenExternal extends SymExeDefs {
   ////////////////////////
   //  helper functions  //
   ////////////////////////
-  def flag(f: String, bw: Int): Rep[IntV] = IntV(unchecked[Long](f), bw)
-
-  def S_IFMT: Rep[Value] = flag("S_IFMT", 32)
-  def NEG_S_IFMT: Rep[Value] = flag("~S_IFMT", 32)
+  def flag(f: String, bw: Int = 32): Rep[IntV] = IntV(unchecked[Long](f), bw)
 
   def _set_file(fs: Rep[FS], p: Rep[String], f: Rep[File]): Rep[FS] = {
     fs.setFile(p, f)
@@ -284,7 +283,7 @@ trait GenExternal extends SymExeDefs {
   def _set_file_type(f: Rep[File], mask: Rep[Int]): Rep[File] = {
     unchecked("/* _set_file_type */")
     // want to unset the file type bits and leave the other bits unchanged
-    val clearMask: Rep[Value] = NEG_S_IFMT
+    val clearMask: Rep[IntV] = flag("~S_IFMT")
     val stat = f.readStatField("st_mode")
     val newStat = IntV((stat.int & clearMask.int) | mask, 32)
     f.writeStatField("st_mode", newStat)
@@ -294,7 +293,7 @@ trait GenExternal extends SymExeDefs {
   def _set_file_mode(f: Rep[File], mask: Rep[Int]): Rep[File] = {
     unchecked("/* _set_file_mode */")
     // preserve the file type bits
-    val clearMask: Rep[Value] = S_IFMT
+    val clearMask: Rep[IntV] = flag("S_IFMT")
     val stat = f.readStatField("st_mode")
     val newStat = IntV((stat.int & clearMask.int) | mask, 32)
     f.writeStatField("st_mode", newStat)
