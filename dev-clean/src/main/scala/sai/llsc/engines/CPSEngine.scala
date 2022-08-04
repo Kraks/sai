@@ -129,6 +129,8 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
         val offset = calculateOffset(ptrType, vs)
         val v = eval(ptrValue, ptrType, ss).asRepOf[LocV] + offset
         k(ss, v, kk)
+      // Arith Unary Operations
+      case FNegInst(ty, op) => k(ss, evalFloatOp2("fsub", FloatConst(-0.0), op, ty, ss), kk)
       // Arith Binary Operations
       case AddInst(ty, lhs, rhs, _) => k(ss, evalIntOp2("add", lhs, rhs, ty, ss), kk)
       case SubInst(ty, lhs, rhs, _) => k(ss, evalIntOp2("sub", lhs, rhs, ty, ss), kk)
