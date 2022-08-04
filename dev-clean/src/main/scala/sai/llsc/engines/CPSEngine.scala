@@ -196,9 +196,10 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
         val fv = eval(f, VoidType, ss, Some(argTypes))
         val vs = argValues.zip(argTypes).map { case (v, t) => eval(v, t, ss) }
         ss.push(kk)
+        val stackSize = ss.stackSize
         val fK: Rep[Cont] = fun { case sv =>
           val s: Rep[Ref[SS]] = sv._1
-          val kk = s.pop
+          val kk = s.pop(stackSize)
           k(s, sv._2, kk)
         }
         fv[Ref](ss, List(vs: _*), fK)
@@ -314,9 +315,10 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
           case (v, t) => eval(v, t, ss)
         }
         ss.push(kk)
+        val stackSize = ss.stackSize
         val fK: Rep[Cont] = fun { case sv =>
           val s: Rep[Ref[SS]] = sv._1
-          val kk = s.pop
+          val kk = s.pop(stackSize)
           k(s, kk)
         }
         fv[Ref](ss, List(vs: _*), fK)

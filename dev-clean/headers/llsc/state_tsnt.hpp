@@ -458,11 +458,7 @@ class SS {
       stack.push(cont);
       return std::move(*this);
     }
-    SS&& pop(size_t keep) {
-      stack.pop(keep);
-      return std::move(*this);
-    }
-    typename Frame::Cont pop() {
+    typename Frame::Cont pop(size_t keep) {
       return stack.pop();
     }
     SS&& assign(Id id, PtrVal val) {

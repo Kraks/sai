@@ -129,7 +129,6 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     case Node(s, "ss-push", List(ss), _) => es"$ss.push()"
     case Node(s, "ss-push", List(ss, k), _) => es"$ss.push($k)"
     case Node(s, "ss-pop", List(ss, n), _) => es"$ss.pop($n)"
-    case Node(s, "ss-pop", List(ss), _) => es"$ss.pop()"
     case Node(s, "ss-addpc", List(ss, e), _) => es"$ss.add_PC($e)"
     case Node(s, "add-pc", List(pc, e), _) => es"$pc.add($e)"
     case Node(s, "ss-addpcset", List(ss, es), _) => es"$ss.add_PC_set($es)"
