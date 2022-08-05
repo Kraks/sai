@@ -161,12 +161,11 @@ class Frame {
   public:
     using Env = std::map<Id, PtrVal>;
     using Cont = std::function<std::monostate(SS&, PtrVal)>;
-    size_t framepointer;
     Cont cont;
   private:
     Env env;
   public:
-    Frame(size_t fp, Cont ct): framepointer(fp), cont(ct), env() {}
+    Frame(Cont ct): cont(ct), env() {}
     Frame(Env env) : env(std::move(env)) {}
     Frame() : env(std::map<Id, PtrVal>{}) {}
     size_t size() { return env.size(); }
@@ -203,10 +202,12 @@ class Stack {
       return std::move(*this);
     }
     PtrVal error_loc() { return errno_location; }
-    Stack&& pop(size_t keep) {
+    typename Frame::Cont pop(size_t keep) {
+      auto &it = env.at(env.size() - 1);
+      auto ret = it.cont;
       mem.take(keep);
       env.take(env.size() - 1);
-      return std::move(*this);
+      return ret;
     }
     Stack&& push() {
       return push(Frame());
@@ -216,14 +217,7 @@ class Stack {
       return std::move(*this);
     }
     Stack&& push(std::function<std::monostate(SS&, PtrVal)> cont) {
-      return push(Frame(mem_size(), cont));
-    }
-    typename Frame::Cont pop() {
-      auto &it = env.at(env.size() - 1);
-      auto ret = it.cont;
-      mem.take(it.framepointer);
-      env.take(env.size() - 1);
-      return ret;
+      return push(Frame(cont));
     }
 
     Stack&& assign(Id id, PtrVal val) {
@@ -459,7 +453,7 @@ class SS {
       return std::move(*this);
     }
     typename Frame::Cont pop(size_t keep) {
-      return stack.pop();
+      return stack.pop(keep);
     }
     SS&& assign(Id id, PtrVal val) {
 #ifdef LAZYALLOC
