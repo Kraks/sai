@@ -281,7 +281,6 @@ case class Config(nSym: Int, argv: Boolean, test_coreutil: Boolean) {
   def args(implicit d: ValueDefs) =
     if (argv) d.mainArgs
     else d.SymV.makeSymVList(nSym)
-
 }
 
 object Config {
@@ -398,17 +397,9 @@ object RunLLSC {
       val appName = args(1)
       val fun = args(2)
       val nSym = if (args.isDefinedAt(3)) args(3).toInt else 0
-      val llsc = new PureLLSC
+      val llsc = new ImpCPSLLSC 
       // TODO: create Config value according to command-line arguments, pass to runLLSC/newInstance
       llsc.runLLSC(parseFile(filepath), appName, fun, Config(nSym, true, false))
     }
-
-    //runLLSC(sai.llvm.OOPSLA20Benchmarks.mp1048576, "mp1m", "@f", 20)
-    //runLLSC(sai.llvm.Benchmarks.arrayAccess, "arrAccess", "@main")
-    //runLLSC(sai.llvm.LLSCExpr.structReturnLong, "structR1", "@main")
-    //runLLSC(sai.llvm.Coreutils.echo, "echo", "@main")
-    //runLLSC(sai.llvm.LLSCExpr.complexStruct, "complexStruct", "@main")
-    //runLLSC(sai.llvm.LLSCExpr.runCommandLine, "runCommandLine", "@main")
-    //runLLSC(parseFile("benchmarks/demo_benchmarks/bubblesort.ll"), "bubble", "@main")
   }
 }
