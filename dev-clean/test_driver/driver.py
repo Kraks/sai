@@ -16,9 +16,14 @@ if __name__ == "__main__":
     print("Compiling: {}".format(cmd))
     os.system(cmd)
     print("Reading test cases from {}".format(tests_folder))
+    # TODO: find the metainfo file in test_folder
     for test_case in glob.glob(tests_folder+"/*.test"):
         print("Testing {}".format(test_case))
         env = dict(os.environ)
+        ## TODO: read the test file,
+        ## parse cli argument test
+        ## create test file, stdin, stdout?
         env["LLSC_TEST_FILE"] = test_case
-        subprocess.Popen(["./"+target], env=env)
+        argv = "..."
+        subprocess.Popen(["./"+target + argv], env=env)
     os.system("gcov -b -c {}-{}".format(target, target))
