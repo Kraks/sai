@@ -224,10 +224,23 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
     def SEEK_CUR = cmacro[Int]("SEEK_CUR")
     def SEEK_END = cmacro[Int]("SEEK_END")
 
+    def O_RDONLY = cmacro[Int]("O_RDONLY")
+    def O_RDWR   = cmacro[Int]("O_RDWR")
+    def O_WRONLY = cmacro[Int]("O_WRONLY")
+    def O_CREAT  = cmacro[Int]("O_CREAT")
+    def O_TRUNC  = cmacro[Int]("O_TRUNC")
+    def O_EXCL   = cmacro[Int]("O_EXCL")
+
+    def S_IRUSR = cmacro[Int]("S_IRUSR")
+    def S_IWUSR = cmacro[Int]("S_IWUSR")
+    def S_IRGRP = cmacro[Int]("S_IRGRP")
+    def S_IWGRP = cmacro[Int]("S_IWGRP")
+    def S_IROTH = cmacro[Int]("S_IROTH")
+    def S_IWOTH = cmacro[Int]("S_IWOTH")
     def S_IFDIR = cmacro[Int]("S_IFDIR")
     def S_IFREG = cmacro[Int]("S_IFREG")
 
-    def O_RDONLY = cmacro[Int]("O_RDONLY")
+
 
     def getPathSegments(path: Rep[String]): Rep[List[String]] = path.split("/").filter(_.length > 0)
 
@@ -249,16 +262,6 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
     def openedFiles_= (rhs: Rep[Map[Fd, Stream]]): Unit = "field-assign".reflectCtrlWith(fs, "opened_files", rhs)
     def rootFile_= (rhs: Rep[File]): Unit = "field-assign".reflectCtrlWith(fs, "root_file", rhs)
 
-    def seekFile(fd: Rep[Fd], o: Rep[Long], w: Rep[Int]): Rep[Long] =
-      if (!fs.hasStream(fd)) -1L
-      else {
-        val strm = fs.getStream(fd)
-        if (w == SEEK_SET) strm.seekStart(o)
-        else if (w == SEEK_CUR) strm.seekCur(o)
-        else if (w == SEEK_END) strm.seekEnd(o)
-        else -1L
-      }
-
     def getFreshFd(): Rep[Fd] = "method-@".reflectCtrlWith[Fd](fs, "get_fresh_fd")
 
     // TODO: recursively search <2022-05-25, David Deng> //
@@ -277,6 +280,7 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
       if (parent != NullPtr[File]) parent.setChild(f.name, f)
     }
 
+    // TODO: This is wrong <2022-07-28, David Deng> //
     def removeFile(name: Rep[String]): Rep[Unit]          = fs.rootFile.removeChild(name)
     def hasStream(fd: Rep[Fd]): Rep[Boolean]              = fs.openedFiles.contains(fd)
     def getStream(fd: Rep[Fd]): Rep[Stream]               = fs.openedFiles(fd)

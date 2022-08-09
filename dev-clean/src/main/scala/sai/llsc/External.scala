@@ -40,6 +40,19 @@ trait GenExternal extends SymExeDefs {
   // <2022-05-12, David Deng> //
   def getStringAt(ptr: Rep[Value], s: Rep[SS]): Rep[String] = "get_string_at".reflectWith[String](ptr, s)
 
+  def hasPermission(flags: Rep[Value], f: Rep[File]): Rep[Boolean] = {
+    // the requested permission
+    val readAccess = ((flags.int & O_RDONLY: Rep[Boolean]) || (flags.int & O_RDWR))
+    val writeAccess = ((flags.int & O_WRONLY: Rep[Boolean]) || (flags.int & O_RDWR))
+
+    // the permission of the file
+    val mode = f.readStatField("st_mode")
+
+    val illegalRead = readAccess && !(((mode.int & S_IRUSR) | (mode.int & S_IRGRP) | (mode.int & S_IROTH)): Rep[Boolean])
+    val illegalWrite = readAccess && !(((mode.int & S_IWUSR) | (mode.int & S_IWGRP) | (mode.int & S_IWOTH)): Rep[Boolean])
+    !(illegalRead || illegalWrite)
+  }
+
   /* 
    * int open(const char *pathname, int flags);
    * int open(const char *pathname, int flags, mode_t mode);
@@ -47,20 +60,21 @@ trait GenExternal extends SymExeDefs {
   def open[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
     val name: Rep[String] = getStringAt(args(0), ss)
     val flags = args(1)
-    /* TODO: handle different mode 
-     * O_CREAT
-     * <2021-10-12, David Deng> */
     if (!fs.hasFile(name)) {
-      val ss1 = ss.setErrorLoc(flag("EACCES"))
-      k(ss1, fs, IntV(-1, 32))
-    } else if ((flags.int & flag("O_CREAT").int: Rep[Boolean]) && (flags.int & flag("O_EXCL").int)) {
-      val ss1 = ss.setErrorLoc(flag("EEXIST"))
-      k(ss1, fs, IntV(-1, 32))
+      k(ss.setErrorLoc(flag("EACCES")), fs, IntV(-1, 32))
+    } else if ((flags.int & O_CREAT: Rep[Boolean]) && (flags.int & O_EXCL)) {
+      k(ss.setErrorLoc(flag("EEXIST")), fs, IntV(-1, 32))
+    } else if ((flags.int & O_TRUNC: Rep[Boolean]) && (flags.int & O_RDONLY)) {
+      k(ss.setErrorLoc(flag("EEXIST")), fs, IntV(-1, 32))
     } else {
       val fd: Rep[Fd] = fs.getFreshFd()
       val file = fs.getFile(name)
-      fs.setStream(fd, Stream(file))
-      k(ss, fs, IntV(fd, 32))
+      if (hasPermission(flags, file)) {
+        fs.setStream(fd, Stream(file))
+        k(ss, fs, IntV(fd, 32))
+      } else {
+        k(ss.setErrorLoc(flag("EACCES")), fs, IntV(-1, 32))
+      }
     }
   }
 
@@ -78,19 +92,19 @@ trait GenExternal extends SymExeDefs {
   /* 
    * int close(int fd);
    */
-  def close[T: Manifest](fs: Rep[FS], args: Rep[List[Value]], k: (Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+  def close[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
     val fd: Rep[Fd] = args(0).int.toInt
-    if (!fs.hasStream(fd)) k(fs, IntV(-1, 32))
+    if (!fs.hasStream(fd)) 
+      k(ss.setErrorLoc(flag("EBADF")), fs, IntV(-1, 32))
     else {
       val strm = fs.getStream(fd)
       val name = strm.file.name
       if (fs.hasFile(name)) {
         // remove the stream associated with fd, write content to the actual file if the file still exists.
-        // TODO: implement update in MapOpsOpt <2022-04-21, David Deng> //
         fs.setFile(name, strm.file)
         fs.removeStream(fd)
       }
-      k(fs, IntV(0, 32))
+      k(ss, fs, IntV(0, 32))
     }
   }
 
@@ -101,17 +115,15 @@ trait GenExternal extends SymExeDefs {
     val fd: Rep[Int] = args(0).int.toInt
     val loc: Rep[Value] = args(1)
     val count: Rep[Int] = args(2).int.toInt
-    if (!fs.hasStream(fd)) k(ss, fs, IntV(-1, 64))
+    if (!fs.hasStream(fd)) 
+      k(ss.setErrorLoc(flag("EBADF")), fs, IntV(-1, 64))
     else {
       val strm = fs.getStream(fd)
       val content: Rep[List[Value]] = strm.read(count)
       // will update the cursor in strm
-      // Thought: use a reference so that we don't have to set it back? 
-      // But then we will have to manually make copies upon branches <2022-04-14, David Deng> //
       fs.setStream(fd, strm)
       val size = content.size
-      val ss1 = ss.updateSeq(loc, content)
-      k(ss1, fs, IntV(size, 64))
+      k(ss.updateSeq(loc, content), fs, IntV(size, 64))
     }
   }
 
@@ -123,7 +135,8 @@ trait GenExternal extends SymExeDefs {
     val buf: Rep[Value] = args(1)
     val count: Rep[Int] = args(2).int.toInt
     val content: Rep[List[Value]] = ss.lookupSeq(buf, count)
-    if (!fs.hasStream(fd)) k(ss, fs, IntV(-1, 64))
+    if (!fs.hasStream(fd)) 
+      k(ss.setErrorLoc(flag("EBADF")), fs, IntV(-1, 64))
     else {
       val strm = fs.getStream(fd)
       val size = strm.write(content, count)
@@ -135,12 +148,27 @@ trait GenExternal extends SymExeDefs {
   /*
    * off_t lseek(int fd, off_t offset, int whence);
    */
-  def lseek[T: Manifest](fs: Rep[FS], args: Rep[List[Value]], k: (Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+  def lseek[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
     val fd: Rep[Fd] = args(0).int.toInt
     val o: Rep[Long] = args(1).int
     val w: Rep[Int] = args(2).int.toInt
-    val pos: Rep[Long] = fs.seekFile(fd, o, w)
-    k(fs, IntV(pos, 64))
+    if (!fs.hasStream(fd)) 
+      k(ss.setErrorLoc(flag("EBADF")), fs, IntV(-1, 64))
+    else {
+      val strm = fs.getStream(fd)
+      val pos = {
+        if (w == SEEK_SET) strm.seekStart(o)
+        else if (w == SEEK_CUR) strm.seekCur(o)
+        else if (w == SEEK_END) strm.seekEnd(o)
+        else -1L
+      }
+      if (pos == -1L) 
+        k(ss.setErrorLoc(flag("EINVAL")), fs, IntV(-1, 64))
+      else {
+        fs.setStream(fd, strm)
+        k(ss, fs, IntV(pos, 64))
+      }
+    }
   }
 
   /*
@@ -406,14 +434,14 @@ class ExternalLLSCDriver(folder: String = "./headers/llsc") extends SAISnippet[I
     // hardTopFun(gen_k(llsc_assert), "llsc_assert", "inline")
     hardTopFun(gen_p(brg_fs(open(_,_,_,_))), "syscall_open", "inline")
     hardTopFun(gen_k(brg_fs(open(_,_,_,_))), "syscall_open", "inline")
-    hardTopFun(gen_p(brg_fs(close(_,_,_))), "syscall_close", "inline")
-    hardTopFun(gen_k(brg_fs(close(_,_,_))), "syscall_close", "inline")
+    hardTopFun(gen_p(brg_fs(close(_,_,_,_))), "syscall_close", "inline")
+    hardTopFun(gen_k(brg_fs(close(_,_,_,_))), "syscall_close", "inline")
     hardTopFun(gen_p(brg_fs(read(_,_,_,_))), "syscall_read", "inline")
     hardTopFun(gen_k(brg_fs(read(_,_,_,_))), "syscall_read", "inline")
     hardTopFun(gen_p(brg_fs(write(_,_,_,_))), "syscall_write", "inline")
     hardTopFun(gen_k(brg_fs(write(_,_,_,_))), "syscall_write", "inline")
-    hardTopFun(gen_p(brg_fs(lseek(_,_,_))), "syscall_lseek", "inline")
-    hardTopFun(gen_k(brg_fs(lseek(_,_,_))), "syscall_lseek", "inline")
+    hardTopFun(gen_p(brg_fs(lseek(_,_,_,_))), "syscall_lseek", "inline")
+    hardTopFun(gen_k(brg_fs(lseek(_,_,_,_))), "syscall_lseek", "inline")
     hardTopFun(gen_p(brg_fs(stat(_,_,_,_))), "syscall_stat", "inline")
     hardTopFun(gen_k(brg_fs(stat(_,_,_,_))), "syscall_stat", "inline")
     hardTopFun(gen_p(brg_fs(mkdir(_,_,_,_))), "syscall_mkdir", "inline")
