@@ -188,6 +188,29 @@ trait GenExternal extends SymExeDefs {
   }
 
   /*
+   * int fstat(int fd, struct stat *statbuf);
+   */
+  def fstat[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+    val fd: Rep[Fd] = args(0).int.toInt
+    val buf: Rep[Value] = args(1)
+    if (!fs.hasStream(fd)) 
+      k(ss.setErrorLoc(flag("EBADF")), fs, IntV(-1, 32))
+    else {
+      val stat = fs.getStream(fd).file.stat
+      val ss1 = ss.updateSeq(buf, stat)
+      k(ss1, fs, IntV(0, 32))
+    }
+  }
+
+  /*
+   * int lstat(const char *pathname, struct stat *statbuf);
+   */
+  def lstat[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+    // TODO: handle symlink <2022-08-09, David Deng> //
+    stat(ss, fs, args, k)
+  }
+
+  /*
    * int mkdir(const char *pathname, mode_t mode);
    */
   def mkdir[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
@@ -442,8 +465,14 @@ class ExternalLLSCDriver(folder: String = "./headers/llsc") extends SAISnippet[I
     hardTopFun(gen_k(brg_fs(write(_,_,_,_))), "syscall_write", "inline")
     hardTopFun(gen_p(brg_fs(lseek(_,_,_,_))), "syscall_lseek", "inline")
     hardTopFun(gen_k(brg_fs(lseek(_,_,_,_))), "syscall_lseek", "inline")
+    hardTopFun(gen_p(brg_fs(lseek(_,_,_,_))), "syscall_lseek64", "inline")
+    hardTopFun(gen_k(brg_fs(lseek(_,_,_,_))), "syscall_lseek64", "inline")
     hardTopFun(gen_p(brg_fs(stat(_,_,_,_))), "syscall_stat", "inline")
     hardTopFun(gen_k(brg_fs(stat(_,_,_,_))), "syscall_stat", "inline")
+    hardTopFun(gen_p(brg_fs(fstat(_,_,_,_))), "syscall_fstat", "inline")
+    hardTopFun(gen_k(brg_fs(fstat(_,_,_,_))), "syscall_fstat", "inline")
+    hardTopFun(gen_p(brg_fs(lstat(_,_,_,_))), "syscall_lstat", "inline")
+    hardTopFun(gen_k(brg_fs(lstat(_,_,_,_))), "syscall_lstat", "inline")
     hardTopFun(gen_p(brg_fs(mkdir(_,_,_,_))), "syscall_mkdir", "inline")
     hardTopFun(gen_k(brg_fs(mkdir(_,_,_,_))), "syscall_mkdir", "inline")
     hardTopFun(gen_p(brg_fs(rmdir(_,_,_,_))), "syscall_rmdir", "inline")
