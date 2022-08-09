@@ -1,6 +1,6 @@
 SRC_FILES := $(wildcard ./*.c)
 
-CC := clang-9
+CC := clang-11
 
 FLAGS := -emit-llvm -O0 -Xclang -disable-O0-optnone -c
 KLEE_FLAGS := -D KLEE -g -I $(KLEE_INCL)
@@ -30,4 +30,4 @@ $(LLSC_TARGET): %.ll : %.c
 	$(CC) $(LLSC_FLAGS) $(FLAGS) -o $@ $<
 
 clean:
-	$(RM) -rf $(KLEE_TARGET) $(KLEE_REPLAY_TARGET) $(KLEE_GEN) $(LLSC_TARGET) *.ll
+	$(RM) -rf $(KLEE_TARGET) $(KLEE_REPLAY_TARGET) $(KLEE_GEN) $(LLSC_TARGET)

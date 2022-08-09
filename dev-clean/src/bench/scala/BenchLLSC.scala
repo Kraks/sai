@@ -26,7 +26,7 @@ object TestCases {
     TestPrg(parseFile(s"$prefix/knapsack.ll"), "knapsackTest", "@main", noArg, noOpt, nPath(1666)),
     TestPrg(parseFile(s"$prefix/nqueen.ll"), "nQueens", "@main", noArg, noOpt, nPath(1363)),
     TestPrg(parseFile(s"$prefix/kmpmatcher.ll"), "kmp", "@main", noArg, noOpt, nPath(1287)),
-    // These benchmarks have a larger input size compared with those in demo_benchmarks
+    // These benchmarks have a larger input size compared with those in demo-benchmarks
     TestPrg(parseFile(s"$prefix/mergesort.ll"), "mergeSortTest", "@main", noArg, noOpt, nPath(5040)),
     TestPrg(parseFile(s"$prefix/bubblesort.ll"), "bubbleSortTest", "@main", noArg, noOpt, nPath(720)),
     TestPrg(parseFile(s"$prefix/quicksort.ll"), "quickSortTest", "@main", noArg, noOpt, nPath(720)),
@@ -39,21 +39,22 @@ abstract class TestLLSC extends FunSuite {
   import java.time.LocalDateTime
 
   case class TestResult(time: LocalDateTime, commit: String, engine: String, testName: String,
-    solverTime: Double, wholeTime: Double, blockCov: Double,
+    extSolverTime: Double, intSolverTime: Double, wholeTime: Double, blockCov: Double,
     pathNum: Int, brQueryNum: Int, testQueryNum: Int, cexCacheHit: Int) {
     override def toString() =
-      s"$time,$commit,$engine,$testName,$solverTime,$wholeTime,$blockCov,$pathNum,$brQueryNum,$testQueryNum,$cexCacheHit"
+      s"$time,$commit,$engine,$testName,$extSolverTime,$intSolverTime,$wholeTime,$blockCov,$pathNum,$brQueryNum,$testQueryNum,$cexCacheHit"
   }
 
   val gitCommit = Process("git rev-parse --short HEAD").!!.trim
 
   def parseOutput(engine: String, testName: String, output: String): TestResult = {
-    val pattern = raw"\[([^s]+)s/([^s]+)s\] #blocks: (\d+)/(\d+); #paths: (\d+); .+; #queries: (\d+)/(\d+) \((\d+)\)".r
+    val pattern = raw"\[([^s]+)s/([^s]+)s/([^s]+)s\] #blocks: (\d+)/(\d+); #paths: (\d+); .+; #queries: (\d+)/(\d+) \((\d+)\)".r
     output.split("\n").last match {
-      case pattern(solverTime, wholeTime, blockCnt, blockAll, pathNum, brQuerynum, testQueryNum, cexCacheHit) =>
+      case pattern(extSolverTime, intSolverTime, wholeTime, blockCnt, blockAll, pathNum, brQuerynum, testQueryNum, cexCacheHit) =>
         TestResult(LocalDateTime.now(), gitCommit, engine, testName,
-                   solverTime.toDouble, wholeTime.toDouble, blockCnt.toDouble / blockAll.toDouble,
-                   pathNum.toInt, brQuerynum.toInt, testQueryNum.toInt, cexCacheHit.toInt)
+          extSolverTime.toDouble, intSolverTime.toDouble, wholeTime.toDouble,
+          blockCnt.toDouble / blockAll.toDouble, pathNum.toInt, brQuerynum.toInt,
+          testQueryNum.toInt, cexCacheHit.toInt)
     }
   }
 
@@ -83,7 +84,7 @@ abstract class TestLLSC extends FunSuite {
     val nTest = 5
     val TestPrg(m, name, f, config, cliArg, exp) = tst
     test(name) {
-      val code = llsc.runLLSC(m, llsc.insName + "_" + name, f, config)
+      val code = llsc.run(m, llsc.insName + "_" + name, f, config)
       val mkRet = code.make(4)
       val (cliArg1, insName2) = solver match {
         case Some(x) =>
