@@ -2,6 +2,7 @@ package sai.llsc
 
 import sai.lang.llvm._
 import sai.lang.llvm.IR._
+import sai.llsc.IRUtils._
 
 import sai.structure.freer._
 import Eff._
@@ -19,7 +20,7 @@ import lms.core.stub.{While => _, _}
 import sai.lmsx._
 import sai.lmsx.smt.SMTBool
 
-import scala.collection.immutable.{List => StaticList, Map => StaticMap, Set => StaticSet}
+import scala.collection.immutable.{List => StaticList, Map => StaticMap, Set => StaticSet, ListMap}
 import scala.collection.mutable.{Map => MutableMap, Set => MutableSet}
 
 @virtualize
@@ -27,23 +28,68 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
   trait File
   trait Stream
 
-  // TODO: refactor using getTySize and calculateOffsetStatic <2022-05-26, David Deng> //
-  val statFieldMap: Map[String, (Int, Int)] = StaticMap(
-      "st_dev" -> (0, 8),
-      "st_ino" -> (8, 8),
-      "st_nlink" -> (16, 8),
-      "st_mode" -> (24, 4),
-      "st_uid" -> (28, 4),
-      "st_gid" -> (32, 4),
-      // padding, (36, 4)},
-      "st_rdev" -> (40, 8),
-      "st_size" -> (48, 8),
-      "st_blksi" -> (56, 8),
-      "st_block" -> (64, 8),
-      "st_atim" -> (72, 16),
-      "st_mtim" -> (88, 16),
-      "st_ctim" -> (104, 16),
-  )
+  // %struct.stat = type { i64, i64, i64, i32, i32, i32, i32 (padding), i64, i64, i64, i64, %struct.timespec, %struct.timespec, %struct.timespec, [3 x i64] }
+  // %struct.timespec = type { i64, i64 }
+
+  // TODO: model nested fields? <2022-08-09, David Deng> //
+
+  val statFields = ListMap[String, LLVMType](
+    "st_dev"   -> IntType(64),
+    "st_ino"   -> IntType(64),
+    "st_nlink" -> IntType(64),
+    "st_mode"  -> IntType(32),
+    "st_uid"   -> IntType(32),
+    "st_gid"   -> IntType(32),
+    "st_rdev"  -> IntType(64),
+    "st_size"  -> IntType(64),
+    "st_blksi" -> IntType(64),
+    "st_block" -> IntType(64),
+    "st_atim"  -> IntType(128),
+    "st_mtim"  -> IntType(128),
+    "st_ctim"  -> IntType(128),
+    )
+  val StatType = Struct(statFields.values.toList)
+
+  // %struct.statfs = type { i64, i64, i64, i64, i64, i64, i64, %struct.__fsid_t, i64, i64, i64, [4 x i64] }
+  // %struct.__fsid_t = type { [2 x i32] }
+
+  // struct statfs {
+  //    __fsword_t f_type;    /* Type of filesystem (see below) */
+  //    __fsword_t f_bsize;   /* Optimal transfer block size */
+  //    fsblkcnt_t f_blocks;  /* Total data blocks in filesystem */
+  //    fsblkcnt_t f_bfree;   /* Free blocks in filesystem */
+  //    fsblkcnt_t f_bavail;  /* Free blocks available to
+  //                             unprivileged user */
+  //    fsfilcnt_t f_files;   /* Total file nodes in filesystem */
+  //    fsfilcnt_t f_ffree;   /* Free file nodes in filesystem */
+  //    fsid_t     f_fsid;    /* Filesystem ID */
+  //    __fsword_t f_namelen; /* Maximum length of filenames */
+  //    __fsword_t f_frsize;  /* Fragment size (since Linux 2.6) */
+  //    __fsword_t f_flags;   /* Mount flags of filesystem
+  //                             (since Linux 2.6.36) */
+  //    __fsword_t f_spare[xxx];
+  //                    /* Padding bytes reserved for future use */
+  // };
+
+  val statfsFields = ListMap(
+    "f_type"    -> IntType(64),
+    "f_bsize"   -> IntType(64),
+    "f_blocks"  -> IntType(64),
+    "f_bfree"   -> IntType(64),
+    "f_bavail"  -> IntType(64),
+    "f_files"   -> IntType(64),
+    "f_ffree"   -> IntType(64),
+    "f_fsid"    -> IntType(64),
+    "f_namelen" -> IntType(64),
+    "f_frsize"  -> IntType(64),
+    "f_flags"   -> IntType(64),
+    // IntType(64),
+    // IntType(64),
+    // IntType(64),
+    // IntType(64),
+    )
+
+  val StatfsType: StructType = Struct(statfsFields.values.toList)
 
   object File {
     def apply(name: Rep[String]) = "File::create".reflectWith[File](name)
@@ -117,13 +163,21 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
 
     def readAt(pos: Rep[Long], len: Rep[Long]): Rep[List[Value]] = content.drop(pos.toInt).take(len.toInt)
 
+    def getFieldIdx(f: String): Int = {
+      val idx = statFields.keys.toList.indexOf(f)
+      assert(idx >= 0, s"Field $f not found in stat fields")
+      idx
+    }
+
+    implicit val m = Module(StaticList[TopLevelEntity]()) // assume no named types
+
     def readStatField(f: String): Rep[Value] = {
-      val (pos, size) = statFieldMap(f)
+      val (pos, size) = StructCalc().getFieldOffsetSize(StatType.types, getFieldIdx(f))
       "from-bytes".reflectMutableWith[Value](file.stat.drop(pos).take(size))
     }
 
     def writeStatField(f: String, v: Rep[Value]): Rep[Unit] = {
-      val (pos, size) = statFieldMap(f)
+      val (pos, size) = StructCalc().getFieldOffsetSize(StatType.types, getFieldIdx(f))
       val bytes = "to-bytes".reflectWith[List[Value]](v)
       file.stat = file.stat.take(pos) ++ bytes ++ file.stat.drop(pos + bytes.size)
     }
