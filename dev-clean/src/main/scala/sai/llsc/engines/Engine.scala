@@ -37,10 +37,10 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
     "sym_exec_br".reflectWith[List[(SS, Value)]](ss, tCond, fCond, unchecked[String](tBrFunName), unchecked[String](fBrFunName))
   }
 
-  def eval(v: LLVMValue, ty: LLVMType, argTypes: Option[List[LLVMType]] = None)(implicit funName: String): Comp[E, Rep[Value]] = {
+  def eval(v: LLVMValue, ty: LLVMType, argTypes: Option[List[LLVMType]] = None)(implicit ctx: Ctx): Comp[E, Rep[Value]] = {
     v match {
       case LocalId(x) =>
-        for { ss <- getState } yield ss.lookup(funName + "_" + x)
+        for { ss <- getState } yield ss.lookup(ctx.withVar(x))
       case IntConst(n) =>
         ret(IntV(n, ty.asInstanceOf[IntType].size))
       case FloatConst(f) => ret(FloatV(f, ty.asInstanceOf[FloatType].size))
@@ -102,15 +102,15 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
     }
   }
 
-  def evalIntOp2(op: String, lhs: LLVMValue, rhs: LLVMValue, ty: LLVMType)(implicit funName: String): Comp[E, Rep[Value]] =
+  def evalIntOp2(op: String, lhs: LLVMValue, rhs: LLVMValue, ty: LLVMType)(implicit ctx: Ctx): Comp[E, Rep[Value]] =
     for { v1 <- eval(lhs, ty); v2 <- eval(rhs, ty) } yield IntOp2(op, v1, v2)
 
-  def evalFloatOp2(op: String, lhs: LLVMValue, rhs: LLVMValue, ty: LLVMType)(implicit funName: String): Comp[E, Rep[Value]] =
+  def evalFloatOp2(op: String, lhs: LLVMValue, rhs: LLVMValue, ty: LLVMType)(implicit ctx: Ctx): Comp[E, Rep[Value]] =
   {
       for { v1 <- eval(lhs, ty); v2 <- eval(rhs, ty) } yield FloatOp2(op, v1, v2)
   }
 
-  def execValueInst(inst: ValueInstruction)(implicit funName: String): Comp[E, Rep[Value]] = {
+  def execValueInst(inst: ValueInstruction)(implicit ctx: Ctx): Comp[E, Rep[Value]] = {
     inst match {
       // Memory Access Instructions
       case AllocaInst(ty, align) =>
@@ -229,7 +229,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           else selectValue(bb, vs.tail, labels.tail)
         }
         val incsValues: List[LLVMValue] = incs.map(_.value)
-        val incsLabels: List[BlockLabel] = incs.map(_.label.hashCode)
+        val incsLabels: List[BlockLabel] = incs.map(i => Counter.block.get(ctx.withBlock(i.label)))
         for {
           vs <- mapM(incsValues)(eval(_, ty))
           s <- getState
@@ -268,7 +268,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
   }
 
   // Note: Comp[E, Rep[Value]] vs Comp[E, Rep[Option[Value]]]?
-  def execTerm(inst: Terminator, incomingBlock: String)(implicit funName: String): Comp[E, Rep[Value]] = {
+  def execTerm(inst: Terminator)(implicit ctx: Ctx): Comp[E, Rep[Value]] = {
     inst match {
       // FIXME: unreachable
       case Unreachable => ret(IntV(-1))
@@ -277,25 +277,25 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           case Some(value) => eval(value, ty)
           case None => ret(NullPtr[Value])
         }
-      case BrTerm(lab) if (cfg.pred(funName, lab).size == 1) =>
-        execBlockEager(funName, findBlock(funName, lab).get)
+      case BrTerm(lab) if (cfg.pred(ctx.funName, lab).size == 1) =>
+        execBlockEager(ctx.funName, findBlock(ctx.funName, lab).get)
       case BrTerm(lab) =>
         for {
-          _ <- updateIncomingBlock(incomingBlock)
-          v <- execBlock(funName, lab)
+          _ <- updateIncomingBlock(ctx.blockLab)
+          v <- execBlock(ctx.funName, lab)
         } yield v
       case CondBrTerm(ty, cnd, thnLab, elsLab) =>
         // System.out.println(ty, cnd, thnLab, elsLab)
         for {
-          _ <- updateIncomingBlock(incomingBlock)
+          _ <- updateIncomingBlock(ctx.blockLab)
           ss <- getState
           cndVal <- eval(cnd, ty)
           u <- reflect {
             if (cndVal.isConc) {
-              if (cndVal.int == 1) reify(ss)(execBlock(funName, thnLab))
-              else reify(ss)(execBlock(funName, elsLab))
+              if (cndVal.int == 1) reify(ss)(execBlock(ctx.funName, thnLab))
+              else reify(ss)(execBlock(ctx.funName, elsLab))
             } else {
-              symExecBr(ss, cndVal.toSym, cndVal.toSymNeg, thnLab, elsLab, funName)
+              symExecBr(ss, cndVal.toSym, cndVal.toSymNeg, thnLab, elsLab, ctx.funName)
               /*
               val tpcSat = checkPC(ss.pc + cndVal.toSMTBool)
               val fpcSat = checkPC(ss.pc + cndVal.toSMTBoolNeg)
@@ -327,9 +327,9 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
         } yield u
       case SwitchTerm(cndTy, cndVal, default, table) =>
         def switch(v: Rep[Long], s: Rep[SS], table: List[LLVMCase]): Rep[List[(SS, Value)]] =
-          if (table.isEmpty) execBlock(funName, default, s)
+          if (table.isEmpty) execBlock(ctx.funName, default, s)
           else {
-            if (v == table.head.n) execBlock(funName, table.head.label, s)
+            if (v == table.head.n) execBlock(ctx.funName, table.head.label, s)
             else switch(v, s, table.tail)
           }
 
@@ -339,7 +339,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           if (table.isEmpty)
             if (checkPC(s.pc)) {
               counter += 1
-              reify(s) { execBlock(funName, default) }
+              reify(s) { execBlock(ctx.funName, default) }
             } else List[(SS, Value)]()
           else {
             val headPC = IntOp2("eq", v, IntV(table.head.n))
@@ -348,7 +348,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
                 counter += 1
                 reify(s)(for {
                   _ <- updatePC(headPC.toSym)
-                  u <- execBlock(funName, table.head.label)
+                  u <- execBlock(ctx.funName, table.head.label)
                 } yield u)
               } else List[(SS, Value)]()
             }
@@ -357,7 +357,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           }
 
         for {
-          _ <- updateIncomingBlock(incomingBlock)
+          _ <- updateIncomingBlock(ctx.blockLab)
           v <- eval(cndVal, cndTy)
           s <- getState
           r <- reflect {
@@ -372,12 +372,12 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
     }
   }
 
-  def execInst(inst: Instruction)(implicit fun: String): Comp[E, Rep[Unit]] = {
+  def execInst(inst: Instruction)(implicit ctx: Ctx): Comp[E, Rep[Unit]] = {
     inst match {
       case AssignInst(x, valInst) =>
         for {
-          v <- execValueInst(valInst)(fun)
-          _ <- stackUpdate(fun + "_" + x, v)
+          v <- execValueInst(valInst)
+          _ <- stackUpdate(ctx.withVar(x), v)
         } yield ()
       case StoreInst(ty1, val1, ty2, val2, align) =>
         for {
@@ -415,9 +415,10 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
     } yield v
 
   def execBlockEager(funName: String, b: BB): Comp[E, Rep[Value]] = {
+    implicit val ctx = Ctx(funName, b.label.get)
     val runInstList: Comp[E, Rep[Value]] = for {
-      _ <- mapM(b.ins)(execInst(_)(funName))
-      v <- execTerm(b.term, b.label.getOrElse(""))(funName)
+      _ <- mapM(b.ins)(execInst(_))
+      v <- execTerm(b.term)
     } yield v
     Coverage.incBlock(funName, b.label.get)
     runInstList
@@ -485,10 +486,11 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
   override def wrapFunV(f: FFTy): Rep[Value] = FunV[Id](f)
 
   def exec(fname: String, args: Rep[List[Value]]): Rep[List[(SS, Value)]] = {
+    implicit val ctx = Ctx(fname, findFirstBlock(fname).label.get)
     val preHeap: Rep[List[Value]] = List(precompileHeapLists(m::Nil):_*)
     val heap0 = preHeap.asRepOf[Mem]
     val comp = for {
-      fv <- eval(GlobalId(fname), VoidType)(fname)
+      fv <- eval(GlobalId(fname), VoidType)
       _ <- pushFrame
       _ <- initializeArg
       _ <- initializeErrorLoc

@@ -407,10 +407,11 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
   override def wrapFunV(f: FFTy): Rep[Value] = CPSFunV[Ref](f)
 
   def exec(fname: String, args: Rep[List[Value]], k: Rep[Cont]): Rep[Unit] = {
+    implicit val ctx = Ctx(fname, findFirstBlock(fname).label.get)
     val preHeap: Rep[List[Value]] = List(precompileHeapLists(m::Nil):_*)
     Coverage.incPath(1)
     val ss = initState(preHeap.asRepOf[Mem])
-    val fv = eval(GlobalId(fname), VoidType, ss)(Ctx(fname, findFirstBlock(fname).label.get))
+    val fv = eval(GlobalId(fname), VoidType, ss)
     ss.push
     ss.updateArg
     ss.updateErrorLoc

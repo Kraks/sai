@@ -10,11 +10,12 @@ struct Monitor {
   private:
     using BlockId = std::uint64_t;
     using BranchId = std::uint64_t;
-    //using BranchCov = std::pair<std::atomic_uint64_t, std::atomic_uint64_t>;
     // Total number of blocks
     uint64_t num_blocks;
     // The number of execution for each block
     std::vector<std::atomic_uint64_t> block_cov;
+    // The number of execution for each branch
+    std::map<BlockId, std::map<BranchId, std::atomic_uint64_t>> branch_cov;
     // Number of discovered paths
     std::atomic_uint64_t num_paths;
     // Number of executed instructions
