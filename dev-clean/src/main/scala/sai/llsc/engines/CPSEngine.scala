@@ -5,7 +5,7 @@ import sai.lang.llvm.IR._
 import sai.lang.llvm.parser.Parser._
 import sai.llsc.ASTUtils._
 import sai.llsc.Constants._
-import sai.llsc.{EngineBase, Config, Counter}
+import sai.llsc.{EngineBase, Config, Counter, Ctx}
 
 import scala.collection.JavaConverters._
 
@@ -51,7 +51,7 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
 
   def eval(v: LLVMValue, ty: LLVMType, ss: Rep[SS], argTypes: Option[List[LLVMType]] = None)(implicit ctx: Ctx): Rep[Value] =
     v match {
-      case LocalId(x) => ss.lookup(ctx.funName + "_" + x)
+      case LocalId(x) => ss.lookup(ctx.withVar(x))
       case IntConst(n) => IntV(n, ty.asInstanceOf[IntType].size)
       case FloatConst(f) => FloatV(f, ty.asInstanceOf[FloatType].size)
       case FloatLitConst(l) => FloatV(l, 80)
@@ -210,7 +210,7 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
           else selectValue(bb, vs.tail, labels.tail)
         }
         val incsValues: List[LLVMValue] = incs.map(_.value)
-        val incsLabels: List[BlockLabel] = incs.map(_.label.hashCode)
+        val incsLabels: List[BlockLabel] = incs.map(i => Counter.block.get(ctx.withBlock(i.label)))
         val vs = incsValues.map(v => () => eval(v, ty, ss))
         k(ss, selectValue(ss.incomingBlock, vs, incsLabels), kk)
       case SelectInst(cndTy, cndVal, thnTy, thnVal, elsTy, elsVal) if Config.iteSelect =>
@@ -246,11 +246,11 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
       case BrTerm(lab) if (cfg.pred(ctx.funName, lab).size == 1) =>
         execBlockEager(ctx.funName, findBlock(ctx.funName, lab).get, ss, k)
       case BrTerm(lab) =>
-        ss.addIncomingBlock(ctx.blockLab)
+        ss.addIncomingBlock(ctx.toString)
         execBlock(ctx.funName, lab, ss, k)
       case CondBrTerm(ty, cnd, thnLab, elsLab) =>
         Counter.setBranchNum(ctx.funName, ctx.blockLab, 2)
-        ss.addIncomingBlock(ctx.blockLab)
+        ss.addIncomingBlock(ctx.toString)
         val cndVal = eval(cnd, ty, ss)
         //branch(ss, cndVal.toSym, cndVal.toSymNeg, thnLab, elsLab, funName, k)
         if (cndVal.isConc) {
@@ -286,7 +286,7 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
             switchSym(v, st, table.tail)
           }
 
-        ss.addIncomingBlock(ctx.blockLab)
+        ss.addIncomingBlock(ctx.toString)
         val v = eval(cndVal, cndTy, ss)
         if (v.isConc) switch(v.int, ss, table)
         else {
@@ -300,10 +300,9 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
   def execInst(inst: Instruction, ss: Rep[SS], k: (Rep[SS], Rep[Cont]) => Rep[Unit])(implicit ctx: Ctx, kk: Rep[Cont]): Rep[Unit] = {
     inst match {
       case AssignInst(x, valInst) =>
-        execValueInst(valInst, ss, {
-          case (s, v, kk) =>
-            s.assign(ctx.funName + "_" + x, v)
-            k(s, kk)
+        execValueInst(valInst, ss, { case (s, v, kk) =>
+          s.assign(ctx.withVar(x), v)
+          k(s, kk)
         })
       case StoreInst(ty1, val1, ty2, val2, align) =>
         val v1 = eval(val1, ty1, ss)

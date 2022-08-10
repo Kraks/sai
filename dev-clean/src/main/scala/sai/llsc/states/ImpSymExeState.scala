@@ -2,7 +2,7 @@ package sai.llsc.imp
 
 import sai.lang.llvm._
 import sai.lang.llvm.IR._
-import sai.llsc.{Constants, BasicDefs, Coverage, Opaques, ValueDefs}
+import sai.llsc.{Constants, BasicDefs, Coverage, Opaques, ValueDefs, Counter}
 
 import lms.core._
 import lms.core.Backend._
@@ -79,14 +79,10 @@ trait ImpSymExeDefs extends SAIOps with BasicDefs with ValueDefs with Opaques wi
     private def assignSeq(xs: List[Int], vs: Rep[List[Value]]): Rep[Unit] =
       reflectWrite[Unit]("ss-assign-seq", ss, xs, vs)(ss)
 
-    def lookup(x: String): Rep[Value] = {
-      //System.out.println("Debug info: " + x + "->" + x.hashCode)
-      reflectRead[Value]("ss-lookup-env", ss, x.hashCode)(ss)
-    }
+    def lookup(x: String): Rep[Value] = reflectRead[Value]("ss-lookup-env", ss, Counter.variable.get(x))(ss)
     def assign(x: String, v: Rep[Value]): Rep[Unit] =
-      //reflectCtrl[Unit]("ss-assign", ss, x.hashCode, v)
-      reflectWrite[Unit]("ss-assign", ss, x.hashCode, v)(ss)
-    def assign(xs: List[String], vs: Rep[List[Value]]): Rep[Unit] = assignSeq(xs.map(_.hashCode), vs)
+      reflectWrite[Unit]("ss-assign", ss, Counter.variable.get(x), v)(ss)
+    def assign(xs: List[String], vs: Rep[List[Value]]): Rep[Unit] = assignSeq(xs.map(Counter.variable.get(_)), vs)
     def lookup(addr: Rep[Value], size: Int = 1, isStruct: Int = 0): Rep[Value] = {
       require(size > 0)
       if (isStruct == 0) reflectRead[Value]("ss-lookup-addr", ss, addr, size)(ss)
@@ -122,7 +118,7 @@ trait ImpSymExeDefs extends SAIOps with BasicDefs with ValueDefs with Opaques wi
     def updateArg: Rep[Unit] = reflectWrite[Unit]("ss-arg", ss)(ss)
     def updateErrorLoc: Rep[Unit] = reflectWrite[Unit]("ss-error-loc", ss)(ss)
 
-    def addIncomingBlock(x: String): Rep[Unit] = reflectWrite[Unit]("ss-add-incoming-block", ss, x.hashCode)(ss)
+    def addIncomingBlock(x: String): Rep[Unit] = reflectWrite[Unit]("ss-add-incoming-block", ss, Counter.block.get(x))(ss)
     def incomingBlock: Rep[BlockLabel] = reflectRead[BlockLabel]("ss-incoming-block", ss)(ss)
 
     def copy: Rep[SS] = reflectRead[SS]("ss-copy", ss)(ss)

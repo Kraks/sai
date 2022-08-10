@@ -75,9 +75,9 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
     private def assignSeq(xs: List[Int], vs: Rep[List[Value]]): Rep[SS] =
       "ss-assign-seq".reflectWith[SS](ss, xs, vs)
 
-    def lookup(x: String): Rep[Value] = "ss-lookup-env".reflectWith[Value](ss, x.hashCode)
-    def assign(x: String, v: Rep[Value]): Rep[SS] = "ss-assign".reflectWith[SS](ss, x.hashCode, v)
-    def assign(xs: List[String], vs: Rep[List[Value]]): Rep[SS] = assignSeq(xs.map(_.hashCode), vs)
+    def lookup(x: String): Rep[Value] = "ss-lookup-env".reflectWith[Value](ss, Counter.variable.get(x))
+    def assign(x: String, v: Rep[Value]): Rep[SS] = "ss-assign".reflectWith[SS](ss, Counter.variable.get(x), v)
+    def assign(xs: List[String], vs: Rep[List[Value]]): Rep[SS] = assignSeq(xs.map(Counter.variable.get(_)), vs)
     def lookup(addr: Rep[Value], size: Int = 1, isStruct: Int = 0): Rep[Value] = {
       require(size > 0)
       if (isStruct == 0) "ss-lookup-addr".reflectWith[Value](ss, addr, size)
@@ -109,7 +109,7 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
     def updateArg: Rep[SS] = "ss-arg".reflectWith[SS](ss)
     def updateErrorLoc: Rep[SS] = "ss-error-loc".reflectWith[SS](ss)
 
-    def addIncomingBlock(x: String): Rep[SS] = "ss-add-incoming-block".reflectWith[SS](ss, x.hashCode)
+    def addIncomingBlock(lab: String): Rep[SS] = "ss-add-incoming-block".reflectWith[SS](ss, Counter.block.get(lab))
     def incomingBlock: Rep[BlockLabel] = "ss-incoming-block".reflectWith[BlockLabel](ss)
 
     def getFs: Rep[FS] = "ss-get-fs".reflectCtrlWith[FS](ss)
@@ -141,7 +141,7 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
       }
 
     override def lookup(x: String): Rep[Value] =
-      if (Config.opt) lookupOpt(x.hashCode, Unwrap(ss), super.lookup(x), 30)
+      if (Config.opt) lookupOpt(Counter.variable.get(x), Unwrap(ss), super.lookup(x), 30)
       else super.lookup(x)
 
     override def stackSize: Rep[Int] =

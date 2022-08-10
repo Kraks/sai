@@ -217,7 +217,6 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
   def emitHeaderFile: Unit = {
     val filename = codegenFolder + "/common.h"
     val out = new java.io.PrintStream(filename)
-    val blockIdMapStr = Counter.block.map.toList.sortBy(_._2).map(p => s"  ${p._1} -> ${p._2}").mkString("\n")
     val branchStatStr = "{" + Counter.branchStat.toList.map(p => s"{${p._1},${p._2}}").mkString(",") + "}"
     withStream(out) {
       emitln("/* Emitting header file */")
@@ -225,10 +224,16 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
       emitln("using namespace immer;")
       emitFunctionDecls(stream)
       emitDatastructures(stream)
+      if (Config.emitVarIdMap) {
+        emitln(s"""
+        |/* variable-id map:
+        |${Counter.variable.toString}
+        |*/""".stripMargin)
+      }
       if (Config.emitBlockIdMap) {
         emitln(s"""
         |/* block-id map:
-        |${blockIdMapStr}
+        |${Counter.block.toString}
         |*/""".stripMargin)
       }
       emitln(s"""
@@ -255,7 +260,7 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
 
     for ((f, (_, funStream)) <- functionsStreams) {
       if (blockMap.values.exists(_ == f)) {
-        val funName = f.substring(0, f.indexOf("_Block"))
+        val funName = f.substring(0, f.indexOf("_block"))
         val filename = s"$codegenFolder/$funName.cpp"
         val out = new java.io.PrintStream(new FileOutputStream(filename, true))
         funStream.writeTo(out)

@@ -53,16 +53,19 @@ trait BasicDefs { self: SAIOps =>
 case class Counter() {
   import scala.collection.mutable.HashMap
   private var counter: Int = 0
-  val map: HashMap[String, Int] = HashMap[String, Int]()
+  private val map: HashMap[String, Int] = HashMap[String, Int]()
+  override def toString: String =
+    map.toList.sortBy(_._2).map(p => s"  ${p._1} -> ${p._2}").mkString("\n")
   def count: Int = counter
   def reset: Unit = counter = 0
   def fresh: Int = try { counter } finally { counter += 1 }
-  def get(s: String): Int = if (map.contains(s)) map(s) else try { fresh } finally { map(s) = count }
+  def get(s: String): Int = if (map.contains(s)) map(s) else try { fresh } finally { map(s) = count-1 }
 }
 
 object Counter {
   import scala.collection.mutable.HashMap
   val block = Counter()
+  val variable = Counter()
   val branchStat: HashMap[Int, Int] = HashMap[Int, Int]()
   def setBranchNum(funName: String, blockLab: String, n: Int): Unit = {
     val blockId = Counter.block.get(funName + blockLab)
@@ -74,7 +77,7 @@ trait Coverage { self: SAIOps =>
   object Coverage {
     def setBlockNum: Rep[Unit] = "cov-set-blocknum".reflectWriteWith[Unit](Counter.block.count)(Adapter.CTRL)
     def incBlock(funName: String, label: String): Rep[Unit] = {
-      val blockId = Counter.block.get(funName + label)
+      val blockId = Counter.block.get(Ctx(funName, label).toString)
       "cov-inc-block".reflectWriteWith[Unit](blockId)(Adapter.CTRL)
     }
 

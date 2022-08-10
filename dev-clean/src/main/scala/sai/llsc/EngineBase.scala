@@ -15,6 +15,12 @@ import lms.core.stub.{While => _, _}
 
 import sai.lmsx._
 
+case class Ctx(funName: String, blockLab: String) {
+  override def toString: String = funName + "_" + blockLab
+  def withVar(x: String): String = funName + "_" + x
+  def withBlock(lab: String): String = funName + "_" + blockLab
+}
+
 trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
   import scala.collection.immutable.{List => StaticList, Map => StaticMap}
   import collection.mutable.{HashMap, HashSet}
@@ -39,8 +45,6 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
 
   /* Basic functionalities */
 
-  case class Ctx(funName: String, blockLab: String)
-
   def info(msg: String) = unchecked("INFO(\"" + msg + "\")")
 
   def compile(funName: String, b: BB): Unit = {
@@ -50,7 +54,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     }
     val (fn, n) = repBlockFun(funName, b)
     val realFunName = getRealFunctionName(funName)
-    blockNameMap(n) = s"${realFunName}_Block$n"
+    blockNameMap(n) = s"${realFunName}_block$n"
     BBFuns((funName, b)) = fn
   }
   def compile(f: FunctionDef): Unit = {
