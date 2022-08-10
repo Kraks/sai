@@ -80,8 +80,6 @@ public:
         simple_ptr<SymV> query_expr=nullptr,
         bool require_model=false) {
 
-    push();
-
     // translation
     if (!use_objcache)
       objcache.clear();
@@ -141,12 +139,12 @@ public:
     //solving with counterexample caching
     if (use_cexcache && (!query_expr || query_expr->name.size())) {
       if (auto it = cexcache.find(condset); it != cexcache.end()) {
-        pop();
         return it->second;
       }
     }
 
     //assert and check
+    push();
     VarMap varmap;
     if (condvec.size()) {  // use local cache if possible
       for (auto& v: condvec) {
