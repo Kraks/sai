@@ -27,18 +27,17 @@ object IRUtils {
   def extractValues(args: List[Arg]): List[LLVMValue] = args.map {
     case TypedArg(ty, attrs, value) => value
   }
+
   def extractTypes(args: List[Arg]): List[LLVMType] = args.map {
     case TypedArg(ty, attrs, value) => ty
   }
 
-  def flattenTypedList(xs: List[TypedConst]) = xs.map(c => flattenAS(c.const)).flatten
-
-  def flattenAS(cst: Constant): List[Constant] = cst match {
-    case ArrayConst(xs) =>
-      flattenTypedList(xs)
-    case StructConst(xs) =>
-      flattenTypedList(xs)
-    case _ => List(cst)
+  implicit class ConstantOps(cst: Constant) {
+    def flatten: List[Constant] = cst match {
+      case ArrayConst(xs) => xs.map(_.const.flatten).flatten
+      case StructConst(xs) => xs.map(_.const.flatten).flatten
+      case _ => List(cst)
+    }
   }
 
   implicit class LLVMTypeOps(t: LLVMType) {
