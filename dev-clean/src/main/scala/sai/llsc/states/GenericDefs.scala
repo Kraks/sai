@@ -50,30 +50,34 @@ trait BasicDefs { self: SAIOps =>
   def checkPC(pc: Rep[PC]): Rep[Boolean] = "check_pc".reflectWriteWith[Boolean](pc)(Adapter.CTRL)
 }
 
-object BlockCounter {
+case class Counter() {
+  import scala.collection.mutable.HashMap
   private var counter: Int = 0
+  private val map: HashMap[String, Int] = HashMap[String, Int]()
   def count: Int = counter
   def reset: Unit = counter = 0
   def fresh: Int = try { counter } finally { counter += 1 }
+  def get(s: String): Int = if (map.contains(s)) map(s) else try { fresh } finally { map(s) = count }
+}
+
+object Counter {
+  import scala.collection.mutable.HashMap
+  val block = Counter()
+  val branchStat: HashMap[Int, Int] = HashMap[Int, Int]()
+  def setBranchNum(funName: String, blockLab: String, n: Int): Unit = {
+    val blockId = Counter.block.get(funName + blockLab)
+    if (!branchStat.contains(blockId)) branchStat(blockId) = n
+  }
 }
 
 trait Coverage { self: SAIOps =>
   object Coverage {
-    import scala.collection.mutable.HashMap
-    private val blockMap: HashMap[String, Int] = HashMap[String, Int]()
-    def getBlockId(s: String): Int =
-      if (blockMap.contains(s)) blockMap(s)
-      else {
-        val id = BlockCounter.fresh
-        blockMap(s) = id
-        id
-      }
-
-    def setBlockNum: Rep[Unit] = "cov-set-blocknum".reflectWriteWith[Unit](BlockCounter.count)(Adapter.CTRL)
+    def setBlockNum: Rep[Unit] = "cov-set-blocknum".reflectWriteWith[Unit](Counter.block.count)(Adapter.CTRL)
     def incBlock(funName: String, label: String): Rep[Unit] = {
-      val blockId = getBlockId(funName + label)
+      val blockId = Counter.block.get(funName + label)
       "cov-inc-block".reflectWriteWith[Unit](blockId)(Adapter.CTRL)
     }
+
     def incPath(n: Rep[Int]): Rep[Unit] = "cov-inc-path".reflectWriteWith[Unit](n)(Adapter.CTRL)
     def incInst(n: Int): Rep[Unit] = "cov-inc-inst".reflectWriteWith[Unit](n)(Adapter.CTRL)
     def startMonitor: Rep[Unit] = "cov-start-mon".reflectWriteWith[Unit]()(Adapter.CTRL)

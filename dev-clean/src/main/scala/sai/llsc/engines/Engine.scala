@@ -419,13 +419,13 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
       _ <- mapM(b.ins)(execInst(_)(funName))
       v <- execTerm(b.term, b.label.getOrElse(""))(funName)
     } yield v
+    Coverage.incBlock(funName, b.label.get)
     runInstList
   }
 
   override def repBlockFun(funName: String, b: BB): (BFTy, Int) = {
     def runBlock(ss: Rep[SS]): Rep[List[(SS, Value)]] = {
       info("running block: " + funName + " - " + b.label.get)
-      Coverage.incBlock(funName, b.label.get)
       reify[Value](ss)(execBlockEager(funName, b))
     }
     val f: BFTy = topFun(runBlock(_))

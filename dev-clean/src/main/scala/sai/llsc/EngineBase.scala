@@ -39,6 +39,8 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
 
   /* Basic functionalities */
 
+  case class Ctx(funName: String, blockLab: String)
+
   def info(msg: String) = unchecked("INFO(\"" + msg + "\")")
 
   def compile(funName: String, b: BB): Unit = {

@@ -329,13 +329,13 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
         case Nil => execTerm(t, block.label.get)(s, funName)
         case i::inst => execInst(i, s, s1 => runInst(inst, t, s1))(funName)
       }
+    Coverage.incBlock(funName, block.label.get)
     runInst(block.ins, block.term, s)
   }
 
   override def repBlockFun(funName: String, b: BB): (BFTy, Int) = {
     def runBlock(ss: Rep[Ref[SS]]): Rep[List[(SS, Value)]] = {
       info("running block: " + funName + " - " + b.label.get)
-      Coverage.incBlock(funName, b.label.get)
       execBlockEager(funName, b, ss)
     }
     val f: BFTy = topFun(runBlock(_))

@@ -217,6 +217,7 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
   def emitHeaderFile: Unit = {
     val filename = codegenFolder + "/common.h"
     val out = new java.io.PrintStream(filename)
+    val branchStatStr = "{" + Counter.branchStat.toList.map(p => s"{${p._1},${p._2}}").mkString(",") + "}"
     withStream(out) {
       emitln("/* Emitting header file */")
       emitHeaders(stream)
@@ -225,7 +226,7 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
       emitDatastructures(stream)
       emitln(s"""
       |inline Monitor& cov() {
-      |  static Monitor m(${BlockCounter.count});
+      |  static Monitor m(${Counter.block.count}, ${branchStatStr});
       |  return m;
       |}""".stripMargin)
       emitln("/* End of header file */")

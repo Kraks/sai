@@ -279,7 +279,7 @@ trait LLSC {
   def extraFlags: String = "" // -D USE_LKFREE_Q
   def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit]
   def run(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit] = {
-    BlockCounter.reset
+    Counter.block.reset
     val (code, t) = time {
       val code = newInstance(m, name, fname, config)
       code.extraFlags = extraFlags

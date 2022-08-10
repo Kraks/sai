@@ -325,13 +325,13 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
         case Nil => execTerm(t, block.label.get, k)(s, funName)
         case i::inst => execInst(i, s, s1 => runInst(inst, t, s1, k))(funName)
       }
+    Coverage.incBlock(funName, block.label.get)
     runInst(block.ins, block.term, s, k)
   }
 
   override def repBlockFun(funName: String, b: BB): (BFTy, Int) = {
     def runBlock(ss: Rep[SS], k: Rep[Cont]): Rep[Unit] = {
-      info("running function: " + funName + " - " + b.label.get)
-      Coverage.incBlock(funName, b.label.get)
+      info("running block: " + funName + " - " + b.label.get)
       execBlockEager(funName, b, ss, k)
     }
     val f = topFun(runBlock(_, _))
