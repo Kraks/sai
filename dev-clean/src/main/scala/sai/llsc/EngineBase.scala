@@ -125,9 +125,9 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
   def calculateOffset(ty: LLVMType, index: List[Rep[Value]]): Rep[Value] = {
     if (index.isEmpty) IntV(0.toLong, DEFAULT_INDEX_BW) else ty match {
       case PtrType(ety, addrSpace) =>
-        index.head.sExt(DEFAULT_INDEX_BW) * IntV(getTySize(ety), DEFAULT_INDEX_BW) + calculateOffset(ety, index.tail)
+        index.head.sExt(DEFAULT_INDEX_BW) * IntV(ety.size, DEFAULT_INDEX_BW) + calculateOffset(ety, index.tail)
       case ArrayType(size, ety) =>
-        index.head.sExt(DEFAULT_INDEX_BW) * IntV(getTySize(ety), DEFAULT_INDEX_BW) + calculateOffset(ety, index.tail)
+        index.head.sExt(DEFAULT_INDEX_BW) * IntV(ety.size, DEFAULT_INDEX_BW) + calculateOffset(ety, index.tail)
       case NamedType(id) =>
         calculateOffset(typeDefMap(id), index)
       case Struct(types) =>
@@ -183,9 +183,9 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
         case _ => ???
       }
       case ArrayConst(cs) =>
-        (cs.map(c => evalHeapConstWithAlign(c.const, c.ty)._1).flatten, getTySizeAlign(realTy)._2)
+        (cs.map(c => evalHeapConstWithAlign(c.const, c.ty)._1).flatten, realTy.sizeAlign._2)
       case CharArrayConst(s) =>
-        val (size, align) = getTySizeAlign(realTy)
+        val (size, align) = realTy.sizeAlign
         (s.map(c => IntV(c.toInt, 8)).toList ++ StaticList.fill(size-s.length)(uninitValue), align)
       case ZeroInitializerConst => realTy match {
         case ArrayType(size, ety) =>
@@ -199,7 +199,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
           PackedStructCalc().concat(types) { evalHeapConstWithAlign(ZeroInitializerConst, _) }
         // TODO: fallback case is not typed
         case _ =>
-          val (size, align) = getTySizeAlign(realTy)
+          val (size, align) = realTy.sizeAlign
           (IntV(0, 8 * size).toShadowBytes.toStatic, align)
       }
       case UndefConst => realTy match {
@@ -214,7 +214,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
           PackedStructCalc().concat(types) { evalHeapConstWithAlign(UndefConst, _) }
         // TODO: fallback case is not typed
         case _ =>
-          val (size, align) = getTySizeAlign(realTy)
+          val (size, align) = realTy.sizeAlign
           (StaticList.fill(size)(uninitValue), align)
       }
       case _ => throw new Exception("Not complex heap constant: " + v)
@@ -226,7 +226,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
     v match {
       case v if isAtomicConst(v) =>
         val realTy = getRealType(ty)
-        val (size, align) = getTySizeAlign(realTy)
+        val (size, align) = realTy.sizeAlign
         (evalHeapAtomicConst(v, realTy).toShadowBytes.toStatic, align)
       case _ => evalHeapComplexConst(v, getRealType(ty))
     }
@@ -251,14 +251,14 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
       // heapTmp ++= StaticList.fill(heapSize)(NullPtr())
       module.globalDeclMap.foreach { case (k, v) =>
         val realname = module.mname + "_" + v.id
-        val curSize = getTySize(v.typ).toLong
+        val curSize = v.typ.size.toLong
         val heapSize2 = heapSize.toLong
         heapEnv += realname -> (() => LocV(heapSize2, LocV.kHeap, curSize))
         heapSize += curSize
         heapTmp ++= evalHeapConst(ZeroInitializerConst, v.typ)
       }
       module.globalDefMap.foreach { case (k, v) =>
-        val curSize = getTySize(v.typ).toLong
+        val curSize = v.typ.size.toLong
         val heapSize2 = heapSize.toLong
         heapEnv += k -> (() => LocV(heapSize2, LocV.kHeap, curSize))
         heapSize += curSize

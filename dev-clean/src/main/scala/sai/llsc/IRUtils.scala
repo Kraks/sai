@@ -17,18 +17,18 @@ object Constants {
 object IRUtils {
   import Constants._
 
+  // For functions with Variable Arguments, we need to generate different code for different call-sites and argument types.
+  def getMangledFunctionName(f: FunctionDecl, argTypes: List[LLVMType]): String = {
+    val hasVararg = f.header.params.contains(Vararg)
+    val mangledName = if (!hasVararg) f.id else f.id + argTypes.map("_"+_.prettyName).mkString("")
+    mangledName.replaceAllLiterally(".", "_")
+  }
+
   def extractValues(args: List[Arg]): List[LLVMValue] = args.map {
     case TypedArg(ty, attrs, value) => value
   }
   def extractTypes(args: List[Arg]): List[LLVMType] = args.map {
     case TypedArg(ty, attrs, value) => ty
-  }
-
-  // For function that has Variable Arguments, we need to generate different code for different call-sites and argument types.
-  def getMangledFunctionName(f: FunctionDecl, argTypes: List[LLVMType]): String = {
-    val hasVararg = f.header.params.contains(Vararg)
-    val mangledName = if (!hasVararg) f.id else f.id + argTypes.map("_"+_.prettyName).mkString("")
-    mangledName.replaceAllLiterally(".", "_")
   }
 
   def flattenTypedList(xs: List[TypedConst]) = xs.map(c => flattenAS(c.const)).flatten
@@ -41,15 +41,43 @@ object IRUtils {
     case _ => List(cst)
   }
 
-  def flattenTy(ty: LLVMType): List[LLVMType] = ty match {
-    case Struct(types) =>
-      types.flatMap(flattenTy(_))
-    case ArrayType(size, ety) =>
-      List.fill(size)(flattenTy(ety)).flatten
-    case _ => List(ty)
-  }
-
   implicit class LLVMTypeOps(t: LLVMType) {
+    // Note: `m` is needed only when t is a NamedType
+    def size(implicit m: Module): Int = t.sizeAlign._1
+
+    def sizeAlign(implicit m: Module): (Int, Int) = t match {
+      case ArrayType(num, ety) =>
+        val (size, align) = ety.sizeAlign
+        (num * size, align)
+      case Struct(types) =>
+        StructCalc().getSizeAlign(types)
+      case NamedType(id) =>
+        m.typeDefMap(id).sizeAlign
+      case IntType(size) =>
+        val elemSize = (size + BYTE_SIZE - 1) / BYTE_SIZE
+        (elemSize, elemSize)
+      case PtrType(ty, addrSpace) =>
+        val elemSize = ARCH_WORD_SIZE / BYTE_SIZE
+        (elemSize, elemSize)
+      case ft@FloatType(fk) =>
+        import scala.math.{log, ceil, pow}
+        val elemSize = (ft.size + BYTE_SIZE - 1) / BYTE_SIZE
+        val align = pow(2, ceil(log(elemSize)/log(2)))
+        (elemSize, align.toInt)
+      case PackedStruct(types) =>
+        PackedStructCalc().getSizeAlign(types)
+      case _ =>
+        throw new Exception(s"type $t is not handled by t.sizeAlign")
+    }
+
+    def flatten: List[LLVMType] = t match {
+      case Struct(types) =>
+        types.flatMap(_.flatten)
+      case ArrayType(size, ety) =>
+        List.fill(size)(ety.flatten).flatten
+      case _ => List(t)
+    }
+
     def toManifest: Manifest[_] = t match {
       case IntType(1) => manifest[Boolean]
       case IntType(8) => manifest[Char]
@@ -85,7 +113,7 @@ object IRUtils {
 
     private def fields(types: List[LLVMType]): (Int, Int, Int) =
       types.foldLeft((0, 0, 0)) { case ((begin, end, maxalign), ty) =>
-        val (size, align) = getTySizeAlign(ty)
+        val (size, align) = ty.sizeAlign
         val new_begin = end + padding(end, align)
         (new_begin, new_begin + size, align max maxalign)
       }
@@ -109,10 +137,7 @@ object IRUtils {
 
   case class PackedStructCalc(implicit val m: Module) {
     private def fields(types: List[LLVMType]): (Int, Int) =
-      types.foldLeft((0, 0)) { case ((begin, end), ty) =>
-        val size = getTySizeAlign(ty)._1
-        (end, end + size)
-      }
+      types.foldLeft((0, 0)) { case ((begin, end), ty) => (end, end + ty.size) }
 
     def getSizeAlign(types: List[LLVMType]): (Int, Int) = {
       val size = fields(types)._2
@@ -131,33 +156,6 @@ object IRUtils {
     }
   }
 
-  def getTySizeAlign(vt: LLVMType)(implicit m: Module): (Int, Int) = vt match {
-    case ArrayType(num, ety) =>
-      val (size, align) = getTySizeAlign(ety)
-      (num * size, align)
-    case Struct(types) =>
-      StructCalc().getSizeAlign(types)
-    case NamedType(id) =>
-      getTySizeAlign(m.typeDefMap(id))
-    case IntType(size) =>
-      val elemSize = (size + BYTE_SIZE - 1) / BYTE_SIZE
-      (elemSize, elemSize)
-    case PtrType(ty, addrSpace) =>
-      val elemSize = ARCH_WORD_SIZE / BYTE_SIZE
-      (elemSize, elemSize)
-    case ft@FloatType(fk) =>
-      import scala.math.{log, ceil, pow}
-      val elemSize = (ft.size + BYTE_SIZE - 1) / BYTE_SIZE
-      val align = pow(2, ceil(log(elemSize)/log(2)))
-      (elemSize, align.toInt)
-    case PackedStruct(types) =>
-      PackedStructCalc().getSizeAlign(types)
-    case _ =>
-      throw new Exception(s"type $vt is not handled by getTySizeAlign")
-  }
-
-  def getTySize(vt: LLVMType)(implicit m: Module): Int = getTySizeAlign(vt)._1
-
   def calculateOffsetStatic(ty: LLVMType, index: List[Long])(implicit m: Module): Long = {
     implicit def longToInt(x: Long) = x.toInt
     if (index.isEmpty) 0 else ty match {
@@ -165,11 +163,11 @@ object IRUtils {
         val prev: Int = StructCalc().getFieldOffset(types, index.head)
         prev + calculateOffsetStatic(types(index.head), index.tail)
       case ArrayType(size, ety) =>
-        index.head * getTySize(ety) + calculateOffsetStatic(ety, index.tail)
+        index.head * ety.size + calculateOffsetStatic(ety, index.tail)
       case NamedType(id) =>
         calculateOffsetStatic(m.typeDefMap(id), index)
       case PtrType(ety, addrSpace) =>
-        index.head * getTySize(ety) + calculateOffsetStatic(ety, index.tail)
+        index.head * ety.size + calculateOffsetStatic(ety, index.tail)
       case PackedStruct(types) =>
         val prev: Int = PackedStructCalc().getFieldOffset(types, index.head)
         prev + calculateOffsetStatic(types(index.head), index.tail)

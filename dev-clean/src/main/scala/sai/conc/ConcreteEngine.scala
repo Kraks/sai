@@ -201,8 +201,8 @@ trait ConcreteBaseEngine extends SAIOps with StagedNondet with SymExeDefs {
     case FloatConst(f) =>
       StaticList(FloatV(f))
     case ZeroInitializerConst => ty match {
-      case ArrayType(size, ety) => StaticList.fill(flattenTy(ty).map(lty => getTySize(lty)).sum)(IntV(0))
-      case Struct(types) => StaticList.fill(flattenTy(ty).map(lty => getTySize(lty)).sum)(IntV(0))
+      case ArrayType(size, ety) => StaticList.fill(ty.flatten.map(lty => getTySize(lty)).sum)(IntV(0))
+      case Struct(types) => StaticList.fill(ty.flatten.map(lty => getTySize(lty)).sum)(IntV(0))
       case _ => StaticList.fill(getTySize(ty))(IntV(0))
     }
     case ArrayConst(cs) =>
