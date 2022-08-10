@@ -329,7 +329,7 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
         case Nil => execTerm(t)(s, ctx)
         case i::inst => execInst(i, s, s1 => runInst(inst, t, s1))(ctx)
       }
-    Coverage.incBlock(funName, block.label.get)
+    Coverage.incBlock(ctx)
     runInst(block.ins, block.term, s)
   }
 

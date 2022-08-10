@@ -345,7 +345,7 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
           execTerm(t, k)(s, ctx)
         case i::inst => execInst(i, s, (s1, k1) => runInst(inst, t, s1, k1))(ctx, k)
       }
-    Coverage.incBlock(funName, block.label.get)
+    Coverage.incBlock(ctx)
     runInst(block.ins, block.term, s, k)
   }
 

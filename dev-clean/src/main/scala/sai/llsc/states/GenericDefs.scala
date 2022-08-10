@@ -79,10 +79,9 @@ object Counter {
 trait Coverage { self: SAIOps =>
   object Coverage {
     def setBlockNum: Rep[Unit] = "cov-set-blocknum".reflectWriteWith[Unit](Counter.block.count)(Adapter.CTRL)
-    def incBlock(funName: String, label: String): Rep[Unit] = {
-      val blockId = Counter.block.get(Ctx(funName, label).toString)
-      "cov-inc-block".reflectWriteWith[Unit](blockId)(Adapter.CTRL)
-    }
+    def incBlock(funName: String, label: String): Rep[Unit] = incBlock(Ctx(funName, label))
+    def incBlock(ctx: Ctx): Rep[Unit] =
+      "cov-inc-block".reflectWriteWith[Unit](Counter.block.get(ctx.toString))(Adapter.CTRL)
 
     def incPath(n: Rep[Int]): Rep[Unit] = "cov-inc-path".reflectWriteWith[Unit](n)(Adapter.CTRL)
     def incInst(n: Int): Rep[Unit] = "cov-inc-inst".reflectWriteWith[Unit](n)(Adapter.CTRL)

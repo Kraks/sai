@@ -420,7 +420,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
       _ <- mapM(b.ins)(execInst(_))
       v <- execTerm(b.term)
     } yield v
-    Coverage.incBlock(funName, b.label.get)
+    Coverage.incBlock(ctx)
     runInstList
   }
 
