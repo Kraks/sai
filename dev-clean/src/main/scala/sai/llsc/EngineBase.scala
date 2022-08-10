@@ -32,9 +32,10 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
   type BFTy // Block-function type
   type FFTy // Function-function type
 
+  // TODO: use Counter to identify block/function
   def repBlockFun(funName: String, b: BB): (BFTy, Int)
   def repFunFun(f: FunctionDef): (FFTy, Int)
-  // Todo: should we increase block coverage here?
+  // XXX: should we increase block coverage here?
   def repExternFun(f: FunctionDecl, ret: LLVMType, argTypes: List[LLVMType]): (FFTy, Int)
 
   def wrapFunV(f: FFTy): Rep[Value]

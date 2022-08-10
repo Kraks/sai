@@ -250,7 +250,7 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
         ss.addIncomingBlock(ctx.toString)
         execBlock(ctx.funName, lab, ss, k)
       case CondBrTerm(ty, cnd, thnLab, elsLab) =>
-        Counter.setBranchNum(ctx.funName, ctx.blockLab, 2)
+        Counter.setBranchNum(ctx, 2)
         ss.addIncomingBlock(ctx.toString)
         val cndVal = eval(cnd, ty, ss)
         //branch(ss, cndVal.toSym, cndVal.toSymNeg, thnLab, elsLab, funName, k)
@@ -261,7 +261,7 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
           symExecBr(ss, cndVal.toSym, cndVal.toSymNeg, thnLab, elsLab, ctx.funName, k)
         }
       case SwitchTerm(cndTy, cndVal, default, table) =>
-        Counter.setBranchNum(ctx.funName, ctx.blockLab, table.size+1)
+        Counter.setBranchNum(ctx, table.size+1)
         val counter: Var[Int] = var_new(0)
         def switch(v: Rep[Long], s: Rep[SS], table: List[LLVMCase]): Rep[Unit] =
           if (table.isEmpty) execBlock(ctx.funName, default, s, k)

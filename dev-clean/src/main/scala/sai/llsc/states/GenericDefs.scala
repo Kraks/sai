@@ -59,7 +59,10 @@ case class Counter() {
   def count: Int = counter
   def reset: Unit = counter = 0
   def fresh: Int = try { counter } finally { counter += 1 }
-  def get(s: String): Int = if (map.contains(s)) map(s) else try { fresh } finally { map(s) = count-1 }
+  def get(s: String): Int = {
+    require(s.contains("_"))
+    if (map.contains(s)) map(s) else try { fresh } finally { map(s) = count-1 }
+  }
 }
 
 object Counter {
@@ -67,8 +70,8 @@ object Counter {
   val block = Counter()
   val variable = Counter()
   val branchStat: HashMap[Int, Int] = HashMap[Int, Int]()
-  def setBranchNum(funName: String, blockLab: String, n: Int): Unit = {
-    val blockId = Counter.block.get(funName + blockLab)
+  def setBranchNum(ctx: Ctx, n: Int): Unit = {
+    val blockId = Counter.block.get(ctx.toString)
     if (!branchStat.contains(blockId)) branchStat(blockId) = n
   }
 }
