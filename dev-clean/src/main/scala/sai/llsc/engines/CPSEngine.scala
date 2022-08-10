@@ -255,8 +255,14 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
         val cndVal = eval(cnd, ty, ss)
         //branch(ss, cndVal.toSym, cndVal.toSymNeg, thnLab, elsLab, funName, k)
         if (cndVal.isConc) {
-          if (cndVal.int == 1) execBlock(ctx.funName, thnLab, ss, k)
-          else execBlock(ctx.funName, elsLab, ss, k)
+          if (cndVal.int == 1) {
+            Coverage.incBranch(ctx, 0)
+            execBlock(ctx.funName, thnLab, ss, k)
+          }
+          else {
+            Coverage.incBranch(ctx, 1)
+            execBlock(ctx.funName, elsLab, ss, k)
+          }
         } else {
           symExecBr(ss, cndVal.toSym, cndVal.toSymNeg, thnLab, elsLab, ctx.funName, k)
         }

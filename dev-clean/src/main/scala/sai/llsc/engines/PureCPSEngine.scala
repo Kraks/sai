@@ -37,8 +37,8 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
     "sym_exec_br_k".reflectWriteWith[Unit](ss, tCond, fCond, unchecked[String](tBrFunName), unchecked[String](fBrFunName), k)(Adapter.CTRL)
   }
 
-  def addIncomingBlockOpt(ss: Rep[SS], from: String, tos: StaticList[String])(implicit ctx: Ctx): Rep[SS] =
-    ss.addIncomingBlock(from)
+  def addIncomingBlockOpt(ss: Rep[SS], tos: StaticList[String])(implicit ctx: Ctx): Rep[SS] =
+    ss.addIncomingBlock(ctx.toString)
   /*
     (tos.exists(to => findBlock(funName, to).get.hasPhi)) match {
       case true => ss.addIncomingBlock(from)
@@ -205,7 +205,7 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
           else selectValue(bb, vs.tail, labels.tail)
         }
         val incsValues: List[LLVMValue] = incs.map(_.value)
-        val incsLabels: List[BlockLabel] = incs.map(_.label.hashCode)
+        val incsLabels: List[BlockLabel] = incs.map(i => Counter.block.get(ctx.withBlock(i.label)))
         val vs = incsValues.map(v => () => eval(v, ty, ss))
         k(ss, selectValue(ss.incomingBlock, vs, incsLabels))
       case SelectInst(cndTy, cndVal, thnTy, thnVal, elsTy, elsVal) if Config.iteSelect =>
@@ -244,11 +244,11 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
       case BrTerm(lab) if (cfg.pred(ctx.funName, lab).size == 1) =>
         execBlockEager(ctx.funName, findBlock(ctx.funName, lab).get, ss, k)
       case BrTerm(lab) =>
-        execBlock(ctx.funName, lab, addIncomingBlockOpt(ss, ctx.blockLab, StaticList(lab)), k)
+        execBlock(ctx.funName, lab, addIncomingBlockOpt(ss, StaticList(lab)), k)
       case CondBrTerm(ty, cnd, thnLab, elsLab) =>
         val cndVal = eval(cnd, ty, ss)
         // FIXME: using addIncomingBlockOpt triggers some issue of recursive functions
-        val ss1 = ss.addIncomingBlock(ctx.blockLab)
+        val ss1 = ss.addIncomingBlock(ctx.toString)
         if (cndVal.isConc) {
           if (cndVal.int == 1) asyncExecBlock(ctx.funName, thnLab, ss1, k)
           else asyncExecBlock(ctx.funName, elsLab, ss1, k)
@@ -279,7 +279,7 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
             switchSym(v, s.addPC(headPC.toSymNeg), table.tail)
           }
 
-        val ss1 = addIncomingBlockOpt(ss, ctx.blockLab, default::table.map(_.label))
+        val ss1 = addIncomingBlockOpt(ss, default::table.map(_.label))
         val v = eval(cndVal, cndTy, ss1)
         if (v.isConc) switch(v.int, ss1, table)
         else {

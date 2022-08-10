@@ -281,13 +281,13 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
         execBlockEager(ctx.funName, findBlock(ctx.funName, lab).get)
       case BrTerm(lab) =>
         for {
-          _ <- updateIncomingBlock(ctx.blockLab)
+          _ <- updateIncomingBlock(ctx.toString)
           v <- execBlock(ctx.funName, lab)
         } yield v
       case CondBrTerm(ty, cnd, thnLab, elsLab) =>
         // System.out.println(ty, cnd, thnLab, elsLab)
         for {
-          _ <- updateIncomingBlock(ctx.blockLab)
+          _ <- updateIncomingBlock(ctx.toString)
           ss <- getState
           cndVal <- eval(cnd, ty)
           u <- reflect {
@@ -357,7 +357,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           }
 
         for {
-          _ <- updateIncomingBlock(ctx.blockLab)
+          _ <- updateIncomingBlock(ctx.toString)
           v <- eval(cndVal, cndTy)
           s <- getState
           r <- reflect {

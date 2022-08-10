@@ -3,9 +3,9 @@ package sai.llsc.imp
 import sai.lang.llvm._
 import sai.lang.llvm.IR._
 import sai.lang.llvm.parser.Parser._
-import sai.llsc.{EngineBase, Config, Ctx}
 import sai.llsc.IRUtils._
 import sai.llsc.Constants._
+import sai.llsc.{EngineBase, Config, Ctx, Counter}
 
 import scala.collection.JavaConverters._
 
@@ -195,7 +195,7 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
           else selectValue(bb, vs.tail, labels.tail)
         }
         val incsValues: List[LLVMValue] = incs.map(_.value)
-        val incsLabels: List[BlockLabel] = incs.map(_.label.hashCode)
+        val incsLabels: List[BlockLabel] = incs.map(i => Counter.block.get(ctx.withBlock(i.label)))
         val vs = incsValues.map(v => () => eval(v, ty, ss))
         k(ss, selectValue(ss.incomingBlock, vs, incsLabels))
       case SelectInst(cndTy, cndVal, thnTy, thnVal, elsTy, elsVal) if Config.iteSelect =>
@@ -232,10 +232,10 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
       case BrTerm(lab) if (cfg.pred(ctx.funName, lab).size == 1) =>
         execBlockEager(ctx.funName, findBlock(ctx.funName, lab).get, ss)
       case BrTerm(lab) =>
-        ss.addIncomingBlock(ctx.blockLab)
+        ss.addIncomingBlock(ctx.toString)
         execBlock(ctx.funName, lab, ss)
       case CondBrTerm(ty, cnd, thnLab, elsLab) =>
-        ss.addIncomingBlock(ctx.blockLab)
+        ss.addIncomingBlock(ctx.toString)
         val cndVal = eval(cnd, ty, ss)
         if (cndVal.isConc) {
           if (cndVal.int == 1) execBlock(ctx.funName, thnLab, ss)
@@ -272,7 +272,7 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
             lt ++ lf
           }
 
-        ss.addIncomingBlock(ctx.blockLab)
+        ss.addIncomingBlock(ctx.toString)
         val v = eval(cndVal, cndTy, ss)
         if (v.isConc) switch(v.int, ss, table)
         else {

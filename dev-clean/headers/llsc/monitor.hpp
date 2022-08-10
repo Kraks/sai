@@ -8,8 +8,8 @@
 // Some note on overhead: recording coverage 1m path/block exec poses ~2.5sec overhead.
 struct Monitor {
   private:
-    using BlockId = std::uint64_t;
-    using BranchId = std::uint64_t;
+    using BlockId = uint64_t;
+    using BranchId = uint64_t;
     // Total number of blocks
     uint64_t num_blocks;
     // The number of execution for each block
@@ -30,13 +30,23 @@ struct Monitor {
     Monitor(uint64_t num_blocks, std::vector<std::pair<unsigned, unsigned>> branch_num) :
       num_blocks(num_blocks), num_paths(0),
       block_cov(num_blocks),
-      start(steady_clock::now()) {}
+      start(steady_clock::now()) {
+      // `branch_num` contains the ids of blocks whose terminator is br/switch,
+      // for each of such block, `br_arity` is the number of branches.
+      for (const auto& [blk_id, br_arity] : branch_num) {
+        branch_cov[blk_id] = std::map<BranchId, std::atomic_uint64_t>();
+        ASSERT(br_arity > 0, "Wrong number of branches");
+        for (auto i = 0; i < br_arity; i++) {
+          branch_cov[blk_id][i] = 0;
+        }
+      }
+    }
 
     void inc_block(BlockId b) {
       block_cov[b]++;
     }
-    void inc_branch(BranchId x) {
-
+    void inc_branch(BlockId b, BranchId x) {
+      branch_cov[b][x]++;
     }
     void inc_path(size_t n) {
       num_paths += n;

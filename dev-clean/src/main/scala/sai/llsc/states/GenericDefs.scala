@@ -57,10 +57,11 @@ case class Counter() {
   override def toString: String =
     map.toList.sortBy(_._2).map(p => s"  ${p._1} -> ${p._2}").mkString("\n")
   def count: Int = counter
-  def reset: Unit = counter = 0
+  def reset: Unit = { counter = 0; map.clear }
   def fresh: Int = try { counter } finally { counter += 1 }
   def get(s: String): Int = {
     require(s.contains("_"))
+    //s.hashCode
     if (map.contains(s)) map(s) else try { fresh } finally { map(s) = count-1 }
   }
 }
@@ -82,6 +83,8 @@ trait Coverage { self: SAIOps =>
     def incBlock(funName: String, label: String): Rep[Unit] = incBlock(Ctx(funName, label))
     def incBlock(ctx: Ctx): Rep[Unit] =
       "cov-inc-block".reflectWriteWith[Unit](Counter.block.get(ctx.toString))(Adapter.CTRL)
+    def incBranch(ctx: Ctx, n: Int): Unit =
+      "cov-inc-br".reflectWriteWith[Unit](Counter.block.get(ctx.toString), n)(Adapter.CTRL)
 
     def incPath(n: Rep[Int]): Rep[Unit] = "cov-inc-path".reflectWriteWith[Unit](n)(Adapter.CTRL)
     def incInst(n: Int): Rep[Unit] = "cov-inc-inst".reflectWriteWith[Unit](n)(Adapter.CTRL)
