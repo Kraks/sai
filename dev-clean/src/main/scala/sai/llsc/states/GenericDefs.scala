@@ -53,7 +53,7 @@ trait BasicDefs { self: SAIOps =>
 case class Counter() {
   import scala.collection.mutable.HashMap
   private var counter: Int = 0
-  private val map: HashMap[String, Int] = HashMap[String, Int]()
+  val map: HashMap[String, Int] = HashMap[String, Int]()
   def count: Int = counter
   def reset: Unit = counter = 0
   def fresh: Int = try { counter } finally { counter += 1 }

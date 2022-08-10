@@ -15,6 +15,7 @@ object Config {
   /* Global compile-time configurations */
   var opt: Boolean = true
   var iteSelect: Boolean = true
+  var emitBlockIdMap: Boolean = true
 
   def disableOpt: Unit = opt = false
   def enableOpt: Unit = opt = true
