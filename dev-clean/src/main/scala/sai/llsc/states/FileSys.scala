@@ -91,6 +91,12 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
 
   val StatfsType: StructType = Struct(statfsFields.values.toList)
 
+  def getFieldIdx(fields: ListMap[String, _], f: String): Int = {
+    val idx = fields.keys.toList.indexOf(f)
+    assert(idx >= 0, s"Field $f not found in fields")
+    idx
+  }
+
   object File {
     def apply(name: Rep[String]) = "File::create".reflectWith[File](name)
     def apply(name: Rep[String], content: Rep[List[Value]]) = "File::create".reflectWith[File](name, content)
@@ -163,21 +169,13 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
 
     def readAt(pos: Rep[Long], len: Rep[Long]): Rep[List[Value]] = content.drop(pos.toInt).take(len.toInt)
 
-    def getFieldIdx(f: String): Int = {
-      val idx = statFields.keys.toList.indexOf(f)
-      assert(idx >= 0, s"Field $f not found in stat fields")
-      idx
-    }
-
-    implicit val m = Module(StaticList[TopLevelEntity]()) // assume no named types
-
     def readStatField(f: String): Rep[Value] = {
-      val (pos, size) = StructCalc().getFieldOffsetSize(StatType.types, getFieldIdx(f))
+      val (pos, size) = StructCalc()(null).getFieldOffsetSize(StatType.types, getFieldIdx(statFields, f))
       "from-bytes".reflectMutableWith[Value](file.stat.drop(pos).take(size))
     }
 
     def writeStatField(f: String, v: Rep[Value]): Rep[Unit] = {
-      val (pos, size) = StructCalc().getFieldOffsetSize(StatType.types, getFieldIdx(f))
+      val (pos, size) = StructCalc()(null).getFieldOffsetSize(StatType.types, getFieldIdx(statFields, f))
       val bytes = "to-bytes".reflectWith[List[Value]](v)
       file.stat = file.stat.take(pos) ++ bytes ++ file.stat.drop(pos + bytes.size)
     }
