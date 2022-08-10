@@ -3,7 +3,7 @@ package sai.llsc
 import sai.lang.llvm._
 import sai.lang.llvm.IR._
 import sai.lang.llvm.parser.Parser._
-import sai.llsc.ASTUtils._
+import sai.llsc.IRUtils._
 import sai.llsc.Constants._
 
 import scala.collection.JavaConverters._

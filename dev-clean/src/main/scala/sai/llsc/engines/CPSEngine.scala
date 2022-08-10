@@ -4,7 +4,7 @@ import sai.lang.llvm._
 import sai.lang.llvm.IR._
 import sai.lang.llvm.parser.Parser._
 import sai.llsc.EngineBase
-import sai.llsc.ASTUtils._
+import sai.llsc.IRUtils._
 import sai.llsc.Constants._
 import sai.llsc.Config
 
