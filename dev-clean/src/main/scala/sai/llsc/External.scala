@@ -61,23 +61,34 @@ trait GenExternal extends SymExeDefs {
    * int open(const char *pathname, int flags);
    * int open(const char *pathname, int flags, mode_t mode);
    */
-  def open[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
-    val name: Rep[String] = getStringAt(args(0), ss)
+  def open[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: ExtCont[T]): Rep[T] = {
+    val path: Rep[String] = getStringAt(args(0), ss)
     val flags = args(1)
-    if (!fs.hasFile(name)) {
+    if (!(flags.int & O_CREAT: Rep[Boolean]) && (flags.int & O_EXCL)) {
       k(ss.setErrorLoc(flag("EACCES")), fs, IntV(-1, 32))
-    } else if ((flags.int & O_CREAT: Rep[Boolean]) && (flags.int & O_EXCL)) {
+    } else if (!fs.hasFile(path) && !(flags.int & O_CREAT: Rep[Boolean])) {
+      k(ss.setErrorLoc(flag("ENOENT")), fs, IntV(-1, 32))
+    } else if (fs.hasFile(path) && (flags.int & O_CREAT: Rep[Boolean]) && (flags.int & O_EXCL)) {
       k(ss.setErrorLoc(flag("EEXIST")), fs, IntV(-1, 32))
     } else if ((flags.int & O_TRUNC: Rep[Boolean]) && (flags.int & O_RDONLY)) {
+      // The (undefined) effect of O_RDONLY | O_TRUNC varies among implementations.
       k(ss.setErrorLoc(flag("EEXIST")), fs, IntV(-1, 32))
     } else {
-      val fd: Rep[Fd] = fs.getFreshFd()
-      val file = fs.getFile(name)
-      if (hasPermission(flags, file)) {
+      if (!fs.hasFile(path)) {
+        val f = File(getPathSegments(path).last, List[Value](), List.fill(StatType.size(null))(IntV(0, 8)))
+        val regF = _set_file_type(f, S_IFREG)
+        fs.setFile(path, regF)
+      }
+      val file = fs.getFile(path)
+      if (!hasPermission(flags, file)) {
+        k(ss.setErrorLoc(flag("EACCES")), fs, IntV(-1, 32))
+      } else {
+        if (flags.int & O_TRUNC) {
+          file.content = List[Value]()
+        }
+        val fd: Rep[Fd] = fs.getFreshFd()
         fs.setStream(fd, Stream(file))
         k(ss, fs, IntV(fd, 32))
-      } else {
-        k(ss.setErrorLoc(flag("EACCES")), fs, IntV(-1, 32))
       }
     }
   }
@@ -96,7 +107,7 @@ trait GenExternal extends SymExeDefs {
   /* 
    * int close(int fd);
    */
-  def close[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+  def close[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: ExtCont[T]): Rep[T] = {
     val fd: Rep[Fd] = args(0).int.toInt
     if (!fs.hasStream(fd)) 
       k(ss.setErrorLoc(flag("EBADF")), fs, IntV(-1, 32))
@@ -115,7 +126,7 @@ trait GenExternal extends SymExeDefs {
   /*
    * ssize_t read(int fd, void *buf, size_t count);
    */
-  def read[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+  def read[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: ExtCont[T]): Rep[T] = {
     val fd: Rep[Int] = args(0).int.toInt
     val loc: Rep[Value] = args(1)
     val count: Rep[Int] = args(2).int.toInt
@@ -134,7 +145,7 @@ trait GenExternal extends SymExeDefs {
   /* 
    * ssize_t write(int fd, const void *buf, size_t count);
    */
-  def write[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+  def write[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: ExtCont[T]): Rep[T] = {
     val fd: Rep[Int] = args(0).int.toInt // NOTE: .int => Rep[Long], .toInt => Rep[Int]
     val buf: Rep[Value] = args(1)
     val count: Rep[Int] = args(2).int.toInt
@@ -152,7 +163,7 @@ trait GenExternal extends SymExeDefs {
   /*
    * off_t lseek(int fd, off_t offset, int whence);
    */
-  def lseek[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+  def lseek[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: ExtCont[T]): Rep[T] = {
     val fd: Rep[Fd] = args(0).int.toInt
     val o: Rep[Long] = args(1).int
     val w: Rep[Int] = args(2).int.toInt
@@ -178,7 +189,7 @@ trait GenExternal extends SymExeDefs {
   /*
    * int stat(const char *pathname, struct stat *statbuf);
    */
-  def stat[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+  def stat[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: ExtCont[T]): Rep[T] = {
     val ptr = args(0)
     val name: Rep[String] = getStringAt(ptr, ss)
     val buf: Rep[Value] = args(1)
@@ -194,7 +205,7 @@ trait GenExternal extends SymExeDefs {
   /*
    * int fstat(int fd, struct stat *statbuf);
    */
-  def fstat[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+  def fstat[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: ExtCont[T]): Rep[T] = {
     val fd: Rep[Fd] = args(0).int.toInt
     val buf: Rep[Value] = args(1)
     if (!fs.hasStream(fd)) 
@@ -209,7 +220,7 @@ trait GenExternal extends SymExeDefs {
   /*
    * int lstat(const char *pathname, struct stat *statbuf);
    */
-  def lstat[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+  def lstat[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: ExtCont[T]): Rep[T] = {
     // TODO: handle symlink <2022-08-09, David Deng> //
     stat(ss, fs, args, k)
   }
@@ -251,7 +262,7 @@ trait GenExternal extends SymExeDefs {
   /*
    * int rmdir(const char *pathname);
    */
-  def rmdir[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+  def rmdir[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: ExtCont[T]): Rep[T] = {
     val path: Rep[String] = getStringAt(args(0), ss)
     val dir = fs.getFile(path)
     // TODO: set errno <2022-05-28, David Deng> //
@@ -266,25 +277,15 @@ trait GenExternal extends SymExeDefs {
   /*
    * int creat(const char *pathname, mode_t mode);
    */
-  def creat[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
-    val path: Rep[String] = getStringAt(args(0), ss)
-    // TODO: set mode <2022-05-28, David Deng> //
-    val mode: Rep[Value] = args(1)
-    val name: Rep[String] = getPathSegments(path).last
-    // TODO: set errno <2022-05-28, David Deng> //
-    if (fs.hasFile(path)) k(ss, fs, IntV(-1, 32))
-    else {
-      // TODO: refactor a get_dir method? <2022-05-28, David Deng> //
-      val f = _set_file_type(File(name, List[Value](), List.fill(144)(IntV(0, 8))), S_IFREG)
-      fs.setFile(path, f)
-      k(ss, fs, IntV(0, 32))
-    }
+  def creat[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: ExtCont[T]): Rep[T] = {
+    // A call to creat() is equivalent to calling open() with flags equal to O_CREAT|O_WRONLY|O_TRUNC.
+    open(ss, fs, List(args(0), IntV(O_CREAT | O_WRONLY | O_TRUNC), args(1)), k)
   }
 
   /*
    * int unlink(const char *pathname);
    */
-  def unlink[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+  def unlink[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: ExtCont[T]): Rep[T] = {
     val path: Rep[String] = getStringAt(args(0), ss)
     val file = fs.getFile(path)
     // TODO: set errno <2022-05-28, David Deng> //
@@ -299,7 +300,7 @@ trait GenExternal extends SymExeDefs {
   /*
    * int chmod(const char *pathname, mode_t mode);
    */
-  def chmod[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+  def chmod[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: ExtCont[T]): Rep[T] = {
     val path: Rep[String] = getStringAt(args(0), ss)
     val file = fs.getFile(path)
     val mode: Rep[Value] = args(1)
@@ -314,7 +315,7 @@ trait GenExternal extends SymExeDefs {
   /*
    * int chown(const char *pathname, uid_t owner, gid_t group);
    */
-  def chown[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+  def chown[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: ExtCont[T]): Rep[T] = {
     val path: Rep[String] = getStringAt(args(0), ss)
     val file = fs.getFile(path)
     val owner: Rep[Value] = args(1)
@@ -389,6 +390,7 @@ trait GenExternal extends SymExeDefs {
   }
 
   // bridge SS and FS
+
   def brg_fs[T: Manifest](f: (Rep[FS], Rep[List[Value]], ((Rep[FS], Rep[Value]) => Rep[T])) => Rep[T])
   (ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
     def kp(fs: Rep[FS], ret: Rep[Value]): Rep[T] = {
@@ -398,8 +400,7 @@ trait GenExternal extends SymExeDefs {
     f(ss.getFs, args, kp)
   }
 
-  def brg_fs[T: Manifest](f: (Rep[SS], Rep[FS], Rep[List[Value]], ((Rep[SS], Rep[FS], Rep[Value]) => Rep[T])) => Rep[T])
-  (ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
+  def brg_fs[T: Manifest](f: Ext[T])(ss: Rep[SS], args: Rep[List[Value]], k: (Rep[SS], Rep[Value]) => Rep[T]): Rep[T] = {
     def kp(ss: Rep[SS], fs: Rep[FS], ret: Rep[Value]): Rep[T] = {
       ss.setFs(fs)
       k(ss, ret)
@@ -472,9 +473,6 @@ class ExternalLLSCDriver(folder: String = "./headers/llsc") extends SAISnippet[I
   }
 
   def snippet(u: Rep[Int]) = {
-    // TODO: llsc_assert_k depends on sym_exit, which doesn't have a _k version right now <2022-01-23, David Deng> //
-    // hardTopFun(gen_p(llsc_assert), "llsc_assert", "inline")
-    // hardTopFun(gen_k(llsc_assert), "llsc_assert", "inline")
     hardTopFun(gen_p(brg_fs(open(_,_,_,_))), "syscall_open", "inline")
     hardTopFun(gen_k(brg_fs(open(_,_,_,_))), "syscall_open", "inline")
     hardTopFun(gen_p(brg_fs(close(_,_,_,_))), "syscall_close", "inline")

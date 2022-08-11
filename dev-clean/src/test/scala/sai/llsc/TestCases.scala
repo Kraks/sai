@@ -140,7 +140,7 @@ object TestCases {
     TestPrg(statfsTest, "statfsTest", "@main", noArg, noOpt, nPath(1)++status(0)),
     TestPrg(seekTest, "seekTest", "@main", noArg, "--sym-file-size 10 --add-sym-file A", nPath(1)++status(0)),
     TestPrg(mkdirTest, "mkdirTest", "@main", noArg, noOpt, nPath(1)++status(0)),
-    TestPrg(creatTest, "creatTest", "@main", noArg, noOpt, nPath(1)++status(0)),
+    TestPrg(creatUnlinkTest, "creatUnlinkTest", "@main", noArg, noOpt, nPath(1)++status(0)),
     TestPrg(chmodTest, "chmodTest", "@main", noArg, noOpt, nPath(1)++status(0)),
     TestPrg(kleefsminiTest, "kleefsmini", "@main", noArg, noOpt, nPath(2)++status(0)),
     TestPrg(kleefsminiPackedTest, "kleefsminiPackedTest", "@main", noArg, noOpt, nPath(2)++status(0)),

@@ -90,7 +90,7 @@ object Benchmarks {
   lazy val statfsTest = parseFile("benchmarks/external-lib/statfs.ll")
   lazy val seekTest = parseFile("benchmarks/external-lib/lseek1.ll")
   lazy val mkdirTest = parseFile("benchmarks/external-lib/mkdir.ll")
-  lazy val creatTest = parseFile("benchmarks/external-lib/creat.ll")
+  lazy val creatUnlinkTest = parseFile("benchmarks/external-lib/creat_unlink.ll")
   lazy val chmodTest = parseFile("benchmarks/external-lib/chmod.ll")
   lazy val assumeTest = parseFile("benchmarks/external-lib/assume.ll")
 
