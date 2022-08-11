@@ -264,37 +264,43 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
         } else {
           symExecBr(ss1, cndVal.toSym, cndVal.toSymNeg, thnLab, elsLab, k)
         }
-      case SwitchTerm(cndTy, cndVal, default, table) =>
-        Counter.setBranchNum(ctx, table.size+1)
+      case SwitchTerm(cndTy, cndVal, default, swTable) =>
+        Counter.setBranchNum(ctx, swTable.size+1)
         def switch(v: Rep[Long], s: Rep[SS], table: List[LLVMCase]): Rep[Unit] =
-          if (table.isEmpty) execBlock(ctx.funName, default, s, k)
-          else {
-            if (v == table.head.n) execBlock(ctx.funName, table.head.label, s, k)
-            else switch(v, s, table.tail)
+          if (table.isEmpty) {
+            Coverage.incBranch(ctx, swTable.size)
+            execBlock(ctx.funName, default, s, k)
+          } else {
+            if (v == table.head.n) {
+              Coverage.incBranch(ctx, swTable.size - table.size)
+              execBlock(ctx.funName, table.head.label, s, k)
+            } else switch(v, s, table.tail)
           }
 
-        val counter: Var[Int] = var_new(0)
+        val nPath: Var[Int] = var_new(0)
         def switchSym(v: Rep[Value], s: Rep[SS], table: List[LLVMCase]): Rep[Unit] =
           if (table.isEmpty) {
             if (checkPC(s.pc)) {
-              counter += 1
+              nPath += 1
+              Coverage.incBranch(ctx, swTable.size)
               execBlock(ctx.funName, default, s, k)
             }
           } else {
             val headPC = IntOp2("eq", v, IntV(table.head.n))
             if (checkPC(s.pc.addPC(headPC.toSym))) {
-              counter += 1
+              nPath += 1
+              Coverage.incBranch(ctx, swTable.size - table.size)
               execBlock(ctx.funName, table.head.label, s.addPC(headPC.toSym), k)
             }
             switchSym(v, s.addPC(headPC.toSymNeg), table.tail)
           }
 
-        val ss1 = addIncomingBlockOpt(ss, default::table.map(_.label))
+        val ss1 = addIncomingBlockOpt(ss, default::swTable.map(_.label))
         val v = eval(cndVal, cndTy, ss1)
-        if (v.isConc) switch(v.int, ss1, table)
+        if (v.isConc) switch(v.int, ss1, swTable)
         else {
-          switchSym(v, ss1, table)
-          if (counter > 0) Coverage.incPath(counter-1)
+          switchSym(v, ss1, swTable)
+          if (nPath > 0) Coverage.incPath(nPath - 1)
           ()
         }
     }

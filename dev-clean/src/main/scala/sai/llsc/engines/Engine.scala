@@ -327,28 +327,33 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
             }
           }
         } yield u
-      case SwitchTerm(cndTy, cndVal, default, table) =>
-        Counter.setBranchNum(ctx, table.size+1)
+      case SwitchTerm(cndTy, cndVal, default, swTable) =>
+        Counter.setBranchNum(ctx, swTable.size+1)
         def switch(v: Rep[Long], s: Rep[SS], table: List[LLVMCase]): Rep[List[(SS, Value)]] =
-          if (table.isEmpty) execBlock(ctx.funName, default, s)
-          else {
-            if (v == table.head.n) execBlock(ctx.funName, table.head.label, s)
-            else switch(v, s, table.tail)
+          if (table.isEmpty) {
+            Coverage.incBranch(ctx, swTable.size)
+            execBlock(ctx.funName, default, s)
+          } else {
+            if (v == table.head.n) {
+              Coverage.incBranch(ctx, swTable.size - table.size)
+              execBlock(ctx.funName, table.head.label, s)
+            } else switch(v, s, table.tail)
           }
 
-        val counter: Var[Int] = var_new(0)
-
+        val nPath: Var[Int] = var_new(0)
         def switchSym(v: Rep[Value], s: Rep[SS], table: List[LLVMCase]): Rep[List[(SS, Value)]] =
           if (table.isEmpty)
             if (checkPC(s.pc)) {
-              counter += 1
+              nPath += 1
+              Coverage.incBranch(ctx, swTable.size)
               reify(s) { execBlock(ctx.funName, default) }
             } else List[(SS, Value)]()
           else {
             val headPC = IntOp2("eq", v, IntV(table.head.n))
             val m = reflect {
               if (checkPC(s.pc.addPC(headPC.toSym))) {
-                counter += 1
+                nPath += 1
+                Coverage.incBranch(ctx, swTable.size - table.size)
                 reify(s)(for {
                   _ <- updatePC(headPC.toSym)
                   u <- execBlock(ctx.funName, table.head.label)
@@ -364,10 +369,10 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           v <- eval(cndVal, cndTy)
           s <- getState
           r <- reflect {
-            if (v.isConc) switch(v.int, s, table)
+            if (v.isConc) switch(v.int, s, swTable)
             else {
-              val r = switchSym(v, s, table)
-              if (counter > 0) Coverage.incPath(counter-1)
+              val r = switchSym(v, s, swTable)
+              if (nPath > 0) Coverage.incPath(nPath - 1)
               r
             }
           }

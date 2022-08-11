@@ -267,20 +267,24 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
         } else {
           symExecBr(ss, cndVal.toSym, cndVal.toSymNeg, thnLab, elsLab, k)
         }
-      case SwitchTerm(cndTy, cndVal, default, table) =>
-        Counter.setBranchNum(ctx, table.size+1)
-        // TODO: branch coverage is missing
-        val counter: Var[Int] = var_new(0)
+      case SwitchTerm(cndTy, cndVal, default, swTable) =>
+        Counter.setBranchNum(ctx, swTable.size+1)
+        val nPath: Var[Int] = var_new(0)
         def switch(v: Rep[Long], s: Rep[SS], table: List[LLVMCase]): Rep[Unit] =
-          if (table.isEmpty) execBlock(ctx.funName, default, s, k)
-          else {
-            if (v == table.head.n) execBlock(ctx.funName, table.head.label, s, k)
-            else switch(v, s, table.tail)
+          if (table.isEmpty) {
+            Coverage.incBranch(ctx, swTable.size)
+            execBlock(ctx.funName, default, s, k)
+          } else {
+            if (v == table.head.n) {
+              Coverage.incBranch(ctx, swTable.size - table.size)
+              execBlock(ctx.funName, table.head.label, s, k)
+            } else switch(v, s, table.tail)
           }
         def switchSym(v: Rep[Value], s: Rep[SS], table: List[LLVMCase]): Rep[Unit] =
           if (table.isEmpty) {
             if (checkPC(s.pc)) {
-              counter += 1
+              nPath += 1
+              Coverage.incBranch(ctx, swTable.size)
               execBlock(ctx.funName, default, s, k)
             }
           } else {
@@ -288,7 +292,8 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
             val headPC = IntOp2("eq", v, IntV(table.head.n))
             s.addPC(headPC.toSym)
             if (checkPC(s.pc)) {
-              counter += 1
+              nPath += 1
+              Coverage.incBranch(ctx, swTable.size - table.size)
               execBlock(ctx.funName, table.head.label, s, k)
             }
             st.addPC(headPC.toSymNeg)
@@ -297,10 +302,10 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
 
         ss.addIncomingBlock(ctx)
         val v = eval(cndVal, cndTy, ss)
-        if (v.isConc) switch(v.int, ss, table)
+        if (v.isConc) switch(v.int, ss, swTable)
         else {
-          switchSym(v, ss, table)
-          if (counter > 0) Coverage.incPath(counter-1)
+          switchSym(v, ss, swTable)
+          if (nPath > 0) Coverage.incPath(nPath - 1)
           ()
         }
     }
