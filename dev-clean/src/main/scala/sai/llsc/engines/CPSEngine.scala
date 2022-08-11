@@ -256,11 +256,11 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
         //branch(ss, cndVal.toSym, cndVal.toSymNeg, thnLab, elsLab, funName, k)
         if (cndVal.isConc) {
           if (cndVal.int == 1) {
-            Coverage.incBranch(ctx, 0)
+            //Coverage.incBranch(ctx, 0)
             execBlock(ctx.funName, thnLab, ss, k)
           }
           else {
-            Coverage.incBranch(ctx, 1)
+            //Coverage.incBranch(ctx, 1)
             execBlock(ctx.funName, elsLab, ss, k)
           }
         } else {
@@ -368,6 +368,7 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
   override def repFunFun(f: FunctionDef): (FFTy, Int) = {
     def runFun(ss: Rep[Ref[SS]], args: Rep[List[Value]], k: Rep[Cont]): Rep[Unit] = {
       val params: List[String] = f.header.params.map {
+        // TODO: use ctx to form variable string repr
         case TypedParam(ty, attrs, localId) => f.id + "_" + localId.get
         case Vararg => ""
       }

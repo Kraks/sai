@@ -95,6 +95,7 @@ struct Monitor {
       print_path_cov();
       print_async();
       print_query_stat();
+      //print_block_cov_detail();
     }
     void start_monitor() {
       std::future<void> future = signal_exit.get_future();

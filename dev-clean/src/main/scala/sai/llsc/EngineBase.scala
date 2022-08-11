@@ -18,7 +18,7 @@ import sai.lmsx._
 case class Ctx(funName: String, blockLab: String) {
   override def toString: String = funName + "_" + blockLab
   def withVar(x: String): String = funName + "_" + x
-  def withBlock(lab: String): String = funName + "_" + blockLab
+  def withBlock(lab: String): String = funName + "_" + lab
 }
 
 trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>

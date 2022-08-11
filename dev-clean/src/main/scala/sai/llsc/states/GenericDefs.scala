@@ -61,7 +61,6 @@ case class Counter() {
   def fresh: Int = try { counter } finally { counter += 1 }
   def get(s: String): Int = {
     require(s.contains("_"))
-    //s.hashCode
     if (map.contains(s)) map(s) else try { fresh } finally { map(s) = count-1 }
   }
 }
