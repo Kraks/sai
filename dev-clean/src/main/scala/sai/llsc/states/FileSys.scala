@@ -93,7 +93,7 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
 
   def getFieldIdx(fields: ListMap[String, _], f: String): Int = {
     val idx = fields.keys.toList.indexOf(f)
-    assert(idx >= 0, s"Field $f not found in fields")
+    if (idx < 0) throw new Exception(s"field $f not found in fields $fields")
     idx
   }
 
@@ -115,7 +115,7 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
     // f2->children = children.persistent();
     // return f2;
   }
-  
+
   implicit class FileOps(file: Rep[File]) {
     // fields
     def name: Rep[String]                = "ptr-field-@".reflectWith[String](file, "name")
@@ -139,7 +139,7 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
     def getChild(name: Rep[String]): Rep[File]               = file.children(name)
     def setChild(name: Rep[String], f: Rep[File]): Rep[Unit] = {
       f.parent = file
-      file.children = file.children + (name, f) 
+      file.children = file.children + (name, f)
     }
     def removeChild(name: Rep[String]): Rep[Unit]            = {
       file.children(name).parent = NullPtr[File]
@@ -194,7 +194,7 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
     }
     def append(c: Rep[List[Value]]): Rep[Unit] = file.writeAtNoFill(c, file.content.size)
     def clear(): Rep[File] = {
-      file.content = List[Value]() 
+      file.content = List[Value]()
       file
     }
   }
@@ -234,7 +234,7 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
 
     def seekStart(o: Rep[Long]): Rep[Long] = {
       if (o < 0L) -1L
-      else { 
+      else {
         strm.cursor = o
         o
       }
@@ -243,7 +243,7 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
     def seekEnd(o: Rep[Long]): Rep[Long] = {
       val newCursor = strm.file.content.size + o
       if (newCursor < 0L) -1L
-      else { 
+      else {
         strm.cursor = newCursor
         newCursor
       }

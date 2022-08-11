@@ -2,6 +2,7 @@ package sai.llsc
 
 import sai.lang.llvm._
 import sai.lang.llvm.IR._
+import sai.llsc.IRUtils._
 
 import sai.structure.freer._
 import Eff._
@@ -208,6 +209,18 @@ trait GenExternal extends SymExeDefs {
   def lstat[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
     // TODO: handle symlink <2022-08-09, David Deng> //
     stat(ss, fs, args, k)
+  }
+
+  /*
+   * int statfs(const char *path, struct statfs *buf);
+   */
+  def statfs[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+    // val path = args(0)
+    // val buf = args(1)
+
+    // val statfs = fs.statfs
+    // val ss1 = ss.updateSeq(buf, statfs)
+    k(ss, fs, IntV(0, 32))
   }
 
   /*
@@ -439,6 +452,8 @@ class ExternalLLSCDriver(folder: String = "./headers/llsc") extends SAISnippet[I
       emitln("#include \"external_shared.hpp\"")
       emitln("#ifndef LLSC_EXTERNAL_HEADERS_GEN")
       emitln("#define LLSC_EXTERNAL_HEADERS_GEN")
+      emitln(s"inline extern const int stat_size = ${StatType.size(null)};")
+      emitln(s"inline extern const int statfs_size = ${StatfsType.size(null)};")
       emitFunctionDecls(stream)
       emitFunctions(stream)
       emitln("#endif // LLSC_EXTERNAL_HEADERS_GEN")
