@@ -40,7 +40,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
   def eval(v: LLVMValue, ty: LLVMType, argTypes: Option[List[LLVMType]] = None)(implicit ctx: Ctx): Comp[E, Rep[Value]] = {
     v match {
       case LocalId(x) =>
-        for { ss <- getState } yield ss.lookup(ctx.withVar(x))
+        for { ss <- getState } yield ss.lookup(x)
       case IntConst(n) =>
         ret(IntV(n, ty.asInstanceOf[IntType].size))
       case FloatConst(f) => ret(FloatV(f, ty.asInstanceOf[FloatType].size))
@@ -281,13 +281,12 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
         execBlockEager(ctx.funName, findBlock(ctx.funName, lab).get)
       case BrTerm(lab) =>
         for {
-          _ <- updateIncomingBlock(ctx.toString)
+          _ <- updateIncomingBlock(ctx)
           v <- execBlock(ctx.funName, lab)
         } yield v
       case CondBrTerm(ty, cnd, thnLab, elsLab) =>
-        // System.out.println(ty, cnd, thnLab, elsLab)
         for {
-          _ <- updateIncomingBlock(ctx.toString)
+          _ <- updateIncomingBlock(ctx)
           ss <- getState
           cndVal <- eval(cnd, ty)
           u <- reflect {
@@ -357,7 +356,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           }
 
         for {
-          _ <- updateIncomingBlock(ctx.toString)
+          _ <- updateIncomingBlock(ctx)
           v <- eval(cndVal, cndTy)
           s <- getState
           r <- reflect {
@@ -377,7 +376,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
       case AssignInst(x, valInst) =>
         for {
           v <- execValueInst(valInst)
-          _ <- stackUpdate(ctx.withVar(x), v)
+          _ <- stackUpdate(x, v)
         } yield ()
       case StoreInst(ty1, val1, ty2, val2, align) =>
         for {
@@ -436,9 +435,12 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
 
   override def repFunFun(f: FunctionDef): (FFTy, Int) = {
     def runFun(ss: Rep[SS], args: Rep[List[Value]]): Rep[List[(SS, Value)]] = {
+      implicit val ctx = Ctx(f.id, f.blocks(0).label.get)
       val params: List[String] = f.header.params.map {
-        case TypedParam(ty, attrs, localId) => f.id + "_" + localId.get
-        case Vararg => ""
+        case TypedParam(ty, attrs, localId) => localId.get
+        case Vararg =>
+          System.out.println("Warning: Vararg parameter")
+          "Vararg"
       }
       info("running function: " + f.id)
       val m: Comp[E, Rep[Value]] = for {

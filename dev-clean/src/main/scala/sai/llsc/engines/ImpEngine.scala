@@ -34,7 +34,7 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
 
   def eval(v: LLVMValue, ty: LLVMType, ss: Rep[SS], argTypes: Option[List[LLVMType]] = None)(implicit ctx: Ctx): Rep[Value] =
     v match {
-      case LocalId(x) => ss.lookup(ctx.withVar(x))
+      case LocalId(x) => ss.lookup(x)
       case IntConst(n) => IntV(n, ty.asInstanceOf[IntType].size)
       case FloatConst(f) => FloatV(f, ty.asInstanceOf[FloatType].size)
       case FloatLitConst(l) => FloatV(l, 80)
@@ -232,10 +232,10 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
       case BrTerm(lab) if (cfg.pred(ctx.funName, lab).size == 1) =>
         execBlockEager(ctx.funName, findBlock(ctx.funName, lab).get, ss)
       case BrTerm(lab) =>
-        ss.addIncomingBlock(ctx.toString)
+        ss.addIncomingBlock(ctx)
         execBlock(ctx.funName, lab, ss)
       case CondBrTerm(ty, cnd, thnLab, elsLab) =>
-        ss.addIncomingBlock(ctx.toString)
+        ss.addIncomingBlock(ctx)
         val cndVal = eval(cnd, ty, ss)
         if (cndVal.isConc) {
           if (cndVal.int == 1) execBlock(ctx.funName, thnLab, ss)
@@ -272,7 +272,7 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
             lt ++ lf
           }
 
-        ss.addIncomingBlock(ctx.toString)
+        ss.addIncomingBlock(ctx)
         val v = eval(cndVal, cndTy, ss)
         if (v.isConc) switch(v.int, ss, table)
         else {
@@ -288,7 +288,7 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
       case AssignInst(x, valInst) =>
         execValueInst(valInst, ss, {
           case (s, v) =>
-            s.assign(ctx.withVar(x), v)
+            s.assign(x, v)
             k(s)
         })
       case StoreInst(ty1, val1, ty2, val2, align) =>
@@ -345,9 +345,12 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
 
   override def repFunFun(f: FunctionDef): (FFTy, Int) = {
     def runFun(ss: Rep[Ref[SS]], args: Rep[List[Value]]): Rep[List[(SS, Value)]] = {
+      implicit val ctx = Ctx(f.id, f.blocks(0).label.get)
       val params: List[String] = f.header.params.map {
-        case TypedParam(ty, attrs, localId) => f.id + "_" + localId.get
-        case Vararg => ""
+        case TypedParam(ty, attrs, localId) => localId.get
+        case Vararg =>
+          System.out.println("Warning: Vararg parameter")
+          "vararg"
       }
       info("running function: " + f.id)
       ss.assign(params, args)

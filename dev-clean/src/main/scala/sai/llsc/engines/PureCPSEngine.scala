@@ -38,7 +38,7 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
   }
 
   def addIncomingBlockOpt(ss: Rep[SS], tos: StaticList[String])(implicit ctx: Ctx): Rep[SS] =
-    ss.addIncomingBlock(ctx.toString)
+    ss.addIncomingBlock(ctx)
   /*
     (tos.exists(to => findBlock(funName, to).get.hasPhi)) match {
       case true => ss.addIncomingBlock(from)
@@ -48,7 +48,7 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
 
   def eval(v: LLVMValue, ty: LLVMType, ss: Rep[SS], argTypes: Option[List[LLVMType]] = None)(implicit ctx: Ctx): Rep[Value] =
     v match {
-      case LocalId(x) => ss.lookup(ctx.withVar(x))
+      case LocalId(x) => ss.lookup(x)
       case IntConst(n) => IntV(n, ty.asInstanceOf[IntType].size)
       case FloatConst(f) => FloatV(f, ty.asInstanceOf[FloatType].size)
       case FloatLitConst(l) => FloatV(l, 80)
@@ -248,7 +248,7 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
       case CondBrTerm(ty, cnd, thnLab, elsLab) =>
         val cndVal = eval(cnd, ty, ss)
         // FIXME: using addIncomingBlockOpt triggers some issue of recursive functions
-        val ss1 = ss.addIncomingBlock(ctx.toString)
+        val ss1 = ss.addIncomingBlock(ctx)
         if (cndVal.isConc) {
           if (cndVal.int == 1) asyncExecBlock(ctx.funName, thnLab, ss1, k)
           else asyncExecBlock(ctx.funName, elsLab, ss1, k)
@@ -294,7 +294,7 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
     //System.out.println(funName, inst)
     inst match {
       case AssignInst(x, valInst) =>
-        execValueInst(valInst, ss, { case (s, v) => k(s.assign(ctx.withVar(x), v)) })
+        execValueInst(valInst, ss, { case (s, v) => k(s.assign(x, v)) })
       case StoreInst(ty1, val1, ty2, val2, align) =>
         val v1 = eval(val1, ty1, ss)
         val v2 = eval(val2, ty2, ss)
@@ -342,9 +342,12 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
 
   override def repFunFun(f: FunctionDef): (FFTy, Int) = {
     def runFun(ss: Rep[SS], args: Rep[List[Value]], k: Rep[Cont]): Rep[Unit] = {
+      implicit val ctx = Ctx(f.id, f.blocks(0).label.get)
       val params: List[String] = f.header.params.map {
-        case TypedParam(ty, attrs, localId) => f.id + "_" + localId.get
-        case Vararg => ""
+        case TypedParam(ty, attrs, localId) => localId.get
+        case Vararg =>
+          System.out.println("Warning: Vararg parameter")
+          "Vararg"
       }
       info("running function: " + f.id)
       execBlockEager(f.id, f.blocks(0), ss.assign(params, args), k)
