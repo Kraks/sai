@@ -31,6 +31,9 @@ import scala.collection.mutable.{Map => MutableMap, Set => MutableSet}
 trait GenExternal extends SymExeDefs {
   import FS._
 
+  type ExtCont[T] = (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]
+  type Ext[T] = (Rep[SS], Rep[FS], Rep[List[Value]], ExtCont[T]) => Rep[T]
+
   // TODO: sym_exit return type in C should be void
   def sym_exit[T: Manifest](ss: Rep[SS], args: Rep[List[Value]]): Rep[T] =
     "sym_exit".reflectWith[T](ss, args)
@@ -214,19 +217,21 @@ trait GenExternal extends SymExeDefs {
   /*
    * int statfs(const char *path, struct statfs *buf);
    */
-  def statfs[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
-    // val path = args(0)
-    // val buf = args(1)
-
-    // val statfs = fs.statfs
-    // val ss1 = ss.updateSeq(buf, statfs)
-    k(ss, fs, IntV(0, 32))
+  def statfs[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: ExtCont[T]): Rep[T] = {
+    val name: Rep[String] = getStringAt(args(0), ss)
+    if (!fs.hasFile(name)) {
+      k(ss.setErrorLoc(flag("ENOENT")), fs, IntV(-1, 32))
+    } else {
+      val buf: Rep[Value] = args(1)
+      val statFs = fs.statFs
+      k(ss.updateSeq(buf, statFs), fs, IntV(0, 32))
+    }
   }
 
   /*
    * int mkdir(const char *pathname, mode_t mode);
    */
-  def mkdir[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: (Rep[SS], Rep[FS], Rep[Value]) => Rep[T]): Rep[T] = {
+  def mkdir[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: ExtCont[T]): Rep[T] = {
     val path: Rep[String] = getStringAt(args(0), ss)
     // TODO: set mode <2022-05-28, David Deng> //
     val mode: Rep[Value] = args(1)
@@ -488,6 +493,8 @@ class ExternalLLSCDriver(folder: String = "./headers/llsc") extends SAISnippet[I
     hardTopFun(gen_k(brg_fs(fstat(_,_,_,_))), "syscall_fstat", "inline")
     hardTopFun(gen_p(brg_fs(lstat(_,_,_,_))), "syscall_lstat", "inline")
     hardTopFun(gen_k(brg_fs(lstat(_,_,_,_))), "syscall_lstat", "inline")
+    hardTopFun(gen_p(brg_fs(statfs(_,_,_,_))), "syscall_statfs", "inline")
+    hardTopFun(gen_k(brg_fs(statfs(_,_,_,_))), "syscall_statfs", "inline")
     hardTopFun(gen_p(brg_fs(mkdir(_,_,_,_))), "syscall_mkdir", "inline")
     hardTopFun(gen_k(brg_fs(mkdir(_,_,_,_))), "syscall_mkdir", "inline")
     hardTopFun(gen_p(brg_fs(rmdir(_,_,_,_))), "syscall_rmdir", "inline")

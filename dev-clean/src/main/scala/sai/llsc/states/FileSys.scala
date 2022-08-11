@@ -310,18 +310,15 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
     import FS._
     def openedFiles: Rep[Map[Fd, Stream]] = "field-@".reflectCtrlWith[Map[Fd, Stream]](fs, "opened_files")
     def rootFile: Rep[File]               = "field-@".reflectCtrlWith[File](fs, "root_file")
+    def statFs: Rep[List[Value]]          = "field-@".reflectCtrlWith[List[Value]](fs, "statfs")
 
     def openedFiles_= (rhs: Rep[Map[Fd, Stream]]): Unit = "field-assign".reflectCtrlWith(fs, "opened_files", rhs)
     def rootFile_= (rhs: Rep[File]): Unit = "field-assign".reflectCtrlWith(fs, "root_file", rhs)
 
     def getFreshFd(): Rep[Fd] = "method-@".reflectCtrlWith[Fd](fs, "get_fresh_fd")
 
-    // TODO: recursively search <2022-05-25, David Deng> //
     def hasFile(name: Rep[String]): Rep[Boolean]            = fs.getFile(name) != NullPtr[File]
-    def getFile(name: Rep[String]): Rep[File]               = {
-      unchecked("/* getFile */")
-      getFileFromPathSegments(fs.rootFile, getPathSegments(name))
-    }
+    def getFile(name: Rep[String]): Rep[File]               = getFileFromPathSegments(fs.rootFile, getPathSegments(name))
 
     // would set the file corresponding to name, parent should exist
     def setFile(name: Rep[String], f: Rep[File]): Rep[Unit] = {

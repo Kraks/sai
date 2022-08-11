@@ -121,7 +121,7 @@ trait Opaques { self: SAIOps with BasicDefs =>
     )
     private val syscalls = ImmSet[String](
       "open", "close", "read", "write", "lseek", "stat", "mkdir", "rmdir", "creat", "unlink", "chmod", "chown",
-      "lseek64", "lstat", "fstat"
+      "lseek64", "lstat", "fstat", "statfs"
     )
     val shouldRedirect = ImmSet[String]("@memcpy", "@memset", "@memmove")
     private val unsafeExternals = ImmSet[String]("fork", "exec", "error", "raise", "kill", "free", "vprintf")
