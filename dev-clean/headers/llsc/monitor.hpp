@@ -76,7 +76,16 @@ struct Monitor {
                   << std::flush;
       }
     }
-    void print_async() {
+    void print_branch_cov_detail() {
+      for (const auto& [blk_id, br_map] : branch_cov) {
+	std::cout << "Block: " << blk_id << "\n";
+	for (const auto& [br_id, br_exe_num] : br_map) {
+	  std::cout << "  branch [" << br_id << "] visited: " << br_exe_num << "\n";
+	}
+      }
+      std:: cout << std::flush;
+    }
+    void print_thread_pool() {
       std::cout << "#threads: " << n_thread << "; #task-in-q: " << tp.tasks_num_queued() << "; " << std::flush;
     }
     void print_query_stat() {
@@ -93,9 +102,12 @@ struct Monitor {
       if (print_inst_cnt) print_inst_stat();
       print_block_cov();
       print_path_cov();
-      print_async();
+      print_thread_pool();
       print_query_stat();
-      //print_block_cov_detail();
+      if (done && print_cov_detail) {
+	print_block_cov_detail();
+	print_branch_cov_detail();
+      }
     }
     void start_monitor() {
       std::future<void> future = signal_exit.get_future();

@@ -66,6 +66,8 @@ inline bool exlib_failure_branch = false;
 inline unsigned int timeout = 3600;
 // Print the number of executed instructions
 inline bool print_inst_cnt = false;
+// Print block/branch coverage detail at the end of execution
+inline bool print_cov_detail = false;
 
 enum class SolverKind { z3, stp };
 // The backend SMT solver to be used

@@ -256,11 +256,11 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
         //branch(ss, cndVal.toSym, cndVal.toSymNeg, thnLab, elsLab, funName, k)
         if (cndVal.isConc) {
           if (cndVal.int == 1) {
-            //Coverage.incBranch(ctx, 0)
+            Coverage.incBranch(ctx, 0)
             execBlock(ctx.funName, thnLab, ss, k)
           }
           else {
-            //Coverage.incBranch(ctx, 1)
+            Coverage.incBranch(ctx, 1)
             execBlock(ctx.funName, elsLab, ss, k)
           }
         } else {
