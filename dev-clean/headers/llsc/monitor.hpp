@@ -76,6 +76,27 @@ struct Monitor {
                   << std::flush;
       }
     }
+    void print_branch_cov() {
+      // number of branches that not all possible but at least one outcome is covered
+      size_t partial_branch = 0;
+      // number of branches that all possible outcomes are covered
+      size_t full_branch = 0;
+      for (const auto& [blk_id, br_map] : branch_cov) {
+	bool partial_cov = false;
+	bool full_cov = true;
+	for (const auto& [br_id, br_exe_num] : br_map) {
+	  partial_cov |= (br_exe_num > 0);
+	  full_cov &= (br_exe_num > 0);
+	}
+	if (partial_cov) partial_branch++;
+	if (full_cov) full_branch++;
+      }
+      std::cout << "#branch: "
+	        << (partial_branch - full_branch) << "/"
+	        << full_branch << "/"
+	        << branch_cov.size() << "; "
+	        << std::flush;
+    }
     void print_branch_cov_detail() {
       for (const auto& [blk_id, br_map] : branch_cov) {
 	std::cout << "Block: " << blk_id << "\n";
@@ -101,6 +122,7 @@ struct Monitor {
       print_time(done);
       if (print_inst_cnt) print_inst_stat();
       print_block_cov();
+      print_branch_cov();
       print_path_cov();
       print_thread_pool();
       print_query_stat();

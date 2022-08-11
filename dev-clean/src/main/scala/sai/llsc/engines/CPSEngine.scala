@@ -27,10 +27,12 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
   def getRealBlockFunName(bf: BFTy): String = blockNameMap(getBackendSym(Unwrap(bf)))
 
   def symExecBr(ss: Rep[SS], tCond: Rep[SymV], fCond: Rep[SymV],
-    tBlockLab: String, fBlockLab: String, funName: String, k: Rep[Cont]): Rep[Unit] = {
-    val tBrFunName = getRealBlockFunName(getBBFun(funName, tBlockLab))
-    val fBrFunName = getRealBlockFunName(getBBFun(funName, fBlockLab))
-    "sym_exec_br_k".reflectWriteWith[Unit](ss, tCond, fCond, unchecked[String](tBrFunName), unchecked[String](fBrFunName), k)(Adapter.CTRL)
+    tBlockLab: String, fBlockLab: String, k: Rep[Cont])(implicit ctx: Ctx): Rep[Unit] = {
+    val tBrFunName = getRealBlockFunName(getBBFun(ctx.funName, tBlockLab))
+    val fBrFunName = getRealBlockFunName(getBBFun(ctx.funName, fBlockLab))
+    val curBlockId = Counter.block.get(ctx.toString)
+    "sym_exec_br_k".reflectWriteWith[Unit](ss, curBlockId, tCond, fCond,
+      unchecked[String](tBrFunName), unchecked[String](fBrFunName), k)(Adapter.CTRL)
   }
 
   def branch(ss: Rep[SS], tCond: Rep[SymV], fCond: Rep[SymV],
@@ -264,7 +266,7 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
             execBlock(ctx.funName, elsLab, ss, k)
           }
         } else {
-          symExecBr(ss, cndVal.toSym, cndVal.toSymNeg, thnLab, elsLab, ctx.funName, k)
+          symExecBr(ss, cndVal.toSym, cndVal.toSymNeg, thnLab, elsLab, k)
         }
       case SwitchTerm(cndTy, cndVal, default, table) =>
         Counter.setBranchNum(ctx, table.size+1)
