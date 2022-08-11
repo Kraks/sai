@@ -348,9 +348,7 @@ trait ImpLLSCEngine extends ImpSymExeDefs with EngineBase {
       implicit val ctx = Ctx(f.id, f.blocks(0).label.get)
       val params: List[String] = f.header.params.map {
         case TypedParam(ty, attrs, localId) => localId.get
-        case Vararg =>
-          System.out.println("Warning: Vararg parameter")
-          "vararg"
+        case Vararg => "Vararg"
       }
       info("running function: " + f.id)
       ss.assign(params, args)

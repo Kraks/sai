@@ -22,6 +22,32 @@ import sai.lmsx.smt.SMTBool
 import scala.collection.immutable.{List => StaticList, Map => StaticMap, Set => StaticSet, Range => StaticRange}
 import scala.collection.mutable.{Map => MutableMap, Set => MutableSet}
 
+case class Counter() {
+  import scala.collection.mutable.HashMap
+  private var counter: Int = 0
+  private val map: HashMap[String, Int] = HashMap[String, Int]()
+  override def toString: String =
+    map.toList.sortBy(_._2).map(p => s"  ${p._1} -> ${p._2}").mkString("\n")
+  def count: Int = counter
+  def reset: Unit = { counter = 0; map.clear }
+  def fresh: Int = try { counter } finally { counter += 1 }
+  def get(s: String): Int = {
+    require(s.contains("_"))
+    if (map.contains(s)) map(s) else try { fresh } finally { map(s) = count-1 }
+  }
+}
+
+object Counter {
+  import scala.collection.mutable.HashMap
+  val block = Counter()
+  val variable = Counter()
+  val branchStat: HashMap[Int, Int] = HashMap[Int, Int]()
+  def setBranchNum(ctx: Ctx, n: Int): Unit = {
+    val blockId = Counter.block.get(ctx.toString)
+    if (!branchStat.contains(blockId)) branchStat(blockId) = n
+  }
+}
+
 trait BasicDefs { self: SAIOps =>
   trait Mem; trait Stack
   trait SS;  trait PC; trait FS
@@ -48,32 +74,9 @@ trait BasicDefs { self: SAIOps =>
   def initState(m: Rep[Mem]): Rep[SS] = "init-ss".reflectWriteWith[SS](m)(Adapter.CTRL)
   def checkPCToFile(s: Rep[SS]): Unit = "check_pc_to_file".reflectWriteWith[Unit](s)(Adapter.CTRL)
   def checkPC(pc: Rep[PC]): Rep[Boolean] = "check_pc".reflectWriteWith[Boolean](pc)(Adapter.CTRL)
-}
 
-case class Counter() {
-  import scala.collection.mutable.HashMap
-  private var counter: Int = 0
-  private val map: HashMap[String, Int] = HashMap[String, Int]()
-  override def toString: String =
-    map.toList.sortBy(_._2).map(p => s"  ${p._1} -> ${p._2}").mkString("\n")
-  def count: Int = counter
-  def reset: Unit = { counter = 0; map.clear }
-  def fresh: Int = try { counter } finally { counter += 1 }
-  def get(s: String): Int = {
-    require(s.contains("_"))
-    if (map.contains(s)) map(s) else try { fresh } finally { map(s) = count-1 }
-  }
-}
-
-object Counter {
-  import scala.collection.mutable.HashMap
-  val block = Counter()
-  val variable = Counter()
-  val branchStat: HashMap[Int, Int] = HashMap[Int, Int]()
-  def setBranchNum(ctx: Ctx, n: Int): Unit = {
-    val blockId = Counter.block.get(ctx.toString)
-    if (!branchStat.contains(blockId)) branchStat(blockId) = n
-  }
+  def varId(x: String)(implicit ctx: Ctx): Int =
+    if (x == "Vararg") -1 else Counter.variable.get(ctx.withVar(x))
 }
 
 trait Coverage { self: SAIOps =>

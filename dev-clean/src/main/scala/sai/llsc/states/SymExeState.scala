@@ -76,11 +76,11 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
       "ss-assign-seq".reflectWith[SS](ss, xs, vs)
 
     def lookup(x: String)(implicit ctx: Ctx): Rep[Value] =
-      "ss-lookup-env".reflectWith[Value](ss, Counter.variable.get(ctx.withVar(x)))
+      "ss-lookup-env".reflectWith[Value](ss, varId(x))
     def assign(x: String, v: Rep[Value])(implicit ctx: Ctx): Rep[SS] =
-      "ss-assign".reflectWith[SS](ss, Counter.variable.get(ctx.withVar(x)), v)
+      "ss-assign".reflectWith[SS](ss, varId(x), v)
     def assign(xs: List[String], vs: Rep[List[Value]])(implicit ctx: Ctx): Rep[SS] =
-      assignSeq(xs.map(x => Counter.variable.get(ctx.withVar(x))), vs)
+      assignSeq(xs.map(varId(_)), vs)
     def lookup(addr: Rep[Value], size: Int = 1, isStruct: Int = 0): Rep[Value] = {
       require(size > 0)
       if (isStruct == 0) "ss-lookup-addr".reflectWith[Value](ss, addr, size)
@@ -144,7 +144,7 @@ trait SymExeDefs extends SAIOps with StagedNondet with BasicDefs with ValueDefs 
       }
 
     override def lookup(x: String)(implicit ctx: Ctx): Rep[Value] =
-      if (Config.opt) lookupOpt(Counter.variable.get(x), Unwrap(ss), super.lookup(x), 30)
+      if (Config.opt) lookupOpt(varId(x), Unwrap(ss), super.lookup(x), 30)
       else super.lookup(x)
 
     override def stackSize: Rep[Int] =

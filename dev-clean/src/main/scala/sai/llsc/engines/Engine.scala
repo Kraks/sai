@@ -438,9 +438,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
       implicit val ctx = Ctx(f.id, f.blocks(0).label.get)
       val params: List[String] = f.header.params.map {
         case TypedParam(ty, attrs, localId) => localId.get
-        case Vararg =>
-          System.out.println("Warning: Vararg parameter")
-          "Vararg"
+        case Vararg => "Vararg"
       }
       info("running function: " + f.id)
       val m: Comp[E, Rep[Value]] = for {

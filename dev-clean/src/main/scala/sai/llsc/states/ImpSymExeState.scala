@@ -78,11 +78,11 @@ trait ImpSymExeDefs extends SAIOps with BasicDefs with ValueDefs with Opaques wi
       reflectWrite[Unit]("ss-assign-seq", ss, xs, vs)(ss)
 
     def lookup(x: String)(implicit ctx: Ctx): Rep[Value] =
-      reflectRead[Value]("ss-lookup-env", ss, Counter.variable.get(ctx.withVar(x)))(ss)
+      reflectRead[Value]("ss-lookup-env", ss, varId(x))(ss)
     def assign(x: String, v: Rep[Value])(implicit ctx: Ctx): Rep[Unit] =
-      reflectWrite[Unit]("ss-assign", ss, Counter.variable.get(ctx.withVar(x)), v)(ss)
+      reflectWrite[Unit]("ss-assign", ss, varId(x), v)(ss)
     def assign(xs: List[String], vs: Rep[List[Value]])(implicit ctx: Ctx): Rep[Unit] =
-      assignSeq(xs.map(x => Counter.variable.get(ctx.withVar(x))), vs)
+      assignSeq(xs.map(varId(_)), vs)
     def lookup(addr: Rep[Value], size: Int = 1, isStruct: Int = 0): Rep[Value] = {
       require(size > 0)
       if (isStruct == 0) reflectRead[Value]("ss-lookup-addr", ss, addr, size)(ss)
