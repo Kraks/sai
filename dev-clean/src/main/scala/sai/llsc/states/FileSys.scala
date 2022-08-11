@@ -98,7 +98,7 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
   }
 
   object File {
-    def apply(name: Rep[String]) = "File::create".reflectWith[File](name)
+    def apply(name: Rep[String]) = "File::create".reflectWith[File](name, 0)
     def apply(name: Rep[String], content: Rep[List[Value]]) = "File::create".reflectWith[File](name, content)
     def apply(name: Rep[String], content: Rep[List[Value]], stat: Rep[List[Value]]) =
       "File::create".reflectWith[File](name, content, stat)

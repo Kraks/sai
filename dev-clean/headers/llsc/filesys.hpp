@@ -10,6 +10,16 @@ inline int default_sym_file_size = 5;
 extern const int stat_size;
 extern const int statfs_size;
 
+// return a list of PtrVal with the specified variable prefix
+inline List<PtrVal> make_SymList(String prefix, int n) {
+    TrList<PtrVal> res;
+    for (int i = 0; i < n; i++) {
+        res.push_back(make_SymV(prefix + "_x" + std::to_string(i), 8));
+    }
+    return res.persistent();
+}
+
+
 struct File: public Printable {
   String name;
   List<PtrVal> content;
@@ -37,6 +47,16 @@ struct File: public Printable {
     return ss.str();
   }
 
+  File(String name, int size) : name(name) {
+    this->content = make_SymList("fs_file_" + name, size);
+    this->stat = make_SymList("fs_stat_" + name, stat_size);
+  }
+
+  File(String name, List<PtrVal> content) : name(name) {
+    this->content = content;
+    this->stat = make_SymList("fs_stat_" + name, stat_size);
+  }
+
   File(String name, List<PtrVal> content, List<PtrVal> stat) : name(name) {
     this->content = content;
     this->stat = stat;
@@ -62,20 +82,9 @@ struct File: public Printable {
   }
 };
 
-// return a list of PtrVal with the specified variable prefix
-inline List<PtrVal> make_SymList(String prefix, int n) {
-    TrList<PtrVal> res;
-    for (int i = 0; i < n; i++) {
-        res.push_back(make_SymV(prefix + "_x" + std::to_string(i), 8));
-    }
-    return res.persistent();
-}
-
 // return a symbolic file with size bytes
 inline Ptr<File> make_SymFile(String name, size_t size) {
-  auto content = make_SymList("fs_file_" + name, size);
-  auto stat = make_SymList("fs_stat_" + name, stat_size);
-  return std::make_shared<File>(name, content, stat);
+  return std::make_shared<File>(name, size);
 };
 
 
