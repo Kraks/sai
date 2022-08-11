@@ -69,10 +69,12 @@ struct Monitor {
                 << std::flush;
     }
     void print_block_cov_detail() {
-      print_block_cov();
+      size_t covered = 0;
+      for (auto& v : block_cov) { if (v != 0) covered++; }
+      std::cout << "Block coverage: " << covered << "/" << num_blocks << "\n";
       for (int i = 0; i < block_cov.size(); i++) {
-        std::cout << "Block: " << i << "; "
-                  << "visited: " << block_cov[i] << "\n"
+        std::cout << "  Block " << i << ", "
+                  << "visited " << block_cov[i] << "\n"
                   << std::flush;
       }
     }
@@ -98,10 +100,11 @@ struct Monitor {
 	        << std::flush;
     }
     void print_branch_cov_detail() {
+      std::cout << "Branch coverage: \n";
       for (const auto& [blk_id, br_map] : branch_cov) {
-	std::cout << "Block: " << blk_id << "\n";
+	std::cout << "Block " << blk_id << "\n";
 	for (const auto& [br_id, br_exe_num] : br_map) {
-	  std::cout << "  branch [" << br_id << "] visited: " << br_exe_num << "\n";
+	  std::cout << "  branch [" << br_id << "] visited " << br_exe_num << "\n";
 	}
       }
       std:: cout << std::flush;

@@ -31,10 +31,12 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
   def getRealBlockFunName(bf: BFTy): String = blockNameMap(getBackendSym(Unwrap(bf)))
 
   def symExecBr(ss: Rep[SS], tCond: Rep[SymV], fCond: Rep[SymV],
-    tBlockLab: String, fBlockLab: String, funName: String): Rep[List[(SS, Value)]] = {
-    val tBrFunName = getRealBlockFunName(getBBFun(funName, tBlockLab))
-    val fBrFunName = getRealBlockFunName(getBBFun(funName, fBlockLab))
-    "sym_exec_br".reflectWith[List[(SS, Value)]](ss, tCond, fCond, unchecked[String](tBrFunName), unchecked[String](fBrFunName))
+    tBlockLab: String, fBlockLab: String)(implicit ctx: Ctx): Rep[List[(SS, Value)]] = {
+    val tBrFunName = getRealBlockFunName(getBBFun(ctx.funName, tBlockLab))
+    val fBrFunName = getRealBlockFunName(getBBFun(ctx.funName, fBlockLab))
+    val curBlockId = Counter.block.get(ctx.toString)
+    "sym_exec_br".reflectWith[List[(SS, Value)]](ss, curBlockId, tCond, fCond,
+      unchecked[String](tBrFunName), unchecked[String](fBrFunName))
   }
 
   def eval(v: LLVMValue, ty: LLVMType, argTypes: Option[List[LLVMType]] = None)(implicit ctx: Ctx): Comp[E, Rep[Value]] = {
@@ -285,16 +287,17 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           v <- execBlock(ctx.funName, lab)
         } yield v
       case CondBrTerm(ty, cnd, thnLab, elsLab) =>
+        Counter.setBranchNum(ctx, 2)
         for {
           _ <- updateIncomingBlock(ctx)
           ss <- getState
           cndVal <- eval(cnd, ty)
           u <- reflect {
             if (cndVal.isConc) {
-              if (cndVal.int == 1) reify(ss)(execBlock(ctx.funName, thnLab))
-              else reify(ss)(execBlock(ctx.funName, elsLab))
+              if (cndVal.int == 1) reify(ss){ Coverage.incBranch(ctx, 0); execBlock(ctx.funName, thnLab) }
+              else reify(ss) { Coverage.incBranch(ctx, 1); execBlock(ctx.funName, elsLab) }
             } else {
-              symExecBr(ss, cndVal.toSym, cndVal.toSymNeg, thnLab, elsLab, ctx.funName)
+              symExecBr(ss, cndVal.toSym, cndVal.toSymNeg, thnLab, elsLab)
               /*
               val tpcSat = checkPC(ss.pc + cndVal.toSMTBool)
               val fpcSat = checkPC(ss.pc + cndVal.toSMTBoolNeg)
@@ -325,6 +328,7 @@ trait LLSCEngine extends StagedNondet with SymExeDefs with EngineBase {
           }
         } yield u
       case SwitchTerm(cndTy, cndVal, default, table) =>
+        Counter.setBranchNum(ctx, table.size+1)
         def switch(v: Rep[Long], s: Rep[SS], table: List[LLVMCase]): Rep[List[(SS, Value)]] =
           if (table.isEmpty) execBlock(ctx.funName, default, s)
           else {

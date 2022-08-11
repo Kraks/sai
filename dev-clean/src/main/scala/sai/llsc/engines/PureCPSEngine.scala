@@ -31,10 +31,12 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
   def getRealBlockFunName(bf: BFTy): String = blockNameMap(getBackendSym(Unwrap(bf)))
 
   def symExecBr(ss: Rep[SS], tCond: Rep[SymV], fCond: Rep[SymV],
-    tBlockLab: String, fBlockLab: String, funName: String, k: Rep[Cont]): Rep[Unit] = {
-    val tBrFunName = getRealBlockFunName(getBBFun(funName, tBlockLab))
-    val fBrFunName = getRealBlockFunName(getBBFun(funName, fBlockLab))
-    "sym_exec_br_k".reflectWriteWith[Unit](ss, tCond, fCond, unchecked[String](tBrFunName), unchecked[String](fBrFunName), k)(Adapter.CTRL)
+    tBlockLab: String, fBlockLab: String, k: Rep[Cont])(implicit ctx: Ctx): Rep[Unit] = {
+    val tBrFunName = getRealBlockFunName(getBBFun(ctx.funName, tBlockLab))
+    val fBrFunName = getRealBlockFunName(getBBFun(ctx.funName, fBlockLab))
+    val curBlockId = Counter.block.get(ctx.toString)
+    "sym_exec_br_k".reflectWriteWith[Unit](ss, curBlockId, tCond, fCond,
+      unchecked[String](tBrFunName), unchecked[String](fBrFunName), k)(Adapter.CTRL)
   }
 
   def addIncomingBlockOpt(ss: Rep[SS], tos: StaticList[String])(implicit ctx: Ctx): Rep[SS] =
@@ -246,16 +248,24 @@ trait PureCPSLLSCEngine extends SymExeDefs with EngineBase {
       case BrTerm(lab) =>
         execBlock(ctx.funName, lab, addIncomingBlockOpt(ss, StaticList(lab)), k)
       case CondBrTerm(ty, cnd, thnLab, elsLab) =>
+        Counter.setBranchNum(ctx, 2)
         val cndVal = eval(cnd, ty, ss)
         // FIXME: using addIncomingBlockOpt triggers some issue of recursive functions
         val ss1 = ss.addIncomingBlock(ctx)
         if (cndVal.isConc) {
-          if (cndVal.int == 1) asyncExecBlock(ctx.funName, thnLab, ss1, k)
-          else asyncExecBlock(ctx.funName, elsLab, ss1, k)
+          if (cndVal.int == 1) {
+            Coverage.incBranch(ctx, 0)
+            asyncExecBlock(ctx.funName, thnLab, ss1, k)
+          }
+          else {
+            Coverage.incBranch(ctx, 1)
+            asyncExecBlock(ctx.funName, elsLab, ss1, k)
+          }
         } else {
-          symExecBr(ss1, cndVal.toSym, cndVal.toSymNeg, thnLab, elsLab, ctx.funName, k)
+          symExecBr(ss1, cndVal.toSym, cndVal.toSymNeg, thnLab, elsLab, k)
         }
       case SwitchTerm(cndTy, cndVal, default, table) =>
+        Counter.setBranchNum(ctx, table.size+1)
         def switch(v: Rep[Long], s: Rep[SS], table: List[LLVMCase]): Rep[Unit] =
           if (table.isEmpty) execBlock(ctx.funName, default, s, k)
           else {

@@ -260,8 +260,7 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
           if (cndVal.int == 1) {
             Coverage.incBranch(ctx, 0)
             execBlock(ctx.funName, thnLab, ss, k)
-          }
-          else {
+          } else {
             Coverage.incBranch(ctx, 1)
             execBlock(ctx.funName, elsLab, ss, k)
           }
@@ -270,6 +269,7 @@ trait ImpCPSLLSCEngine extends ImpSymExeDefs with EngineBase {
         }
       case SwitchTerm(cndTy, cndVal, default, table) =>
         Counter.setBranchNum(ctx, table.size+1)
+        // TODO: branch coverage is missing
         val counter: Var[Int] = var_new(0)
         def switch(v: Rep[Long], s: Rep[SS], table: List[LLVMCase]): Rep[Unit] =
           if (table.isEmpty) execBlock(ctx.funName, default, s, k)
