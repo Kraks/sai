@@ -91,7 +91,7 @@ struct Monitor {
 	if (partial_cov) partial_branch++;
 	if (full_cov) full_branch++;
       }
-      std::cout << "#branch: "
+      std::cout << "#br: "
 	        << (partial_branch - full_branch) << "/"
 	        << full_branch << "/"
 	        << branch_cov.size() << "; "
