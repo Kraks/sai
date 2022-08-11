@@ -109,7 +109,7 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     case Node(s, "float_op_2", List(Backend.Const(op: String), x, y), _) =>
       es"float_op_2(${quoteOp(op, "fOP")}, $x, $y)"
     case Node(s, "init-ss", List(), _) => es"mt_ss"
-    case Node(s, "init-ss", List(m), _) => es"SS($m, mt_stack, mt_pc, mt_bb)"
+    case Node(s, "init-ss", List(m), _) => es"SS($m, mt_stack, mt_pc, mt_bb, mt_aux)"
 
     case Node(s, "ss-lookup-env", List(ss, x), _) => es"$ss.env_lookup($x)"
     case Node(s, "ss-lookup-addr", List(ss, a, sz), _) => es"$ss.at($a, $sz)"

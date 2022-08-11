@@ -20,7 +20,7 @@ public:
 
   virtual bool check_pc(PC pc) = 0;
   virtual std::pair<bool, UIntData> get_sat_value(PC pc, PtrVal v) = 0;
-  virtual void generate_test(PC pc) = 0;
+  virtual void generate_test(SS state) = 0;
 };
 
 template <typename Self, typename Expr>
@@ -74,70 +74,15 @@ public:
     return it->second;
   }
 
-  template <template <typename> typename Cont>
-  CheckResult check_model(
-        const Cont<PtrVal>& conds,
+  using objiter_t = typename decltype(objcache)::iterator;
+
+  CheckResult check_indep_model(
+        const std::vector<objiter_t> & condvec,
+        std::set<PtrVal>& condset,
         simple_ptr<SymV> query_expr=nullptr,
         bool require_model=false) {
 
     push();
-
-    // translation
-    if (!use_objcache)
-      objcache.clear();
-    for (auto &v: conds)
-      construct_expr(v);
-    if (query_expr)
-      construct_expr(query_expr);
-
-    // local storage
-    using objiter_t = typename decltype(objcache)::iterator;
-    std::vector<objiter_t> condvec;
-    std::set<PtrVal> condset;
-
-    // constraint independence resolving
-    if (use_cons_indep && conds.size() > (query_expr ? 0 : 1)) {
-      std::vector<objiter_t> queue;
-      objiter_t cur;
-      int idx;
-
-      for (auto& v: conds) {
-        condvec.push_back(objcache.find(v));
-      }
-      if (!query_expr) {
-        cur = condvec.back(); condvec.pop_back();
-        idx = 1;
-        queue.push_back(cur);
-        condset.insert(cur->first);
-      }
-      else {
-        cur = objcache.find(query_expr);
-        idx = 0;
-      }
-
-      do {
-        auto& cset = std::get<1>(cur->second);
-        for (auto& next: condvec) if (next != objcache.end()) {
-          auto& nset = std::get<1>(next->second);
-          auto cit = cset.begin();
-          auto nit = nset.begin();
-          if (cit != cset.end() && nit != nset.end()) {
-            do if (nit->first == cit->first) {
-              condset.insert(next->first);
-              queue.push_back(next);
-              next = objcache.end();
-              break;
-            }
-            while (nit->first < cit->first ? ++nit != nset.end() : ++cit != cset.end());
-          }
-        }
-      }
-      while (idx < queue.size() && (cur = queue[idx++], true));
-      condvec = std::move(queue);
-    } else {
-      condset.insert(conds.begin(), conds.end());
-    }
-
     //solving with counterexample caching
     if (use_cexcache && (!query_expr || query_expr->name.size())) {
       if (auto it = cexcache.find(condset); it != cexcache.end()) {
@@ -184,6 +129,102 @@ public:
     return std::make_tuple(result, model);
   }
 
+  template <template <typename> typename Cont>
+  void get_indep_conds(
+        const Cont<PtrVal>& conds,
+        std::vector<objiter_t>& condvec,
+        std::set<PtrVal>& condset,
+        simple_ptr<SymV> query_expr) {
+    if (use_cons_indep && conds.size() > (query_expr ? 0 : 1)) {
+      std::vector<objiter_t> queue;
+      objiter_t cur;
+      int idx;
+
+      for (auto& v: conds) {
+        condvec.push_back(objcache.find(v));
+      }
+      if (!query_expr) {
+        cur = condvec.back(); condvec.pop_back();
+        idx = 1;
+        queue.push_back(cur);
+        condset.insert(cur->first);
+      }
+      else {
+        cur = objcache.find(query_expr);
+        idx = 0;
+      }
+
+      do {
+        auto& cset = std::get<1>(cur->second);
+        for (auto& next: condvec) if (next != objcache.end()) {
+          auto& nset = std::get<1>(next->second);
+          auto cit = cset.begin();
+          auto nit = nset.begin();
+          if (cit != cset.end() && nit != nset.end()) {
+            do if (nit->first == cit->first) {
+              condset.insert(next->first);
+              queue.push_back(next);
+              next = objcache.end();
+              break;
+            }
+            while (nit->first < cit->first ? ++nit != nset.end() : ++cit != cset.end());
+          }
+        }
+      }
+      while (idx < queue.size() && (cur = queue[idx++], true));
+      condvec = std::move(queue);
+    } else {
+      condset.insert(conds.begin(), conds.end());
+    }
+  }
+
+  template <template <typename> typename Cont>
+  CheckResult check_model(
+        const Cont<PtrVal>& conds,
+        simple_ptr<SymV> query_expr=nullptr,
+        bool require_model=false) {
+    ASSERT(!query_expr || !require_model, "Conflicting request");
+    // translation
+    if (!use_objcache)
+      objcache.clear();
+    for (auto &v: conds)
+      construct_expr(v);
+    if (query_expr)
+      construct_expr(query_expr);
+
+    // local storage
+    std::vector<objiter_t> condvec;
+    std::set<PtrVal> condset;
+
+    // constraint independence resolving
+    if (!require_model || !use_cons_indep) {
+      get_indep_conds(conds, condvec, condset, query_expr);
+      return check_indep_model(condvec, condset, query_expr, require_model);
+    } else {
+      std::vector<PtrVal> curr_conds(conds.begin(), conds.end());
+      solver_result check_result;
+      std::shared_ptr<Model> model;
+      while (curr_conds.size() > 0) {
+        get_indep_conds(curr_conds, condvec, condset, query_expr);
+        auto [sub_result, sub_model] = check_indep_model(condvec, condset, query_expr, require_model);
+        if (model)
+          model->insert(sub_model->begin(), sub_model->end());
+        else {
+          model = sub_model;
+          check_result = sub_result;
+        }
+        int before_size = curr_conds.size();
+        for (auto& v: condset) {
+          curr_conds.erase(std::remove(curr_conds.begin(), curr_conds.end(), v), curr_conds.end());
+        }
+        ASSERT(curr_conds.size() < before_size, "Invalid elimination");
+        condvec.clear();
+        condset.clear();
+      }
+      return std::make_tuple(check_result, model);
+    }
+  }
+
   // interfaces
 
   virtual bool check_pc(PC pc) override {
@@ -199,7 +240,8 @@ public:
     return std::make_pair(r == sat, r == sat ? m->at(v2) : 0);
   }
 
-  virtual void generate_test(PC pc) override {
+  virtual void generate_test(SS state) override {
+    PC pc = std::move(state.get_PC());
     if (!use_solver) return;
     if (mkdir("tests", 0777) == -1) {
       if (errno == EEXIST) { }
@@ -272,7 +314,7 @@ inline bool check_pc(PC pc) {
 
 inline void check_pc_to_file(SS state) {
   auto start = steady_clock::now();
-  checker_manager.get_checker().generate_test(std::move(state.get_PC()));
+  checker_manager.get_checker().generate_test(std::move(state));
   auto end = steady_clock::now();
   int_solver_time += duration_cast<microseconds>(end - start).count();
 }

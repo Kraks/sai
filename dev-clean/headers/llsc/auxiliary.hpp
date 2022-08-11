@@ -219,6 +219,19 @@ inline std::monostate operator+ (const std::monostate& lhs, const std::monostate
 
 inline std::atomic<unsigned int> var_name = 0;
 inline std::string fresh(const std::string& x) { return x + std::to_string(var_name++); }
-inline std::string fresh() { return fresh("x"); }
+//inline std::string fresh() { return fresh("x"); }
+
+class SymObj : public Printable {
+public:
+  std::string name;
+  int size;
+  bool is_whole;
+  SymObj(std::string name, int size, bool is_whole) : name(name), size(size), is_whole(is_whole) {}
+  std::string toString() const override {
+    std::ostringstream ss;
+    ss << "SymObj(" << name << ", " << size << ", " << is_whole << ")";
+    return ss.str();
+  }
+};
 
 #endif

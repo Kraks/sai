@@ -284,12 +284,32 @@ class PC {
     void print() { print_set(pc); }
 };
 
+class SSAuxiliary: public Printable {
+  private:
+    List<SymObj> symbolics;
+  public:
+    SSAuxiliary(List<SymObj> symbolics) : symbolics(symbolics) {}
+    SSAuxiliary add_symbolic(const std::string& name, int size, bool is_whole) { return SSAuxiliary(symbolics.push_back(SymObj(name, size, is_whole))); }
+    int count_name(const std::string& name) {
+      for (auto symobj : symbolics) {
+        if (symobj.name == name) return 1;
+      }
+      return 0;
+    }
+    std::string toString() const override {
+      std::ostringstream ss;
+      ss << "SSAuxiliary(" << vec_to_string<SymObj>(symbolics) << ")";
+      return ss.str();
+    }
+};
+
 class SS {
   private:
     Mem heap;
     Stack stack;
     PC pc;
     BlockLabel bb;
+    SSAuxiliary aux;
     FS fs;
 #ifdef LAZYALLOC
     std::vector< std::pair<std::string, size_t> > pending_allocs;
@@ -306,10 +326,10 @@ class SS {
 #endif
 
   public:
-    SS(Mem heap, Stack stack, PC pc, BlockLabel bb) :
-      heap(std::move(heap)), stack(std::move(stack)), pc(std::move(pc)), bb(bb), fs(initial_fs) {}
-    SS(List<PtrVal> heap, Stack stack, PC pc, BlockLabel bb) :
-      heap(std::move(std::vector(heap.begin(), heap.end()))), stack(std::move(stack)), pc(std::move(pc)), bb(bb), fs(initial_fs)  {}
+    SS(Mem heap, Stack stack, PC pc, BlockLabel bb, SSAuxiliary aux) :
+      heap(std::move(heap)), stack(std::move(stack)), pc(std::move(pc)), bb(bb), aux(aux), fs(initial_fs) {}
+    SS(List<PtrVal> heap, Stack stack, PC pc, BlockLabel bb, SSAuxiliary aux) :
+      heap(std::move(std::vector(heap.begin(), heap.end()))), stack(std::move(stack)), pc(std::move(pc)), bb(bb), aux(aux), fs(initial_fs)  {}
     SS copy() { return *this; }
     PtrVal env_lookup(Id id) { return stack.lookup_id(id); }
     size_t heap_size() { return heap.size(); }
@@ -477,6 +497,19 @@ class SS {
       bb = blabel;
       return std::move(*this);
     }
+    std::string get_unique_name(const std::string& name) {
+      unsigned id = 0;
+      std::string uniqueName = name;
+      while (aux.count_name(uniqueName)) {
+        uniqueName = name + "_" + std::to_string(++id);
+      }
+      return uniqueName;
+    }
+    SS&& add_symbolic(const std::string& name, int size, bool is_whole) {
+      ASSERT(0 == aux.count_name(name), "non unique name");
+      aux = aux.add_symbolic(name, size, is_whole);
+      return std::move(*this);
+    }
     SS&& init_arg() {
       ASSERT(stack.mem_size() == 0, "Stack is not new");
       // Todo: Can adapt argv to be located somewhere other than 0 as well.
@@ -523,7 +556,8 @@ inline const Mem mt_mem = Mem(std::vector<PtrVal>{});
 inline const Stack mt_stack = Stack(mt_mem, std::vector<Frame>{}, nullptr);
 inline const PC mt_pc = PC(std::vector<PtrVal>{});
 inline const BlockLabel mt_bb = 0;
-inline const SS mt_ss = SS(mt_mem, mt_stack, mt_pc, mt_bb);
+inline const SSAuxiliary mt_aux = SSAuxiliary(List<SymObj>{});
+inline const SS mt_ss = SS(mt_mem, mt_stack, mt_pc, mt_bb, mt_aux);
 
 inline const List<SSVal> mt_path_result = List<SSVal>{};
 

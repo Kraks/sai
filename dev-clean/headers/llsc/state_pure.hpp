@@ -389,12 +389,32 @@ class PC: public Printable {
     }
 };
 
+class SSAuxiliary: public Printable {
+  private:
+    List<SymObj> symbolics;
+  public:
+    SSAuxiliary(List<SymObj> symbolics) : symbolics(symbolics) {}
+    SSAuxiliary add_symbolic(const std::string& name, int size, bool is_whole) { return SSAuxiliary(symbolics.push_back(SymObj(name, size, is_whole))); }
+    int count_name(const std::string& name) {
+      for (auto symobj : symbolics) {
+        if (symobj.name == name) return 1;
+      }
+      return 0;
+    }
+    std::string toString() const override {
+      std::ostringstream ss;
+      ss << "SSAuxiliary(" << vec_to_string<SymObj>(symbolics) << ")";
+      return ss.str();
+    }
+};
+
 class SS: public Printable {
   private:
     Mem heap;
     Stack stack;
     PC pc;
     BlockLabel bb;
+    SSAuxiliary aux;
     FS fs;
   public:
     std::string toString() const override {
@@ -408,8 +428,8 @@ class SS: public Printable {
         ")";
       return ss.str();
     }
-    SS(Mem heap, Stack stack, PC pc, BlockLabel bb) : heap(heap), stack(stack), pc(pc), bb(bb), fs(initial_fs) {}
-    SS(Mem heap, Stack stack, PC pc, BlockLabel bb, FS fs) : heap(heap), stack(stack), pc(pc), bb(bb), fs(fs) {}
+    SS(Mem heap, Stack stack, PC pc, BlockLabel bb, SSAuxiliary aux) : heap(heap), stack(stack), pc(pc), bb(bb), aux(aux), fs(initial_fs) {}
+    SS(Mem heap, Stack stack, PC pc, BlockLabel bb, SSAuxiliary aux, FS fs) : heap(heap), stack(stack), pc(pc), bb(bb), aux(aux), fs(fs) {}
     PtrVal env_lookup(Id id) { return stack.lookup_id(id); }
     size_t heap_size() { return heap.size(); }
     size_t stack_size() { return stack.mem_size(); }
@@ -487,19 +507,31 @@ class SS: public Printable {
     }
     PtrVal heap_lookup(size_t addr) { return heap.at(addr, -1); }
     BlockLabel incoming_block() { return bb; }
-    SS alloc_stack(size_t size) { return SS(heap, stack.alloc(size), pc, bb, fs); }
-    SS alloc_heap(size_t size) { return SS(heap.alloc(size), stack, pc, bb, fs); }
+    std::string get_unique_name(const std::string& name) {
+      unsigned id = 0;
+      std::string uniqueName = name;
+      while (aux.count_name(uniqueName)) {
+        uniqueName = name + "_" + std::to_string(++id);
+      }
+      return uniqueName;
+    }
+    SS add_symbolic(const std::string& name, int size, bool is_whole) {
+      ASSERT(0 == aux.count_name(name), "non unique name");
+      return SS(heap, stack, pc, bb, aux.add_symbolic(name, size, is_whole), fs);
+    }
+    SS alloc_stack(size_t size) { return SS(heap, stack.alloc(size), pc, bb, aux, fs); }
+    SS alloc_heap(size_t size) { return SS(heap.alloc(size), stack, pc, bb, aux, fs); }
     SS update(const PtrVal& addr, const PtrVal& val) {
       auto loc = std::dynamic_pointer_cast<LocV>(addr);
       ASSERT(loc != nullptr, "Lookup an non-address value");
-      if (loc->k == LocV::kStack) return SS(heap, stack.update(loc->l, val), pc, bb, fs);
-      return SS(heap.update(loc->l, val), stack, pc, bb, fs);
+      if (loc->k == LocV::kStack) return SS(heap, stack.update(loc->l, val), pc, bb, aux, fs);
+      return SS(heap.update(loc->l, val), stack, pc, bb, aux, fs);
     }
     SS update(const PtrVal& addr, const PtrVal& val, int size) {
       auto loc = std::dynamic_pointer_cast<LocV>(addr);
       ASSERT(loc != nullptr, "Lookup an non-address value");
-      if (loc->k == LocV::kStack) return SS(heap, stack.update(loc->l, val, size), pc, bb, fs);
-      return SS(heap.update(loc->l, val, size), stack, pc, bb, fs);
+      if (loc->k == LocV::kStack) return SS(heap, stack.update(loc->l, val, size), pc, bb, aux, fs);
+      return SS(heap.update(loc->l, val, size), stack, pc, bb, aux, fs);
     }
     SS update_seq(PtrVal addr, List<PtrVal> vals) {
       SS updated_ss = *this;
@@ -508,18 +540,18 @@ class SS: public Printable {
       }
       return updated_ss;
     }
-    SS push() { return SS(heap, stack.push(), pc, bb, fs); }
-    SS pop(size_t keep) { return SS(heap, stack.pop(keep), pc, bb, fs); }
-    SS assign(Id id, const PtrVal& val) { return SS(heap, stack.assign(id, val), pc, bb, fs); }
+    SS push() { return SS(heap, stack.push(), pc, bb, aux, fs); }
+    SS pop(size_t keep) { return SS(heap, stack.pop(keep), pc, bb, aux, fs); }
+    SS assign(Id id, const PtrVal& val) { return SS(heap, stack.assign(id, val), pc, bb, aux, fs); }
     SS assign_seq(List<Id> ids, List<PtrVal> vals) {
-      return SS(heap, stack.assign_seq(ids, vals), pc, bb, fs);
+      return SS(heap, stack.assign_seq(ids, vals), pc, bb, aux, fs);
     }
     SS heap_append(List<PtrVal> vals) {
-      return SS(heap.append(vals), stack, pc, bb, fs);
+      return SS(heap.append(vals), stack, pc, bb, aux, fs);
     }
-    SS add_PC(const PtrVal& e) { return SS(heap, stack, pc.add(e), bb, fs); }
-    SS add_PC_set(List<PtrVal> s) { return SS(heap, stack, pc.add_set(s), bb, fs); }
-    SS add_incoming_block(BlockLabel blabel) { return SS(heap, stack, pc, blabel, fs); }
+    SS add_PC(const PtrVal& e) { return SS(heap, stack, pc.add(e), bb, aux, fs); }
+    SS add_PC_set(List<PtrVal> s) { return SS(heap, stack, pc.add_set(s), bb, aux, fs); }
+    SS add_incoming_block(BlockLabel blabel) { return SS(heap, stack, pc, blabel, aux, fs); }
     SS init_arg() {
       ASSERT(stack.mem_size() == 0, "Stack is not new");
       // Todo: Can adapt argv to be located somewhere other than 0 as well.
@@ -550,7 +582,7 @@ class SS: public Printable {
 
       return updated_ss;
     }
-    SS init_error_loc() { return SS(heap, stack.init_error_loc(), pc, bb, fs); }
+    SS init_error_loc() { return SS(heap, stack.init_error_loc(), pc, bb, aux, fs); }
     PC get_PC() { return pc; }
     // TODO temp solution
     PtrVal vararg_loc() { return stack.vararg_loc(); }
@@ -565,7 +597,8 @@ inline const Mem mt_mem = Mem(List<PtrVal>{});
 inline const Stack mt_stack = Stack(mt_mem, List<Frame>{}, nullptr);
 inline const PC mt_pc = PC(List<PtrVal>{});
 inline const BlockLabel mt_bb = 0;
-inline const SS mt_ss = SS(mt_mem, mt_stack, mt_pc, mt_bb);
+inline const SSAuxiliary mt_aux = SSAuxiliary(List<SymObj>{});
+inline const SS mt_ss = SS(mt_mem, mt_stack, mt_pc, mt_bb, mt_aux);
 inline const List<SSVal> mt_path_result = List<SSVal>{};
 
 using func_t = List<SSVal> (*)(SS, List<PtrVal>);
