@@ -289,7 +289,7 @@ class PC {
 };
 
 class SSAuxiliary: public Printable {
-  private:
+  public:
     List<SymObj> symbolics;
   public:
     SSAuxiliary(List<SymObj> symbolics) : symbolics(symbolics) {}
@@ -308,12 +308,13 @@ class SSAuxiliary: public Printable {
 };
 
 class SS {
+  public:
+    SSAuxiliary aux;
   private:
     Mem heap;
     Stack stack;
     PC pc;
     BlockLabel bb;
-    SSAuxiliary aux;
     FS fs;
 #ifdef LAZYALLOC
     std::vector< std::pair<std::string, size_t> > pending_allocs;

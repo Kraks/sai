@@ -95,6 +95,7 @@ trait EngineBase extends SAIOps { self: BasicDefs with ValueDefs =>
       v <- funMap.get(d.const.asInstanceOf[GlobalId].id)
     } yield v).get)
 
+  scala.Predef.println("!!!!!!start construct cfg")
   lazy val cfg: CFG = CFG(funMap)
   //cfg.prettyPrint
 

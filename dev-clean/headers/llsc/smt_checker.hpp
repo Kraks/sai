@@ -1,6 +1,118 @@
 #ifndef LLSC_SMT_CHECKER_HEADERS
 #define LLSC_SMT_CHECKER_HEADERS
 
+
+  #define KTEST_MAGIC "KTEST"
+  #define KTEST_VERSION 3
+
+
+  typedef struct KTestObject KTestObject;
+  struct KTestObject {
+    char *name;
+    unsigned numBytes;
+    unsigned char *bytes;
+  };
+
+  typedef struct KTest KTest;
+  struct KTest {
+    /* file format version */
+    unsigned version;
+
+    unsigned numArgs;
+    char **args;
+
+    unsigned symArgvs;
+    unsigned symArgvLen;
+
+    unsigned numObjects;
+    KTestObject *objects;
+  };
+
+  inline static int write_hex_uint32(FILE *f, unsigned value) {
+    std::stringstream output;
+    output << std::setfill('0')<<std::setw(8) << value;
+    return fwrite(output.str().c_str(), output.str().size(), 1, f) == 1;
+    //unsigned char data[4];
+    //data[0] = value>>24;
+    //data[1] = value>>16;
+    //data[2] = value>> 8;
+    //data[3] = value>> 0;
+    //return fwrite(data, 1, 4, f)==4;
+  }
+
+  inline static int write_hex_string(FILE *f, const unsigned char *value, int len) {
+    std::stringstream output;
+    for (int i = 0; i< len;i++) {
+      output << std::setfill('0')<<std::setw(2) << (unsigned int)value[i];
+    }
+    if (fwrite(output.str().c_str(), output.str().size(), 1, f)!= 1)
+      return 0;
+    fwrite("\n", 1, 1, f);
+    return 1;
+  }
+
+  static int write_uint32(FILE *f, unsigned value) {
+    unsigned char data[4];
+    data[0] = value>>24;
+    data[1] = value>>16;
+    data[2] = value>> 8;
+    data[3] = value>> 0;
+    return fwrite(data, 1, 4, f)==4;
+  }
+
+  inline static int write_string(FILE *f, const char *value) {
+    unsigned len = strlen(value);
+    if (!write_uint32(f, len))
+      return 0;
+    if (fwrite(value, len, 1, f)!=1)
+      return 0;
+    return 1;
+  }
+
+  inline int kTest_toFile(KTest *bo, const char *path) {
+    FILE *f = fopen(path, "wb");
+    unsigned i;
+
+    if (!f)
+      goto error;
+    if (fwrite(KTEST_MAGIC, strlen(KTEST_MAGIC), 1, f)!=1)
+      goto error;
+    if (!write_uint32(f, KTEST_VERSION))
+      goto error;
+
+    if (!write_uint32(f, bo->numArgs))
+      goto error;
+    for (i=0; i<bo->numArgs; i++) {
+      if (!write_string(f, bo->args[i]))
+        goto error;
+    }
+
+    if (!write_uint32(f, bo->symArgvs))
+      goto error;
+    if (!write_uint32(f, bo->symArgvLen))
+      goto error;
+
+    if (!write_uint32(f, bo->numObjects))
+      goto error;
+    for (i=0; i<bo->numObjects; i++) {
+      KTestObject *o = &bo->objects[i];
+      if (!write_string(f, o->name))
+        goto error;
+      if (!write_uint32(f, o->numBytes))
+        goto error;
+      if (fwrite(o->bytes, o->numBytes, 1, f)!=1)
+        goto error;
+    }
+
+    fclose(f);
+
+    return 1;
+   error:
+    if (f) fclose(f);
+
+    return 0;
+  }
+
 // TODO: generic caching mechanisms should be shared no matter the solver
 class Checker {
 public:
@@ -247,23 +359,99 @@ public:
       if (errno == EEXIST) { }
       else ABORT("Cannot create the folder tests, abort.\n");
     }
-    std::stringstream output;
-    output << "Query number: " << (test_query_num+1) << std::endl;
-    auto [result, model] = check_model(pc.get_path_conds(), nullptr, true);
-    output << "Query is " << check_result_to_string(result) << std::endl;
+    auto [result, v_model] = check_model(pc.get_path_conds(), nullptr, true);
+    std::unordered_map<std::string, IntData> model;
+    for (auto [k, v]: *v_model) {
+      model.insert(std::make_pair(k->name, v));
+    }
     if (result == sat) {
-      test_query_num++;
+        test_query_num++;
+    }
+    {
+      std::stringstream output;
+      output << "Query number: " << (test_query_num+1) << std::endl;
+      //auto [result, model] = check_model(pc.get_path_conds(), nullptr, true);
+      output << "Query is " << check_result_to_string(result) << std::endl;
+      if (result == sat) {
+        std::stringstream filename;
+        filename << "tests/" << test_query_num << ".llsctest";
+        int out_fd = open(filename.str().c_str(), O_RDWR | O_CREAT, 0777);
+        if (out_fd == -1) {
+          ABORT("Cannot create the test case file, abort.\n");
+        }
+        for (auto [k, v]: model) {
+          output << k << " == " << v << std::endl;
+        }
+        int n = write(out_fd, output.str().c_str(), output.str().size());
+        close(out_fd);
+      }
+    }
+    {
+      //std::cout << "argc: " << conc_g_argc << "\n";
+      //for  (int i=0; i< conc_g_argc; i++) {
+      //  std::cout << "argv_" <<i <<": " << conc_g_argv[i] << "\n";
+      //}
+      if (result == sat) {
+      KTest b;
+      b.numArgs = conc_g_argc;
+      b.args = conc_g_argv;
+      b.symArgvs = 0;
+      b.symArgvLen = 0;
+      b.numObjects = state.aux.symbolics.size();
+      b.objects = new KTestObject[b.numObjects];
+      assert(b.objects);
+      for (int i=0; i< b.numObjects; i++) {
+        KTestObject *o = &b.objects[i];
+        auto obj = state.aux.symbolics[i];
+        o->name = new char[obj.name.size() + 1];
+        memcpy(o->name, obj.name.c_str(), obj.name.size());
+        o->name[obj.name.size()] = 0;
+        //const_cast<char*>(obj.name.c_str());
+        o->numBytes = obj.size;
+        o->bytes = new unsigned char[o->numBytes];
+        assert(o->bytes);
+        //std::cout << "name: " << o->name << " bytes: " << o->numBytes << "\n";
+        if (obj.is_whole) {
+          ASSERT(obj.size == 4, "Bad whole object");
+          //auto key = std::dynamic_pointer_cast<SymV>(make_SymV(obj.name, obj.size*8));
+          auto key = obj.name;
+          //assert(key);
+          auto it = model.find(key);
+          if (it != model.end()) {
+            //std::cout << " whole: " << it->second;
+            memcpy(o->bytes, &it->second, o->numBytes);
+          } else {
+            memset(o->bytes, '0', o->numBytes);
+          }
+        } else {
+          for (int idx=0; idx < o->numBytes; idx++) {
+            //auto key = std::dynamic_pointer_cast<SymV>(make_SymV(obj.name + "_" + std::to_string(idx), 8));
+            auto key = obj.name + "_" + std::to_string(idx);
+            //assert(key);
+            auto it = model.find(key);
+            if (it != model.end()) {
+              //std::cout << idx <<" : " << (unsigned char) it->second;
+              o->bytes[idx] = (unsigned char) it->second;
+            } else {
+              o->bytes[idx] = 0;
+            }
+          }
+        }
+        //std::cout << "\n";
+      }
+
       std::stringstream filename;
-      filename << "tests/" << test_query_num << ".test";
-      int out_fd = open(filename.str().c_str(), O_RDWR | O_CREAT, 0777);
-      if (out_fd == -1) {
-        ABORT("Cannot create the test case file, abort.\n");
+      filename << "tests/" << test_query_num << ".ktest";
+      int success = kTest_toFile(&b, filename.str().c_str());
+
+      if (!success) {
+        assert(0);
       }
-      for (auto [k, v]: *model) {
-        output << k->name << " == " << v << std::endl;
+
+      //for (unsigned i=0; i<b.numObjects; i++)
+      //  delete[] b.objects[i].bytes;
+      //delete[] b.objects;
       }
-      int n = write(out_fd, output.str().c_str(), output.str().size());
-      close(out_fd);
     }
   }
 };

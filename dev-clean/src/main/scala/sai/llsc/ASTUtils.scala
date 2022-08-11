@@ -86,14 +86,19 @@ case class CFG(funMap: Map[String, FunctionDef]) {
   type Label = String
   type Succs = Map[Label, Set[Label]]
   type Preds = Map[Label, Set[Label]]
+  type Dom = Map[Label, Set[Label]]
   type Graph = (Succs, Preds)
 
   val mtGraph: Graph = Lattice[Graph].bot
 
-  val funCFG: Map[Fun, Graph] = funMap.map({ case (f, d) => (f, construct(d.body.blocks)) }).toMap
+  val funCFG: Map[Fun, (Graph, Dom)] = funMap.map({ case (f, d) => {
+    val graph = construct(d.body.blocks)
+    (f, (graph, computeDom(d.body.blocks, graph)))
+  }
+  }).toMap
 
-  def succ(fname: String, label: Label): Set[Label] = funCFG(fname)._1(label)
-  def pred(fname: String, label: Label): Set[Label] = funCFG(fname)._2(label)
+  def succ(fname: String, label: Label): Set[Label] = funCFG(fname)._1._1(label)
+  def pred(fname: String, label: Label): Set[Label] = funCFG(fname)._1._2(label)
 
   def construct(blocks: List[BB]): Graph = blocks.foldLeft(mtGraph) { case (g, b) =>
     val from: Label = b.label.get
@@ -106,14 +111,66 @@ case class CFG(funMap: Map[String, FunctionDef]) {
     g ⊔ (Map(from → to), to.map(_ → Set(from)).toMap)
   }
 
+  def recursiveComputeDom(dom : Dom, g: Graph): Dom = {
+    val lables = dom.keys.toList
+    val (new_dom, is_changed) = lables.foldLeft((dom, false)) { case ((dmap, changed), l) =>
+      if (g._2.getOrElse(l, Set[Label]()).isEmpty) (dmap, changed)
+      else {
+        val intersection_set = g._2(l).tail.foldLeft(dmap(g._2(l).head)) { case (s, p_l) => s intersect dmap(p_l)}
+        val old_dset = dmap(l)
+        val new_dset = Set(l) union intersection_set
+        (dmap + (l -> new_dset), if (new_dset != old_dset) true else changed)
+      }
+    }
+    if (is_changed) recursiveComputeDom(new_dom, g) else new_dom
+  }
+
+  def dfs_visit(visited: Set[Label], rpo_list: List[Label], n: Label, g: Graph): (Set[Label], List[Label]) = {
+    val (final_visited, final_list) = g._1.getOrElse(n, Set[Label]()).foldLeft((visited + n, rpo_list)) { case ((vset, temp_list), child) =>
+      if (vset.contains(child)) (vset, temp_list)
+      else dfs_visit(vset, temp_list, child, g)
+    }
+    (final_visited, n :: final_list)
+  }
+
+  def computeDom(blocks: List[BB], g: Graph): Dom = {
+    val entry_nodelist = blocks.map(_.label.get).filter(g._2.getOrElse(_, Set[Label]()).isEmpty)
+    if (entry_nodelist.size != 1) ???
+    val entry_node = entry_nodelist.head
+    val (visited, reverse_postorder_list) = dfs_visit(Set[Label](), List[Label](), entry_node, g)
+    //scala.Predef.println("visited: "+visited+"\nrpo:"+reverse_postorder_list)
+    if ((reverse_postorder_list.size != blocks.size) || (visited.size != blocks.size)) ???
+
+    val universal_set = blocks.map(_.label.get).toSet
+
+    val initial_dom = blocks.foldLeft(Map[Label, Set[Label]]()) { case (dom, b) =>
+      dom + (b.label.get -> universal_set)
+    }
+    val res = recursiveComputeDom(initial_dom + (entry_node -> Set(entry_node)), g)
+    //res.foreach({ case (l, lset) =>
+    //  lset.foreach({ case dnode =>
+    //    if (g._1.getOrElse(l, Set()).contains(dnode)) {
+    //      scala.Predef.println("latch: "+l)
+    //      scala.Predef.println("back edge: "+l+" -> "+dnode)
+    //    }
+    //  })
+    //})
+    res
+  }
+
   def prettyPrint: Unit =
     funCFG.foreach { case (f, g) =>
       println(s"$f\n  successors:")
-      g._1.foreach { case (from, to) =>
+      g._1._1.foreach { case (from, to) =>
         val toStr = to.mkString(",")
         println(s"    $from → {$toStr}")
       }
       println("  predecessors:")
+      g._1._2.foreach { case (to, from) =>
+        val fromStr = from.mkString(",")
+        println(s"    $to → {$fromStr}")
+      }
+      println("  dominator:")
       g._2.foreach { case (to, from) =>
         val fromStr = from.mkString(",")
         println(s"    $to → {$fromStr}")
