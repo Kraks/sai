@@ -330,6 +330,35 @@ trait GenExternal extends SymExeDefs {
     }
   }
 
+  /*
+   * int ioctl(int fd, int request, ...);
+   */
+  def ioctl[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: ExtCont[T]): Rep[T] = {
+    val fd: Rep[Fd] = args(0).int.toInt
+    val request: Rep[Value] = args(1)
+    if (!fs.hasStream(fd)) {
+      k(ss.setErrorLoc(flag("EBADF")), fs, IntV(-1, 32))
+    } else {
+      if (request.int == 0x5401) { // TCGETS
+        // TODO: generate staged variable name based on fd <2022-08-11, David Deng> //
+        val buf: Rep[Value] = args(2)
+        val ss1 = ss.updateSeq(buf, SymV.makeSymVList(TermiosType.size(null), s"fs_termios_fd_${fd}_"))
+        k(ss1, fs, IntV(0, 32))
+      } else {
+        k(ss.setErrorLoc(flag("EINVAL")), fs, IntV(-1, 32))
+      }
+    }
+  }
+
+  /*
+   * int fcntl(int fd, int cmd, ...);
+   */
+  def fcntl[T: Manifest](ss: Rep[SS], fs: Rep[FS], args: Rep[List[Value]], k: ExtCont[T]): Rep[T] = {
+    val fd: Rep[Value] = args(0)
+    val cmd: Rep[Value] = args(1)
+    k(ss, fs, IntV(-1, 32))
+  }
+
   ////////////////////////
   //  helper functions  //
   ////////////////////////
@@ -505,6 +534,10 @@ class ExternalLLSCDriver(folder: String = "./headers/llsc") extends SAISnippet[I
     hardTopFun(gen_k(brg_fs(chmod(_,_,_,_))), "syscall_chmod", "inline")
     hardTopFun(gen_p(brg_fs(chown(_,_,_,_))), "syscall_chown", "inline")
     hardTopFun(gen_k(brg_fs(chown(_,_,_,_))), "syscall_chown", "inline")
+    hardTopFun(gen_p(brg_fs(ioctl(_,_,_,_))), "syscall_ioctl", "inline")
+    hardTopFun(gen_k(brg_fs(ioctl(_,_,_,_))), "syscall_ioctl", "inline")
+    hardTopFun(gen_p(brg_fs(fcntl(_,_,_,_))), "syscall_fcntl", "inline")
+    hardTopFun(gen_k(brg_fs(fcntl(_,_,_,_))), "syscall_fcntl", "inline")
     hardTopFun(_set_file(_,_,_), "set_file", "inline")
     hardTopFun(_set_file_type(_,_), "set_file_type", "inline")
     hardTopFun(_has_file_type(_,_), "has_file_type", "inline")

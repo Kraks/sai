@@ -91,6 +91,16 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
 
   val StatfsType: StructType = Struct(statfsFields.values.toList)
 
+  val termiosFields = ListMap(
+    "c_iflag" -> IntType(64),
+    "c_oflag" -> IntType(64),
+    "c_cflag" -> IntType(64),
+    "c_lflag" -> IntType(64),
+    "c_cc"    -> ArrayType(10, IntType(8)),
+    )
+
+  val TermiosType: StructType = Struct(termiosFields.values.toList)
+
   def getFieldIdx(fields: ListMap[String, _], f: String): Int = {
     val idx = fields.keys.toList.indexOf(f)
     if (idx < 0) throw new Exception(s"field $f not found in fields $fields")
@@ -291,8 +301,6 @@ trait FileSysDefs extends ExternalUtil { self: SAIOps with BasicDefs with ValueD
     def S_IWOTH = cmacro[Int]("S_IWOTH")
     def S_IFDIR = cmacro[Int]("S_IFDIR")
     def S_IFREG = cmacro[Int]("S_IFREG")
-
-
 
     def getPathSegments(path: Rep[String]): Rep[List[String]] = path.split("/").filter(_.length > 0)
 
