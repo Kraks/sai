@@ -80,7 +80,7 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest]
     val libraries = codegen.libraryFlags.mkString(" ")
     val includes = codegen.includePaths.map(s"-I $curDir/" + _).mkString(" ")
     val libraryPaths = codegen.libraryPaths.map(p => s"-L $curDir/$p -Wl,-rpath $curDir/$p").mkString(" ")
-    val dashG = if (config.mainFileOpt == "O0") "-g" else ""
+    val debugFlags = if (Config.genDebug) "-g -DDEBUG" else ""
 
     out.println(s"""|BUILD_DIR = build
     |TARGET = $appName
@@ -89,7 +89,7 @@ abstract class GenericLLSCDriver[A: Manifest, B: Manifest]
     |OBJECTS = $$(SOURCES:$$(SRC_DIR)/%.cpp=$$(BUILD_DIR)/%.o)
     |OPT = -O3
     |CC = g++ -std=c++17 -Wno-format-security
-    |PERFFLAGS = -fno-omit-frame-pointer $dashG
+    |PERFFLAGS = -fno-omit-frame-pointer $debugFlags
     |CXXFLAGS = $includes $extraFlags $$(PERFFLAGS)
     |LDFLAGS = $libraryPaths
     |LDLIBS = $libraries -lpthread
@@ -280,7 +280,8 @@ trait LLSC {
   def extraFlags: String = "" // -D USE_LKFREE_Q
   def newInstance(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit]
   def run(m: Module, name: String, fname: String, config: Config): GenericLLSCDriver[Int, Unit] = {
-    BlockCounter.reset
+    Counter.block.reset
+    Counter.variable.reset
     val (code, t) = time {
       val code = newInstance(m, name, fname, config)
       code.extraFlags = extraFlags
