@@ -184,7 +184,7 @@ class Stack {
     Stack(Mem mem, std::vector<Frame> env, PtrVal errno_location) : mem(std::move(mem)), env(std::move(env)), errno_location(std::move(errno_location)) {}
     size_t mem_size() { return mem.size(); }
     size_t frame_depth() { return env.size(); }
-    PtrVal vararg_loc() { return env[env.size()-2].lookup_id(0); }
+    PtrVal vararg_loc() { return env[env.size()-2].lookup_id(vararg_id); }
     Stack&& init_error_loc() {
       auto error_addr = mem.size();
       mem.alloc(8);
@@ -214,7 +214,7 @@ class Stack {
       // varargs
       size_t id_size = ids.size();
       if (id_size > 0) {
-        if (ids.back() == 0) {
+        if (ids.back() == vararg_id) {
           auto msize = mem.size();
           for (size_t i = id_size - 1; i < vals.size(); i++) {
             // FIXME: magic value 8, as vararg is retrived from +8 address
@@ -482,8 +482,12 @@ class SS {
       // Todo: Can adapt argv to be located somewhere other than 0 as well.
       // Configure a global LocV pointing to it.
       unsigned num_args = cli_argv.size();
-      auto stack_ptr = make_LocV(stack.mem_size(), LocV::kStack, (num_args + 1) * 8);
-      alloc_stack((num_args + 1) * 8); // allocate space for the array of pointers
+      // allocate space for the array of pointers
+      // with additional ternimating null for empty envp array
+      // and an additional terminating null that uclibc seems to expect for the ELF header.
+      // Todo: support non-empty envp
+      auto stack_ptr = make_LocV(stack.mem_size(), LocV::kStack, (num_args + 3) * 8);
+      alloc_stack((num_args + 3) * 8);
 
       // copy each argument onto the stack, and update the pointers
       for (int i = 0; i < num_args; ++i) {
@@ -495,6 +499,8 @@ class SS {
         update(stack_ptr + (8 * i), arg_ptr); // copy the pointer value
       }
       update(stack_ptr + (8 * num_args), make_LocV_null()); // terminate the array of pointers
+      update(stack_ptr + (8 * (num_args + 1)), make_LocV_null()); // terminate the empty envp array
+      update(stack_ptr + (8 * (num_args + 2)), make_LocV_null()); // additional terminating null that uclibc seems to expect for the ELF header
       return std::move(*this);
     }
     PC& get_PC() { return pc; }

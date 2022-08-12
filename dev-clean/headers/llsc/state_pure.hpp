@@ -323,7 +323,7 @@ class Stack: public Printable {
     Stack(Mem mem, List<Frame> env, PtrVal errno_location) : mem(mem), env(env), errno_location(errno_location) {}
     size_t mem_size() { return mem.size(); }
     size_t frame_depth() { return env.size(); }
-    PtrVal vararg_loc() { return env.at(env.size()-2).lookup_id(0); }
+    PtrVal vararg_loc() { return env.at(env.size()-2).lookup_id(vararg_id); }
     Stack init_error_loc() {
       auto updated_mem = mem;
       auto error_addr = mem.size();
@@ -344,7 +344,7 @@ class Stack: public Printable {
       // varargs
       size_t id_size = ids.size();
       if (id_size == 0) return Stack(mem, env, errno_location);
-      if (ids.at(id_size - 1) == 0) {
+      if (ids.at(id_size - 1) == vararg_id) {
         auto updated_mem = mem;
         for (size_t i = id_size - 1; i < vals.size(); i++) {
           // FIXME: magic value 8, as vararg is retrived from +8 address
@@ -528,9 +528,13 @@ class SS: public Printable {
       SS updated_ss = *this;
 
       unsigned num_args = cli_argv.size();
-      int stack_ptr_sz = (num_args + 1) * 8;
+      // allocate space for the array of pointers
+      // with additional ternimating null for empty envp array
+      // and an additional terminating null that uclibc seems to expect for the ELF header.
+      // Todo: support non-empty envp
+      int stack_ptr_sz = (num_args + 3) * 8;
       auto stack_ptr = make_LocV(stack.mem_size(), LocV::kStack, stack_ptr_sz, 0); // top of the stack
-      updated_ss = updated_ss.alloc_stack(stack_ptr_sz); // allocate space for the array of pointers
+      updated_ss = updated_ss.alloc_stack(stack_ptr_sz);
 
       // copy each argument onto the stack, and update the pointers
       for (int i = 0; i < num_args; ++i) {
@@ -541,6 +545,8 @@ class SS: public Printable {
         updated_ss = updated_ss.update(stack_ptr + (8 * i), arg_ptr); // copy the pointer value
       }
       updated_ss = updated_ss.update(stack_ptr + (8 * num_args), make_LocV_null()); // terminate the array of pointers
+      updated_ss = updated_ss.update(stack_ptr + (8 * (num_args + 1)), make_LocV_null()); // terminate the empty envp array
+      updated_ss = updated_ss.update(stack_ptr + (8 * (num_args + 2)), make_LocV_null()); // additional terminating null that uclibc seems to expect for the ELF header
 
       return updated_ss;
     }

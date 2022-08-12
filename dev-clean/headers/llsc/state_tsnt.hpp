@@ -119,6 +119,8 @@ public:
     auto first = lookup(idx, size);
     auto part = first.intersect({nullptr, idx, size_t(size)});
     auto cur = part.val;
+    // part.size is unsigned, size will be casted to unsigned
+    ASSERT(size > 0, "size should be greater than zero");
     if (part.size < size) {
       auto next = at(idx + part.size, size - part.size);
       possible_partial_undef(cur);
@@ -160,9 +162,12 @@ public:
 class Frame {
   public:
     using Env = std::map<Id, PtrVal>;
+    using Cont = std::function<std::monostate(SS&, PtrVal)>;
+    Cont cont;
   private:
     Env env;
   public:
+    Frame(Cont ct): cont(ct), env() {}
     Frame(Env env) : env(std::move(env)) {}
     Frame() : env(std::map<Id, PtrVal>{}) {}
     size_t size() { return env.size(); }
@@ -190,7 +195,7 @@ class Stack {
   //Stack(const Stack& s) : mem(s.mem), env(((Stack&)s).env.persistent().transient()), errno_location(errno_location) {}
     size_t mem_size() { return mem.size(); }
     size_t frame_depth() { return env.size(); }
-    PtrVal vararg_loc() { return env.at(env.size()-2).lookup_id(0); }
+    PtrVal vararg_loc() { return env.at(env.size()-2).lookup_id(vararg_id); }
     Stack&& init_error_loc() {
       auto error_addr = mem.size();
       mem.alloc(8);
@@ -199,10 +204,12 @@ class Stack {
       return std::move(*this);
     }
     PtrVal error_loc() { return errno_location; }
-    Stack&& pop(size_t keep) {
+    typename Frame::Cont pop(size_t keep) {
+      auto &it = env.at(env.size() - 1);
+      auto ret = it.cont;
       mem.take(keep);
       env.take(env.size() - 1);
-      return std::move(*this);
+      return ret;
     }
     Stack&& push() {
       return push(Frame());
@@ -210,6 +217,9 @@ class Stack {
     Stack&& push(Frame f) {
       env.push_back(std::move(f));
       return std::move(*this);
+    }
+    Stack&& push(std::function<std::monostate(SS&, PtrVal)> cont) {
+      return push(Frame(cont));
     }
 
     Stack&& assign(Id id, PtrVal val) {
@@ -220,7 +230,7 @@ class Stack {
       // varargs
       size_t id_size = ids.size();
       if (id_size > 0) {
-        if (ids.back() == 0) {
+        if (ids.back() == vararg_id) {
           auto msize = mem.size();
           for (size_t i = id_size - 1; i < vals.size(); i++) {
             // FIXME: magic value 8, as vararg is retrived from +8 address
@@ -393,7 +403,7 @@ class SS {
       ASSERT(s, "failed to read struct");
       return s->fs;
     }
-    PtrVal heap_lookup(size_t addr) { return heap.at(addr, -1); }
+    PtrVal heap_lookup(size_t addr) { return heap.at(addr); }
     BlockLabel incoming_block() { return bb; }
     SS&& alloc_stack(size_t size) {
 #ifdef LAZYALLOC
@@ -440,9 +450,12 @@ class SS {
       stack.push();
       return std::move(*this);
     }
-    SS&& pop(size_t keep) {
-      stack.pop(keep);
+    SS&& push(std::function<std::monostate(SS&, PtrVal)> cont) {
+      stack.push(cont);
       return std::move(*this);
+    }
+    typename Frame::Cont pop(size_t keep) {
+      return stack.pop(keep);
     }
     SS&& assign(Id id, PtrVal val) {
 #ifdef LAZYALLOC
@@ -479,8 +492,12 @@ class SS {
       // Todo: Can adapt argv to be located somewhere other than 0 as well.
       // Configure a global LocV pointing to it.
       unsigned num_args = cli_argv.size();
-      auto stack_ptr = make_LocV(stack.mem_size(), LocV::kStack, (num_args + 1) * 8);
-      alloc_stack((num_args + 1) * 8); // allocate space for the array of pointers
+      // allocate space for the array of pointers
+      // with additional ternimating null for empty envp array
+      // and an additional terminating null that uclibc seems to expect for the ELF header.
+      // Todo: support non-empty envp
+      auto stack_ptr = make_LocV(stack.mem_size(), LocV::kStack, (num_args + 3) * 8);
+      alloc_stack((num_args + 3) * 8);
 
       // copy each argument onto the stack, and update the pointers
       for (int i = 0; i < num_args; ++i) {
@@ -492,6 +509,8 @@ class SS {
         update(stack_ptr + (8 * i), arg_ptr); // copy the pointer value
       }
       update(stack_ptr + (8 * num_args), make_LocV_null()); // terminate the array of pointers
+      update(stack_ptr + (8 * (num_args + 1)), make_LocV_null()); // terminate the empty envp array
+      update(stack_ptr + (8 * (num_args + 2)), make_LocV_null()); // additional terminating null that uclibc seems to expect for the ELF header
       return std::move(*this);
     }
 
@@ -546,6 +565,10 @@ inline std::monostate cps_apply(PtrVal v, SS ss, List<PtrVal> args, std::functio
   auto f = std::dynamic_pointer_cast<FunV<func_cps_t>>(v);
   if (f) return f->f(ss, args, k);
   ABORT("cps_apply: not applicable");
+}
+
+inline std::monostate cont_apply(std::function<std::monostate(SS&, PtrVal)> cont, SS& ss, PtrVal val) {
+  return cont(ss, val);
 }
 
 #endif

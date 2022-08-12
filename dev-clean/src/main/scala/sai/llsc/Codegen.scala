@@ -125,8 +125,10 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     case Node(s, "ss-stack-size", List(ss), _) => es"$ss.stack_size()"
     case Node(s, "ss-alloc-stack", List(ss, n), _) => es"$ss.alloc_stack($n)"
     case Node(s, "ss-update", List(ss, k, v, sz), _) => es"$ss.update($k, $v, $sz)"
+    case Node(s, "ss-update", List(ss, k, v), _) => es"$ss.update($k, $v)"
     case Node(s, "ss-update-seq", List(ss, k, v), _) => es"$ss.update_seq($k, $v)"
     case Node(s, "ss-push", List(ss), _) => es"$ss.push()"
+    case Node(s, "ss-push", List(ss, k), _) => es"$ss.push($k)"
     case Node(s, "ss-pop", List(ss, n), _) => es"$ss.pop($n)"
     case Node(s, "ss-addpc", List(ss, e), _) => es"$ss.add_PC($e)"
     case Node(s, "add-pc", List(pc, e), _) => es"$pc.add($e)"
@@ -134,7 +136,8 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
     case Node(s, "ss-add-incoming-block", List(ss, bb), _) => es"$ss.add_incoming_block($bb)"
     case Node(s, "ss-incoming-block", List(ss), _) => es"$ss.incoming_block()"
     case Node(s, "ss-arg", List(ss), _) => es"$ss.init_arg()"
-    case Node(s, "ss-error-loc", List(ss), _) => es"$ss.init_error_loc()"
+    case Node(s, "ss-init-error-loc", List(ss), _) => es"$ss.init_error_loc()"
+    case Node(s, "ss-get-error-loc", List(ss), _) => es"$ss.error_loc()"
     case Node(s, "ss-get-fs", List(ss), _) => es"$ss.get_fs()"
     case Node(s, "ss-set-fs", List(ss, fs), _) => es"$ss.set_fs($fs)"
     case Node(s, "get-pc", List(ss), _) => es"$ss.get_PC()"
@@ -163,6 +166,7 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
 
     case Node(s, "cov-set-blocknum", List(n), _) => es"cov().set_num_blocks($n)"
     case Node(s, "cov-inc-block", List(id), _) => es"cov().inc_block($id)"
+    case Node(s, "cov-inc-br", List(id, n), _) => es"cov().inc_branch($id, $n)"
     case Node(s, "cov-inc-path", List(n), _) => es"cov().inc_path($n)"
     case Node(s, "cov-inc-inst", List(n), _) => es"cov().inc_inst($n)"
     case Node(s, "cov-start-mon", _, _) => es"cov().start_monitor()"
@@ -216,15 +220,28 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
   def emitHeaderFile: Unit = {
     val filename = codegenFolder + "/common.h"
     val out = new java.io.PrintStream(filename)
+    val branchStatStr = "{" + Counter.branchStat.toList.map(p => s"{${p._1},${p._2}}").mkString(",") + "}"
     withStream(out) {
       emitln("/* Emitting header file */")
       emitHeaders(stream)
       emitln("using namespace immer;")
       emitFunctionDecls(stream)
       emitDatastructures(stream)
+      if (Config.emitVarIdMap) {
+        emitln(s"""
+        |/* variable-id map:
+        |${Counter.variable.toString}
+        |*/""".stripMargin)
+      }
+      if (Config.emitBlockIdMap) {
+        emitln(s"""
+        |/* block-id map:
+        |${Counter.block.toString}
+        |*/""".stripMargin)
+      }
       emitln(s"""
       |inline Monitor& cov() {
-      |  static Monitor m(${BlockCounter.count});
+      |  static Monitor m(${Counter.block.count}, ${branchStatStr});
       |  return m;
       |}""".stripMargin)
       emitln("/* End of header file */")
@@ -246,7 +263,7 @@ trait GenericLLSCCodeGen extends CppSAICodeGenBase {
 
     for ((f, (_, funStream)) <- functionsStreams) {
       if (blockMap.values.exists(_ == f)) {
-        val funName = f.substring(0, f.indexOf("_Block"))
+        val funName = f.substring(0, f.indexOf("_block"))
         val filename = s"$codegenFolder/$funName.cpp"
         val out = new java.io.PrintStream(new FileOutputStream(filename, true))
         funStream.writeTo(out)

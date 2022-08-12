@@ -18,6 +18,8 @@ using UIntData = unsigned long long int;
 using Fd = int;
 using status_t = unsigned short;
 
+inline int vararg_id = -1;
+
 // Default bitwidth when creating integers or symbolic values
 inline unsigned int default_bw = 32;
 // The bitwidth of addresses (64 by default)
@@ -66,13 +68,17 @@ inline bool exlib_failure_branch = false;
 inline unsigned int timeout = 3600;
 // Print the number of executed instructions
 inline bool print_inst_cnt = false;
+// Print block/branch coverage detail at the end of execution
+inline bool print_cov_detail = false;
 
 enum class SolverKind { z3, stp };
 // The backend SMT solver to be used
 inline SolverKind solver_kind = SolverKind::stp;
 
-// Global counter to record time spent in solver
-inline std::atomic<long int> solver_time = 0;
+// External solver time (e.g. Z3, STP)
+inline std::atomic<long int> ext_solver_time = 0;
+// Internal solver time (the whole process of constraint translation/caching/solving)
+inline std::atomic<long int> int_solver_time = 0;
 
 // Different strategies to handle symbolic pointer index read/write
 // one:       only search one feasible concrete index

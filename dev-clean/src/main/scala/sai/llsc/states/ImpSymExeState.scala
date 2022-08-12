@@ -1,9 +1,5 @@
 package sai.llsc.imp
 
-import sai.lang.llvm._
-import sai.lang.llvm.IR._
-import sai.llsc.{Constants, BasicDefs, Coverage, Opaques, ValueDefs}
-
 import lms.core._
 import lms.core.Backend._
 import lms.core.virtualize
@@ -11,7 +7,9 @@ import lms.macros.SourceContext
 import lms.core.stub.{While => _, _}
 
 import sai.lmsx._
-import sai.llsc.Config
+import sai.lang.llvm._
+import sai.lang.llvm.IR._
+import sai.llsc.{Constants, BasicDefs, Coverage, Opaques, ValueDefs, Counter, Ctx, Config}
 
 import scala.collection.immutable.{List => StaticList, Map => StaticMap, Set => StaticSet}
 import scala.collection.mutable.{Map => MutableMap, Set => MutableSet}
@@ -79,14 +77,12 @@ trait ImpSymExeDefs extends SAIOps with BasicDefs with ValueDefs with Opaques wi
     private def assignSeq(xs: List[Int], vs: Rep[List[Value]]): Rep[Unit] =
       reflectWrite[Unit]("ss-assign-seq", ss, xs, vs)(ss)
 
-    def lookup(x: String): Rep[Value] = {
-      //System.out.println("Debug info: " + x + "->" + x.hashCode)
-      reflectRead[Value]("ss-lookup-env", ss, x.hashCode)(ss)
-    }
-    def assign(x: String, v: Rep[Value]): Rep[Unit] =
-      //reflectCtrl[Unit]("ss-assign", ss, x.hashCode, v)
-      reflectWrite[Unit]("ss-assign", ss, x.hashCode, v)(ss)
-    def assign(xs: List[String], vs: Rep[List[Value]]): Rep[Unit] = assignSeq(xs.map(_.hashCode), vs)
+    def lookup(x: String)(implicit ctx: Ctx): Rep[Value] =
+      reflectRead[Value]("ss-lookup-env", ss, varId(x))(ss)
+    def assign(x: String, v: Rep[Value])(implicit ctx: Ctx): Rep[Unit] =
+      reflectWrite[Unit]("ss-assign", ss, varId(x), v)(ss)
+    def assign(xs: List[String], vs: Rep[List[Value]])(implicit ctx: Ctx): Rep[Unit] =
+      assignSeq(xs.map(varId(_)), vs)
     def lookup(addr: Rep[Value], size: Int = 1, isStruct: Int = 0): Rep[Value] = {
       require(size > 0)
       if (isStruct == 0) reflectRead[Value]("ss-lookup-addr", ss, addr, size)(ss)
@@ -100,6 +96,8 @@ trait ImpSymExeDefs extends SAIOps with BasicDefs with ValueDefs with Opaques wi
 
     def update(a: Rep[Value], v: Rep[Value], sz: Int): Rep[Unit] =
       reflectCtrl[Unit]("ss-update", ss, a, v, sz)
+    def update(a: Rep[Value], v: Rep[Value]): Rep[Unit] =
+      reflectCtrl[Unit]("ss-update", ss, a, v)
       //reflectWrite[Unit]("ss-update", ss, a, v)(ss)
     def allocStack(n: Int, align: Int): Rep[Unit] =
       reflectWrite[Unit]("ss-alloc-stack", ss, new Mut[Int](n))(ss)
@@ -113,15 +111,19 @@ trait ImpSymExeDefs extends SAIOps with BasicDefs with ValueDefs with Opaques wi
 
     // push before function call could be DCE-ed, due to high-level function dependency issue.
     def push: Rep[Unit] = reflectWrite[Unit]("ss-push", ss)(ss, Adapter.CTRL)
+    def push(cont: Rep[Cont]): Rep[Unit] = reflectWrite[Unit]("ss-push", ss, cont)(ss, Adapter.CTRL)
     // XXX: since pop is used in a map, will be DCE-ed if no CTRL
-    def pop(keep: Rep[Int]): Rep[Unit] = reflectWrite[Unit]("ss-pop", ss, keep)(ss, Adapter.CTRL)
+    def pop(keep: Rep[Int]): Rep[Cont] = reflectWrite[Cont]("ss-pop", ss, keep)(ss, Adapter.CTRL)
     def addPC(e: Rep[SymV]): Rep[Unit] = reflectWrite[Unit]("ss-addpc", ss, e)(ss)
     def addPCSet(es: Rep[List[SymV]]): Rep[Unit] = reflectWrite[Unit]("ss-addpcset", ss, es)(ss)
     def pc: Rep[PC] = reflectRead[PC]("get-pc", ss)(ss)
     def updateArg: Rep[Unit] = reflectWrite[Unit]("ss-arg", ss)(ss)
-    def updateErrorLoc: Rep[Unit] = reflectWrite[Unit]("ss-error-loc", ss)(ss)
+    def initErrorLoc: Rep[Unit] = reflectWrite[Unit]("ss-init-error-loc", ss)(ss)
+    def getErrorLoc: Rep[Value] = reflectRead[Value]("ss-get-error-loc", ss)(ss)
+    def setErrorLoc(v: Rep[IntV]): Rep[Unit] = ss.update(ss.getErrorLoc, v)
 
-    def addIncomingBlock(x: String): Rep[Unit] = reflectWrite[Unit]("ss-add-incoming-block", ss, x.hashCode)(ss)
+    def addIncomingBlock(ctx: Ctx): Rep[Unit] =
+      reflectWrite[Unit]("ss-add-incoming-block", ss, Counter.block.get(ctx.toString))(ss)
     def incomingBlock: Rep[BlockLabel] = reflectRead[BlockLabel]("ss-incoming-block", ss)(ss)
 
     def copy: Rep[SS] = reflectRead[SS]("ss-copy", ss)(ss)

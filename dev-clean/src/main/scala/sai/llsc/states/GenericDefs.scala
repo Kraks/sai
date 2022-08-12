@@ -22,6 +22,32 @@ import sai.lmsx.smt.SMTBool
 import scala.collection.immutable.{List => StaticList, Map => StaticMap, Set => StaticSet, Range => StaticRange}
 import scala.collection.mutable.{Map => MutableMap, Set => MutableSet}
 
+case class Counter() {
+  import scala.collection.mutable.HashMap
+  private var counter: Int = 0
+  private val map: HashMap[String, Int] = HashMap[String, Int]()
+  override def toString: String =
+    map.toList.sortBy(_._2).map(p => s"  ${p._1} -> ${p._2}").mkString("\n")
+  def count: Int = counter
+  def reset: Unit = { counter = 0; map.clear }
+  def fresh: Int = try { counter } finally { counter += 1 }
+  def get(s: String): Int = {
+    require(s.contains("_"))
+    if (map.contains(s)) map(s) else try { fresh } finally { map(s) = count-1 }
+  }
+}
+
+object Counter {
+  import scala.collection.mutable.HashMap
+  val block = Counter()
+  val variable = Counter()
+  val branchStat: HashMap[Int, Int] = HashMap[Int, Int]()
+  def setBranchNum(ctx: Ctx, n: Int): Unit = {
+    val blockId = Counter.block.get(ctx.toString)
+    if (!branchStat.contains(blockId)) branchStat(blockId) = n
+  }
+}
+
 trait BasicDefs { self: SAIOps =>
   trait Mem; trait Stack
   trait SS;  trait PC; trait FS
@@ -48,32 +74,20 @@ trait BasicDefs { self: SAIOps =>
   def initState(m: Rep[Mem]): Rep[SS] = "init-ss".reflectWriteWith[SS](m)(Adapter.CTRL)
   def checkPCToFile(s: Rep[SS]): Unit = "check_pc_to_file".reflectWriteWith[Unit](s)(Adapter.CTRL)
   def checkPC(pc: Rep[PC]): Rep[Boolean] = "check_pc".reflectWriteWith[Boolean](pc)(Adapter.CTRL)
-}
 
-object BlockCounter {
-  private var counter: Int = 0
-  def count: Int = counter
-  def reset: Unit = counter = 0
-  def fresh: Int = try { counter } finally { counter += 1 }
+  def varId(x: String)(implicit ctx: Ctx): Int =
+    if (x == "Vararg") -1 else Counter.variable.get(ctx.withVar(x))
 }
 
 trait Coverage { self: SAIOps =>
   object Coverage {
-    import scala.collection.mutable.HashMap
-    private val blockMap: HashMap[String, Int] = HashMap[String, Int]()
-    def getBlockId(s: String): Int =
-      if (blockMap.contains(s)) blockMap(s)
-      else {
-        val id = BlockCounter.fresh
-        blockMap(s) = id
-        id
-      }
+    def setBlockNum: Rep[Unit] = "cov-set-blocknum".reflectWriteWith[Unit](Counter.block.count)(Adapter.CTRL)
+    def incBlock(funName: String, label: String): Rep[Unit] = incBlock(Ctx(funName, label))
+    def incBlock(ctx: Ctx): Rep[Unit] =
+      "cov-inc-block".reflectWriteWith[Unit](Counter.block.get(ctx.toString))(Adapter.CTRL)
+    def incBranch(ctx: Ctx, n: Int): Unit =
+      "cov-inc-br".reflectWriteWith[Unit](Counter.block.get(ctx.toString), n)(Adapter.CTRL)
 
-    def setBlockNum: Rep[Unit] = "cov-set-blocknum".reflectWriteWith[Unit](BlockCounter.count)(Adapter.CTRL)
-    def incBlock(funName: String, label: String): Rep[Unit] = {
-      val blockId = getBlockId(funName + label)
-      "cov-inc-block".reflectWriteWith[Unit](blockId)(Adapter.CTRL)
-    }
     def incPath(n: Rep[Int]): Rep[Unit] = "cov-inc-path".reflectWriteWith[Unit](n)(Adapter.CTRL)
     def incInst(n: Int): Rep[Unit] = "cov-inc-inst".reflectWriteWith[Unit](n)(Adapter.CTRL)
     def startMonitor: Rep[Unit] = "cov-start-mon".reflectWriteWith[Unit]()(Adapter.CTRL)
@@ -120,7 +134,8 @@ trait Opaques { self: SAIOps with BasicDefs =>
       "llsc_is_symbolic", "llsc_get_valuel", "getpagesize", "memalign", "reallocarray"
     )
     private val syscalls = ImmSet[String](
-      "open", "close", "read", "write", "lseek", "stat", "mkdir", "rmdir", "creat", "unlink", "chmod", "chown"
+      "open", "close", "read", "write", "lseek", "stat", "mkdir", "rmdir", "creat", "unlink", "chmod", "chown",
+      "lseek64", "lstat", "fstat", "statfs", "ioctl", "fcntl"
     )
     val shouldRedirect = ImmSet[String]("@memcpy", "@memset", "@memmove")
     private val unsafeExternals = ImmSet[String]("fork", "exec", "error", "raise", "kill", "free", "vprintf")
@@ -246,8 +261,8 @@ trait ValueDefs { self: SAIOps with BasicDefs with Opaques =>
     def apply(s: String): Rep[SymV] = apply(s, DEFAULT_INT_BW)
     def apply(s: String, bw: Int): Rep[SymV] =
       "make_SymV".reflectWriteWith[SymV](unit(s), bw)(Adapter.CTRL)  //XXX: reflectMutable?
-    def makeSymVList(i: Int): Rep[List[Value]] =
-      List[SymV](Range(0, i).map(x => apply("x" + x.toString)):_*)
+    def makeSymVList(i: Int, pfx: String = "x", b: Int = 0): Rep[List[Value]] =
+      List[SymV](Range(b, b+i).map(x => apply(pfx + x.toString)):_*)
     def unapply(v: Rep[Value]): Option[(String, Int)] = Unwrap(v) match {
       case gNode("make_SymV", bConst(x: String)::bConst(bw: Int)::_) => Some((x, bw))
       case _ => None

@@ -359,6 +359,7 @@ package IR {
 
   abstract class Instruction extends LAST
   abstract class ValueInstruction extends Instruction
+  case class FNegInst(ty: LLVMType, op: LLVMValue) extends ValueInstruction
   case class AddInst(ty: LLVMType, lhs: LLVMValue, rhs: LLVMValue, of: List[OverflowFlag]) extends ValueInstruction
   case class MulInst(ty: LLVMType, lhs: LLVMValue, rhs: LLVMValue, of: List[OverflowFlag]) extends ValueInstruction
   case class SubInst(ty: LLVMType, lhs: LLVMValue, rhs: LLVMValue, of: List[OverflowFlag]) extends ValueInstruction
@@ -894,9 +895,15 @@ class MyVisitor extends LLVMParserBaseVisitor[LAST] {
     val raw = ctx.stringLit.STRING_LIT.getText
     val s = raw.slice(1, raw.length - 1)
     val x = List.range(0x0, 0x100)
+    // Note: \\5C and \\\\ can not appear at the same time in a LLVM string literal
+    if (s.contains("\\\\") && s.contains("\\5C")) ???
+    // we need to first replace all \\\\ with \\5C in case the second \\ is followed by 2 hex numbers
+    // ie "\\61", the last three char \61 will be replaced first
+    val s_1 = s.replaceAllLiterally("\\\\", "\\5C")
+    if (s_1.contains("\\\\")) ???
     // 0x5C is \, we need to replace it last
     val replace_map = x.filter(_ != 0x5C).map( t => ("\\"+"%02X".format(t), t.toChar.toString))
-    val s_t = replace_map.foldLeft(s)((acc, entry) => {
+    val s_t = replace_map.foldLeft(s_1)((acc, entry) => {
       acc.replaceAllLiterally(entry._1, entry._2)
     })
     val new_s = s_t.replaceAllLiterally("\\5C", "\\")
@@ -1155,6 +1162,14 @@ class MyVisitor extends LLVMParserBaseVisitor[LAST] {
 
   override def visitValueInstruction(ctx: LLVMParser.ValueInstructionContext): LAST = {
     super.visitValueInstruction(ctx)
+  }
+
+  override def visitFNegInst(ctx: LLVMParser.FNegInstContext): LAST = {
+    // Skipped FastMathFlagsContext
+    val ty = visit(ctx.llvmType).asInstanceOf[LLVMType]
+    val op = visit(ctx.value).asInstanceOf[LLVMValue]
+    // Skipped optCommaSepMetadataAttachmentList
+    FNegInst(ty, op)
   }
 
   override def visitAddInst(ctx: LLVMParser.AddInstContext): LAST = {
