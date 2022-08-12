@@ -73,13 +73,14 @@ struct Monitor {
       for (auto& v : block_cov) { if (v != 0) covered++; }
       std::cout << "Block coverage: " << covered << "/" << num_blocks << "\n";
       for (int i = 0; i < block_cov.size(); i++) {
+	if (block_cov[i] == 0) continue;
         std::cout << "  Block " << i << ", "
                   << "visited " << block_cov[i] << "\n"
                   << std::flush;
       }
     }
     void print_branch_cov() {
-      // number of branches that not all possible but at least one outcome is covered
+      // number of branches that at least one outcome is covered
       size_t partial_branch = 0;
       // number of branches that all possible outcomes are covered
       size_t full_branch = 0;
@@ -93,6 +94,7 @@ struct Monitor {
 	if (partial_cov) partial_branch++;
 	if (full_cov) full_branch++;
       }
+      // We output the number of partial branches excluding fully covered branches
       std::cout << "#br: "
 	        << (partial_branch - full_branch) << "/"
 	        << full_branch << "/"
@@ -141,7 +143,8 @@ struct Monitor {
           steady_clock::time_point now = steady_clock::now();
           if (duration_cast<seconds>(now - start) > seconds(timeout)) {
             std::cout << "Timeout, aborting.\n";
-            print_all();
+            stop = now;
+            print_all(true);
             _exit(0);
             // Note: Directly exit may cause other threads in a random state.
             // When using the thread pool, we could use the following to wait
