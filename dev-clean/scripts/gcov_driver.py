@@ -20,10 +20,9 @@ if __name__ == "__main__":
     for test_case in glob.glob(tests_folder+"/*.test"):
         print("Testing {}".format(test_case))
         env = dict(os.environ)
-        ## TODO: read the test file,
-        ## parse cli argument test
-        ## create test file, stdin, stdout?
+        # TODO: read the test file and create corresponding files, redirect stdin/stdout/stderr
         env["LLSC_TEST_FILE"] = test_case
-        argv = "..."
-        subprocess.Popen(["./"+target + argv], env=env)
+        # TODO: synthesize argv
+        # argv = "..."
+        subprocess.Popen(["./"+target], env=env)
     os.system("gcov -b -c {}-{}".format(target, target))
