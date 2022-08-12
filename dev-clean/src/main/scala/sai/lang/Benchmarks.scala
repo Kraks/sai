@@ -92,6 +92,7 @@ object Benchmarks {
   lazy val mkdirTest = parseFile("benchmarks/external-lib/mkdir.ll")
   lazy val creatUnlinkTest = parseFile("benchmarks/external-lib/creat_unlink.ll")
   lazy val chmodTest = parseFile("benchmarks/external-lib/chmod.ll")
+  lazy val stdinTest = parseFile("benchmarks/external-lib/stdin.ll")
   lazy val assumeTest = parseFile("benchmarks/external-lib/assume.ll")
 
   lazy val printfTest = parseFile("benchmarks/external-lib/printf.ll")

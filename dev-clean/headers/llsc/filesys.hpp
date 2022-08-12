@@ -126,6 +126,13 @@ struct FS: public Printable {
     /* TODO: traverse through opened files to find the lowest available fd <2022-01-25, David Deng> */
     return next_fd++;
   }
+
+  void set_stdin(int size) {
+    auto f = make_SymFile("@stdin", size);
+    root_file->children = root_file->children.set("@stdin", f);
+    opened_files = opened_files.set(0, std::make_shared<Stream>(f, O_RDONLY, 0));
+  }
+
   String toString() const override {
     std::ostringstream ss;
     ss << "FS(nstreams=" << opened_files.size();
@@ -137,11 +144,10 @@ struct FS: public Printable {
     ss << "])";
     return ss.str();
   }
+  FS(const FS &fs) = default;
   FS() : next_fd(3), root_file(make_SymFile("/", 0)) {
     statfs = make_SymList("fs_statfs", statfs_size);
   }
-  /* TODO: set up stdin and stdout using fd 1 and 2 <2021-11-03, David Deng> */
-  FS(const FS &fs) = default;
   FS(immer::map<Fd, Ptr<Stream>> opened_files, Ptr<File> root_file) :
     opened_files(opened_files), root_file(root_file), next_fd(3) {
       statfs = make_SymList("fs_statfs", statfs_size);
