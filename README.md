@@ -4,6 +4,8 @@
 
 Improving the performance of static analysis by meta-programming/multi-stage programming.
 
+**This repository is archived; new development see [GenSym](https://github.com/Generative-Program-Analysis/GenSym).**
+
 ### Directories
 
 * `dev-clean` Current development using [LMS-clean](https://github.com/TiarkRompf/lms-clean)
