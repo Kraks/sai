@@ -37,6 +37,8 @@
 
 using namespace std::chrono;
 
+inline std::atomic<long int> solver_time = 0;
+
 inline unsigned int bitwidth = 32;
 inline unsigned int addr_bw = 64;
 inline unsigned int var_name = 0;
@@ -710,6 +712,7 @@ inline bool check_pc(immer::set<PtrVal> pc) {
   if (!use_solver) return true;
   br_query_num++;
   int result = -1;
+  auto start = steady_clock::now();
   VC vc;
   if (use_global_solver) {
     vc = global_vc;
@@ -723,6 +726,8 @@ inline bool check_pc(immer::set<PtrVal> pc) {
   } else {
     vc_Destroy(vc);
   }
+  auto end = steady_clock::now();
+  solver_time += duration_cast<microseconds>(end - start).count();
   return result == 0;
 }
 
@@ -730,6 +735,8 @@ inline void check_pc_to_file(SS state) {
   if (!use_solver) {
     return;
   }
+
+  auto start = steady_clock::now();
   VC vc;
   if (use_global_solver) {
     vc = global_vc;
@@ -749,6 +756,8 @@ inline void check_pc_to_file(SS state) {
   construct_STP_constraints(vc, state.getPC());
   Expr fls = vc_falseExpr(vc);
   int result = vc_query(vc, fls);
+  auto end = steady_clock::now();
+  solver_time += duration_cast<microseconds>(end - start).count();
 
   switch (result) {
   case 0:
@@ -845,7 +854,8 @@ struct CoverageMonitor {
     }
     void print_time() {
       steady_clock::time_point now = steady_clock::now();
-      std::cout << "[" << (duration_cast<milliseconds>(now - start).count() / 1000.0) << " s] ";
+      std::cout << "[" << (solver_time / 1.0e6) << "s/"
+                << (duration_cast<microseconds>(now - start).count() / 1.0e6) << "s]";
     }
     void start_monitor() {
       std::thread([this]{

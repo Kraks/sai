@@ -136,6 +136,13 @@ object RunLLSC {
       runLLSC(parseFile(filepath), appName, fun, nSym)
     }
 
+    //runLLSC(parseFile("benchmarks/opt-experiments/kmpmatcher.ll"), "kmp_Opt", "@main")
+    //runLLSC(parseFile("benchmarks/opt-experiments/mergesort.ll"), "mergeSort_Opt", "@main")
+    //runLLSC(parseFile("benchmarks/opt-experiments/bubblesort.ll"), "bubbleSort_Opt", "@main")
+    //runLLSC(parseFile("benchmarks/opt-experiments/knapsack.ll"), "knapsack_Opt", "@main")
+    //runLLSC(parseFile("benchmarks/opt-experiments/nqueen.ll"), "nqueen_Opt", "@main")
+    //runLLSC(parseFile("benchmarks/opt-experiments/quicksort.ll"), "quicksort_Opt", "@main")
+
     //runLLSC(sai.llvm.Benchmarks.add, "add.cpp", "@add")
     //runLLSC(sai.llvm.OOPSLA20Benchmarks.mp1048576, "mp1m", "@f", 20)
     //runLLSC(sai.llvm.Benchmarks.arrayAccess, "arrAccess", "@main")
