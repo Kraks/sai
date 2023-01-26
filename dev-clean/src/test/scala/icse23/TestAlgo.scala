@@ -25,12 +25,12 @@ import scala.collection.immutable.{List => StaticList}
 import sys.process._
 import org.scalatest.FunSuite
 
-class TestAlgo extends FunSuite {
-    RunLLSC.runLLSC(parseFile("/icse23/GenSym/benchmarks/icse23/algorithms/kmpmatcher.ll"), "kmp", "@main")
-    RunLLSC.runLLSC(parseFile("/icse23/GenSym/benchmarks/icse23/algorithms/mergesort.ll"), "mergeSort", "@main")
-    RunLLSC.runLLSC(parseFile("/icse23/GenSym/benchmarks/icse23/algorithms/bubblesort.ll"), "bubbleSort", "@main")
-    RunLLSC.runLLSC(parseFile("/icse23/GenSym/benchmarks/icse23/algorithms/knapsack.ll"), "knapsack", "@main")
-    RunLLSC.runLLSC(parseFile("/icse23/GenSym/benchmarks/icse23/algorithms/nqueen.ll"), "nqueen", "@main")
-    RunLLSC.runLLSC(parseFile("/icse23/GenSym/benchmarks/icse23/algorithms/quicksort.ll"), "quicksort", "@main")
+class CompileAlgo extends FunSuite {
+    RunLLSC.runLLSC(parseFile("/icse23/GenSym/benchmarks/icse23/algorithms/kmpmatcher_llsc.ll"), "kmp", "@main")
+    RunLLSC.runLLSC(parseFile("/icse23/GenSym/benchmarks/icse23/algorithms/mergesort_llsc.ll"), "mergeSort", "@main")
+    RunLLSC.runLLSC(parseFile("/icse23/GenSym/benchmarks/icse23/algorithms/bubblesort_llsc.ll"), "bubbleSort", "@main")
+    RunLLSC.runLLSC(parseFile("/icse23/GenSym/benchmarks/icse23/algorithms/knapsack_llsc.ll"), "knapsack", "@main")
+    RunLLSC.runLLSC(parseFile("/icse23/GenSym/benchmarks/icse23/algorithms/nqueen_llsc.ll"), "nqueen", "@main")
+    RunLLSC.runLLSC(parseFile("/icse23/GenSym/benchmarks/icse23/algorithms/quicksort_llsc.ll"), "quicksort", "@main")
 }
 
