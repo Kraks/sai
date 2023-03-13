@@ -1,5 +1,7 @@
 [![Scala CI](https://github.com/Kraks/sai/actions/workflows/scala.yml/badge.svg)](https://github.com/Kraks/sai/actions/workflows/scala.yml)
 
+**This repository is archived; new development see [GenSym](https://github.com/Generative-Program-Analysis/GenSym).**
+
 # Staged Program Analyzers
 
 Improving the performance of static analysis by meta-programming/multi-stage programming.
